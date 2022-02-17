@@ -9,155 +9,58 @@
 # add_events <- tibble(cmt = c("Venetoclax")) %>%
 #   mutate(time = 0, amt = "conc1")
 
-celltheque_produc  <- function(file.name = "first_try.RDS", toadd = NULL, saven = 50, drug = NULL,
-                               add_events = NULL, update_at_end = T,
-                               add_events_new_drug = NULL, new_drug = NULL, time_compteur = F, saveFilter  = F){
-
-  if(is.null(drug) & is.null(new_drug )) stop("Need drug or new_drug")
-  if(is.null(drug)) drug <- new_drug
-if(!is.list(drug)) drug <- list(drug)
-  if(is.null(add_events) & is.null(add_events_new_drug )) stop("Need add_events or add_events_new_drug")
-  if(is.null(add_events)) add_events <- add_events_new_drug
+celltheque_produc  <- function(file.name = "first_try.RDS", toadd = NULL, saven = 50, drug = NULL, update_at_end = T, time_compteur = F, saveFilter  = F){
 
 
-  # Expression conc: usefull to handle columns with unknown conc numbers
-  name <-   drug %>% reduce(c) %>% unique()
-  name <- name[order(name)]
-
-  conc_expr <- paste0("conc", drug) %>% parse_exprs()
-  conc_expr <- paste0("conc", name) %>% parse_exprs()
 
   # Compute the path of where the celltheque file will be
   file <- file.path(active_VT_project, "2_celltheques","celltheques", file.name)
 
 
-  # The celltheque file can already exist or not, so let's try !
-  celltheque <-  try(readRDS(file), silent = T)
+    # Create the celltheque
 
-  # If the celltheque does not exist yet, we have to create it
-  if(class(celltheque)[[1]] == "try-error"){
-
-    # Create an empty data frame that will contains the cellthque
-
-
-    celltheque <- tibble(cellid = double(), rowid =double(),
-                         above_lower = logical(), below_upper = logical(), source = double())
-
-    # Add all desired concentrations umber
-    for(a in conc_expr){
-
-      celltheque <- celltheque %>%
-        mutate(!!a := double())
-    }
+  celltheque <-  toadd %>%
+      group_by(!!!parse_exprs(names(toadd)[names(toadd) != "protocols"])) %>%
+      nest() %>%
+      rowid_to_column("cellid") %>%
+      unnest() %>%
+      rowid_to_column("rowid") %>%
+      ungroup()
 
 
-  }
+# Add the columns for each output
+  targets %>%
+    filter(protocols %in% unique(celltheque$protocols)) %>%
+    pull(cmt) %>%
+    unique -> col_to_add
 
-  # then handle what we want to add to the cellthque
-  if(!is.null(toadd)){
+  col_to_add <- c(paste0(col_to_add, "_BU"),
+  paste0(col_to_add, "_AL"))
 
-
-    # compute the new lines to add to the cellthque
-    toaddtest <- try({
-
-      map(drug, function(x){
-
-        conc_expr_temp <- paste0("conc", x) %>% parse_exprs()
-
-        crossing( !!! conc_expr_temp) %>%
-          mutate(group = paste0("Drug", paste0( x, collapse = "_")))
-
-      }) %>%
-        bind_rows() %>%
-        map_df(function(x){
-
-          x[is.na(x)] <- 0
-          x
-
-        }) -> conc_df
-
-      toadd %>%
-        distinct() %>%
-        crossing(conc_df) %>%
-        # crossing( !!! conc_expr) %>%
-        # next three lines to remove those already tested
-        left_join(celltheque %>% mutate(Test = T)) %>%
-        filter(is.na(Test)) %>%
-        select(-Test, -cellid, - rowid) %>%
-        mutate(res = NA, source = NA)
-
-    }, silent = T)
-
-    # Display a message if it faile
-    if(class(toaddtest)[[1]] == "try-error"){
-
-      # if addition left, just let a warning to say you
-      warning(paste0("Failed to add the new line, please use the format : crossing(Bak = 1000, Bax = 1000, Bcl2 = seq(20,650,100), Bclxl = seq(100,1000,100),
-                     Mcl1 = seq(5,80,10), eta = seq(100,1200,300))"))
-
-    }else{
-
-      # Otherwise lets add those new cells
-
-      # Firstwe need to know from which value cellid and rowid starts,
-      # Depending on if the celltheque already existed
-      if(nrow(celltheque) == 0){
-
-        cellidstart <- 0
-        rowidstart <- 0
-
-      }else{
-
-        cellidstart <-  max(celltheque$cellid)
-        rowidstart <- max(celltheque$rowid)
-      }
+  for(a in col_to_add) celltheque[a] <- NA
 
 
 
-      # Now we need to compute the new cell id by biological featuring (independant of concentrations)
-      # these are all the columns of to add minus res, source, and all concX
+### eviter les loupes infinis si un protocole n'as pas d'observion..
+ crossing(protocols = unique(toadd$protocols), cmt =  targets %>%
+            filter(protocols %in% unique(celltheque$protocols)) %>%
+            pull(cmt) %>%
+            unique) %>%
+   full_join(targets) %>%
+   filter(is.na(time)) -> torem
 
-      biol_feat <- names(toaddtest)[!names(toaddtest) %in% c("res", "source","group" )]
-      biol_feat <- biol_feat[!grepl("^conc[[:digit:]]*$", biol_feat)]
-      biol_feat <- parse_exprs(biol_feat)
+ if(nrow(torem)>0){
 
+   for(a in 1:nrow(torem)){
 
-      cell_id_for_join <-  toaddtest  %>%
-        group_by(!!! biol_feat) %>%
-        nest() %>%
-        select(-data) %>%
-        distinct() %>%
-        rowid_to_column("cellid")
+cmt_to_rm <- torem$cmt[[a]]
+pro <- torem$protocols[[a]]
 
+     celltheque[[paste0(cmt_to_rm,"_BU")]][celltheque$protocols == pro] <- FALSE
+     celltheque[[paste0(cmt_to_rm,"_AL")]][celltheque$protocols == pro] <- FALSE
+   }
 
-      # And that's it, now we add the new rows
-      toaddtest <- left_join(
-
-        # Joining the new dataset o add
-        toaddtest%>%
-          rowid_to_column(),
-
-        # With the cell id reference table
-        cell_id_for_join
-      ) %>%
-        select(cellid, rowid,  res, everything()) %>%
-        # increment nrw rowid and cell id if there was previous value
-        mutate(rowid = rowid + rowidstart, cellid = cellid + cellidstart)
-
-
-      # And finally, merge the old (empty or not) and new celltheque !
-      celltheque <- celltheque %>%
-        bind_rows(toaddtest)
-
-    }
-
-
-  }
-
-
-
-
-
+ }
 
 # test filterDf system
 #
@@ -186,10 +89,12 @@ if(!is.list(drug)) drug <- list(drug)
 
 # Handling death and survival agents, to greatly accelerate the process
 all_param <- names(celltheque)
-all_param <- all_param[! all_param %in% c("cellid", "rowid", "res", "source", "above_lower", "below_upper")]
-line_compar <-   paste0("celltheque$", all_param, "== line$", all_param) %>%
+all_param <- all_param[! all_param %in% c("cellid", "rowid",col_to_add)]
+
+
+line_compar <-   paste0("celltheque$", all_param, " == line$", all_param) %>%
   paste0(collapse = " & ")
-line_compar <- paste0("which(", line_compar," & is.na(celltheque$res))")
+# line_compar <- paste0("which(", line_compar,")")
   # saveRDS(object = celltheque, file = gsub("\\.RDS", "_todetermine.RDS", file))
 
 
@@ -197,14 +102,13 @@ line_compar <- paste0("which(", line_compar," & is.na(celltheque$res))")
 
 if(time_compteur == T){
 
-celltheque_compteur <- tibble(n = integer(), nline = double(), time  = double())
+celltheque_compteur <- tibble(n = NA, time  = NA, nelim =NA, ninfo =NA_real_, computmodel = NA)
 n_compteur <- 0
 }
 
-if(saveFilter == T) saveFilterDf <- tibble(filter = character(), res = logical())
+if(saveFilter == T) saveFilterDf <- tibble(time = double(),  filter = character(), res = logical())
 
   # just in case we never enter into the loop (if already filled, almost always useless)
-  cellthequeDone <- celltheque %>%  slice(0)
 
   ntotal <- nrow(celltheque)
   t00 <- Sys.time()
@@ -214,231 +118,346 @@ if(saveFilter == T) saveFilterDf <- tibble(filter = character(), res = logical()
 
   # cellthequeprev <-celltheque
   # celltheque <- cellthequeprev
-
-  while(sum(is.na(celltheque$above_lower) |  is.na(celltheque$below_upper)) != 0 ){
+  cellthequeDone <- celltheque %>% slice(0)
+  while(is.na(celltheque[, col_to_add]) %>% sum > 0 ){
     nn <- 0
 
-    ndone <- nrow(celltheque %>% filter(!is.na(res)))
-    print(ndone)
+    # ndone <- nrow(celltheque %>% filter(!is.na(res)))
+    # print(ndone)
 
 
     # To gain time, we remove in the celltheque the line already done
-    # cellthequeDone <- celltheque %>% filter(!is.na(res))
-    # celltheque <- celltheque  %>% filter(is.na(res))
+
+
+    # celltheque <- celltheque  %>%slice(-indexdone)
 
     ## Allow to have intermediate save, usefull when we let computer run all night
     ## If the server crashes, we don't loose everything...
-    while(sum(is.na(celltheque$above_lower) |  is.na(celltheque$below_upper)) != 0 & nn < saven){
 
-
-
-      # Just compute some stat...
-      before <- sum(!is.na(celltheque$res))
-      t0 <- Sys.time()
-
-
-      # Sample one rows among the not done yet
-      filter = which(is.na(celltheque$above_lower) | is.na(celltheque$below_upper))
-      n <- sample(x =c(filter,filter), size = 1);n
-      # and extract the line to be tested !
-      line <- celltheque %>%
-        slice(n)
-
-
-
-      # Now we need to handle the administrations
-      # by making a temporar copy
-      add_events_line <- add_events
-
-      # and replace all "concX" by corresponding value found in the line
-      for(a in drug %>% reduce(c) %>% unique){
-
-        add_events_line$amt[ add_events_line$amt == paste0("conc", a)] <- as.character(line[[paste0("conc", a)]])
-
-      }
-
-      add_events_line$amt <- as.double(add_events_line$amt)
-
-      add_events_line$amt[is.na(add_events_line$amt )] <- 0
-
-      # And now we can make the simulation and extract the result !
-      dose <<- line$conc1
-      res <- simulations(ind_param = line, add_events = add_events_line, returnSim = F);res
-
-      # Finally, we update the celltheque results
-      # celltheque$res[[n]] <- res
-      # celltheque$source[[n]] <- line$rowid
-
-
-      # Now let's see if we can extrapolate some other results
-
-      # if the line output is death
-      if(res$be_up == F){
-
-        # create a copy of the line_compar with everything "=="
-        also_dead_line <- line_compar
-
-        # Then replace "==" by "<=" for survival parameters
-        for(a in param_survive[param_survive %in% all_param]){
-
-          also_dead_line <- gsub(paste0(a, " *=="), paste0(a, " >= "), also_dead_line)%>%
-            gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
-
-
-        }
-
-        # Then replace "==" by ">=" for survival parameters
-        for(a in param_death[param_death %in% all_param]){
-
-          also_dead_line <- gsub(paste0(a, " *=="), paste0(a, " <= "), also_dead_line)%>%
-            gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
-
-
-        }
-
-
-        # Compute the test
-        also_dead <- eval(parse_expr(also_dead_line))
-        cellidtorem <- celltheque[also_dead, "cellid"]$cellid
-
-
-        # and modify accordingly the celltheque
-
-         celltheque <- celltheque %>% filter(! cellid %in% cellidtorem)
-
-         print(paste0(length(cellidtorem), " cells removed"))
-
-
-        if(saveFilter == T) saveFilterDf <-saveFilterDf  %>%
-          add_row(filter = also_dead_line)
-
-       ### if the line output is survival
-      }else if(res$ab_low == F){
-
-
-        # create a copy of the line_compar with everything "=="
-        also_survive_line <- line_compar
-
-        # Then replace "==" by "<=" for death parameters
-        for(a in param_death[param_death %in% all_param]){
-
-
-          also_survive_line <- gsub(paste0(a, " *=="), paste0(a, " >= "), also_survive_line)%>%
-            gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
-
-
-        }
-
-        # Then replace "==" by ">=" for survival parameters
-        for(a in param_survive[param_survive %in% all_param]){
-
-          also_survive_line <- gsub(paste0(a, " *=="), paste0(a, " <= "), also_survive_line)%>%
-            gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
-
-
-        }
-
-
-        # Compute the test
-        also_survive <- eval(parse_expr(also_survive_line))
-        cellidtorem <- celltheque[also_survive, "cellid"]$cellid
-
-
-        # and modify accordingly the celltheque
-
-        celltheque <- celltheque %>% filter(! cellid %in% cellidtorem)
-
-        print(paste0(length(cellidtorem), "cells removed"))
-
-
-        if(saveFilter == T) saveFilterDf <-saveFilterDf  %>%
-          add_row(filter = also_dead_line)
-
-
-      }
-
-      # Now update the lines
-      if(res$ab_low == TRUE){
-
-        # create a copy of the line_compar with everything "=="
-        test_above_lower_lim <- line_compar
-
-        for(a in param_death[param_death %in% all_param]){
-
-          test_above_lower_lim <- gsub(paste0(a, " *=="), paste0(a, " <= "), test_above_lower_lim)%>%
-            gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
-        }
-
-        for(a in param_survive[param_survive %in% all_param]){
-
-            test_above_lower_lim <- gsub(paste0(a, " *=="), paste0(a, " >= "), test_above_lower_lim)%>%
-            gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
-
-        }
-
-
-        whichaboveloweer <- eval(parse_expr(test_above_lower_lim))
-        celltheque$above_lower[whichaboveloweer]  <- TRUE
-      }
-
-      if(res$be_up == TRUE){
-        test_below_upper_lim <- line_compar
-
-        # Then replace "==" by "<=" for death parameters
-        for(a in param_death[param_death %in% all_param]){
-
-
-          test_below_upper_lim <- gsub(paste0(a, " *=="), paste0(a, " >= "), test_below_upper_lim)%>%
-            gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
-
-
-        }
-
-        # Then replace "==" by ">=" for survival parameters
-        for(a in param_survive[param_survive %in% all_param]){
-
-          test_below_upper_lim <- gsub(paste0(a, " *=="), paste0(a, " <= "), test_below_upper_lim)%>%
-            gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
-
-
-        }
-
-
-        whichbelowupper <- eval(parse_expr(test_below_upper_lim))
-
-
-        celltheque$below_upper[whichbelowupper]  <- TRUE
-
-
-      }
-
-      print(Sys.time() - t00)
-      }
-
-      # Just print some stuff
-      # nnewlines <- sum(!is.na(celltheque$res)) - before
-      # print( paste0(nnewlines,  " new lines proceeded"))
-      print(Sys.time() - t0)
-      print(Sys.time() - t00)
+    # begining while 2----------------------------------------------------------
+    while(is.na(celltheque[, col_to_add]) %>% sum > 0& nn < saven){
 
       if(time_compteur == T){
 
         n_compteur <- n_compteur + 1
-        celltheque_compteur <- celltheque_compteur %>%
-          add_row(n = n_compteur, nline = nnewlines, time  =  as.double(difftime(Sys.time() ,t0 , units='hours')))
 
+        celltheque_compteur_new <- celltheque_compteur %>%
+          slice(1) %>%
+          mutate(n = n_compteur)
       }
+
+      # Just compute some stat...
+      t0 <- Sys.time()
+
+
+      # Sample one rows among the not done yet
+
+      filter =  which(is.na(celltheque[, col_to_add]) %>% apply(1, sum) != 0 )
+
+      celltheque %>%
+        slice(filter) %>%
+        filter(protocols=="dose50") -> temp
+
+      if(nrow(temp) > 0){
+        line <- temp %>% slice(sample(1:nrow(temp), size = 1))
+      }else{
+      n <- sample(x =c(filter,filter), size = 1);n
+      # and extract the line to be tested !
+      line <- celltheque %>%
+        slice(n);line
+      }
+
+
+      # Now we need to handle the administrations
+      # by making a temporar copy
+      protocol  <- protocols[[line$protocols]]
+
+      # add_events_line$amt[is.na(add_events_line$amt )] <- 0
+
+      # And now we can make the simulation and extract the result !
+
+      b <- Sys.time()
+      res <- simulations(ind_param = line, add_events = protocol, returnSim = T);res
+
+      if(time_compteur == T) celltheque_compteur_new <- celltheque_compteur_new %>%
+        mutate(computmodel = as.double(difftime(Sys.time(),b, units = "sec")))
+
+
+      # Add the columns for each output
+      targets_temp <- targets %>%
+        filter(protocols %in% line$protocols)
+
+      # Now let's see if we can extrapolate some other results
+      # cmtt <- "tumVol"
+      # cmtt <- "Conc"
+      cmt_to_update <- unique(targets_temp$cmt)
+
+      line %>%
+        gather("key", "value") %>%
+        filter(is.na(value)) -> currentlyna
+
+      cmt_to_update <- cmt_to_update[cmt_to_update %in% gsub("(_AL$)|(_BU$)", "", currentlyna$key)]
+
+      for(cmtt in cmt_to_update){
+
+        targets_temp2 <- targets_temp %>%
+          filter(cmt == cmtt)
+        # below upper?
+        res %>%
+          filter(time %in% targets_temp2$time) %>%
+          pull(!!parse_expr(cmtt)) -> values
+
+        be_up <- if_else(min(values <= targets_temp2$max) == 0, F, T);be_up
+        ab_low <-  if_else(min(values >= targets_temp2$min) == 0, F, T);ab_low
+
+        pa_in_temp <- param_increase[[cmtt]]
+        pa_in_temp <- pa_in_temp[pa_in_temp %in% all_param]
+
+        pa_re_temp <- param_reduce[[cmtt]]
+        pa_re_temp <- pa_re_temp[pa_re_temp %in% all_param]
+
+        pa_ni_temp <- param_no_impact[[cmtt]]
+        pa_ni_temp <- pa_ni_temp[pa_ni_temp %in% all_param]
+
+
+        # if the line output is death
+        if(be_up == F){
+
+          # create a copy of the line_compar with everything "=="
+          reject <- paste0("which(", line_compar,")")
+
+          # Then replace "==" by "<=" for survival parameters
+          for(a in pa_in_temp){
+
+            reject <- gsub(paste0(a, " *=="), paste0(a, " >= "), reject)%>%
+              gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
+
+
+          }
+
+          # Then replace "==" by ">=" for survival parameters
+          for(a in pa_re_temp){
+
+            reject <- gsub(paste0(a, " *=="), paste0(a, " <= "), reject)%>%
+              gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
+
+
+          }
+
+          for(a in pa_ni_temp){
+
+            reject <-
+              gsub(paste0("&? * celltheque\\$", a, " *== *line\\$",a),"", reject)
+          }
+
+          reject <- gsub("line\\$protocols",  paste0("\"", line$protocols,"\""), reject)
+
+          # Compute the test
+          reject_eval <- eval(parse_expr(reject))
+          cellidtorem <- celltheque[reject_eval, "cellid"]$cellid
+
+          celltheque <- celltheque %>%
+            filter(!cellid %in%cellidtorem)
+
+          print(paste0(length(cellidtorem), " cells removed"))
+
+          if(time_compteur == T) celltheque_compteur_new <- celltheque_compteur_new %>%
+            mutate(nelim = length(cellidtorem))
+          ### if the line output is survival
+        }else if(ab_low == F){
+
+
+
+          # create a copy of the line_compar with everything "=="
+          # reject <- paste0(line_compar, "& is.na(celltheque$",    paste0(cmtt, "_AL"),")")
+          reject <- paste0("which(", line_compar,")")
+
+          # Then replace "==" by "<=" for death parameters
+          for(a in pa_re_temp){
+
+
+            reject <- gsub(paste0(a, " *=="), paste0(a, " >= "), reject)%>%
+              gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
+
+
+          }
+
+          # Then replace "==" by ">=" for survival parameters
+          for(a in pa_in_temp){
+
+            reject <- gsub(paste0(a, " *=="), paste0(a, " <= "), reject)%>%
+              gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
+
+
+          }
+
+
+
+          for(a in pa_ni_temp){
+
+            reject <-
+              gsub(paste0("&? * celltheque\\$", a, " *== *line\\$",a),"", reject)
+          }
+
+          reject <- gsub("line\\$protocols",  paste0("\"", line$protocols,"\""), reject)
+
+          # Compute the test
+          reject_eval <- eval(parse_expr(reject))
+          cellidtorem <- celltheque[reject_eval, "cellid"]$cellid
+
+          celltheque <- celltheque %>%
+            filter(!cellid %in%cellidtorem)
+          print(paste0(length(cellidtorem), " cells removed"))
+
+          if(time_compteur == T) celltheque_compteur_new <- celltheque_compteur_new %>%
+            mutate(nelim = length(cellidtorem))
+        } # end if-else
+
+
+
+
+        if(saveFilter == T) saveFilterDf <-saveFilterDf  %>%
+          add_row(filter = also_dead_line)
+
+
+
+        # Now update the lines
+        if(ab_low == TRUE &   paste0(cmtt, "_AL") %in% currentlyna$key){
+
+          # create a copy of the line_compar with everything "=="
+          test_above_lower_lim <- paste0(line_compar, "& is.na(celltheque$",    paste0(cmtt, "_AL"),")")
+          test_above_lower_lim <- paste0("which(", test_above_lower_lim,")")
+
+          for(a in pa_re_temp){
+
+            test_above_lower_lim <- gsub(paste0(a, " *=="), paste0(a, " <= "), test_above_lower_lim)%>%
+              gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
+          }
+
+          for(a in pa_in_temp){
+
+            test_above_lower_lim <- gsub(paste0(a, " *=="), paste0(a, " >= "), test_above_lower_lim)%>%
+              gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
+
+          }
+
+          for(a in pa_ni_temp){
+
+            test_above_lower_lim  <-
+              gsub(paste0("&? * celltheque\\$", a, " *== *line\\$",a),"", test_above_lower_lim)
+          }
+
+
+
+          whichaboveloweer <- eval(parse_expr(test_above_lower_lim))
+          # celltheque %>%
+          #   slice(whichaboveloweer) %>%
+          #   filter(is.na(tumVol_AL)) %>% distinct(protocols)
+          celltheque[[paste0(cmtt, "_AL")]][whichaboveloweer]  <- TRUE
+
+
+          if(time_compteur == T) celltheque_compteur_new <- celltheque_compteur_new %>%
+            mutate( ninfo = if_else(is.na(celltheque_compteur_new$ninfo),0,celltheque_compteur_new$ninfo)+  length(whichaboveloweer))
+          # celltheque %>% slice(whichaboveloweer) %>% filter(is.na(tumVol_AL))
+        } # end if ab_low == T
+
+        if(be_up == TRUE &  paste0(cmtt, "_BU") %in% currentlyna$key){
+
+          # create a copy of the line_compar with everything "=="
+          test_below_upper_lim <- paste0(line_compar, "& is.na(celltheque$",    paste0(cmtt, "_BU"),")")
+          test_below_upper_lim <- paste0("which(", test_below_upper_lim,")")
+
+          # Then replace "==" by "<=" for death parameters
+          for(a in pa_re_temp){
+
+
+            test_below_upper_lim <- gsub(paste0(a, " *=="), paste0(a, " >= "), test_below_upper_lim)%>%
+              gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
+
+
+          }
+
+          # Then replace "==" by ">=" for survival parameters
+          for(a in pa_in_temp){
+
+            test_below_upper_lim <- gsub(paste0(a, " *=="), paste0(a, " <= "), test_below_upper_lim)%>%
+              gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
+
+
+          }
+
+          for(a in pa_ni_temp){
+
+            test_below_upper_lim  <-
+              gsub(paste0("&? * celltheque\\$", a, " *== *line\\$",a),"", test_below_upper_lim)
+          }
+
+
+
+          whichbelowupper <- eval(parse_expr(test_below_upper_lim))
+
+          # celltheque %>%
+          #   slice(whichbelowupper) %>%
+          #   filter(is.na(tumVol_BU))
+
+          celltheque[[paste0(cmtt, "_BU")]][whichbelowupper]  <- TRUE
+
+          if(time_compteur == T) celltheque_compteur_new <- celltheque_compteur_new %>%
+            mutate( ninfo = if_else(is.na(celltheque_compteur_new$ninfo),0,celltheque_compteur_new$ninfo)+  length(whichbelowupper))
+
+      } # end if be_up == T
+
+      }# end for each compartment
+
+# print(line)
+#       print(celltheque %>%
+#         group_by(cellid) %>%
+#         tally %>%
+#         filter(n != 3))
+
+     print( is.na(celltheque[, col_to_add]) %>% sum)
+     print(Sys.time() - t0)
+      print(Sys.time() - t00)
+
+
+      if(time_compteur == T)  celltheque_compteur <- bind_rows(celltheque_compteur,celltheque_compteur_new %>%
+                                                                 mutate(time = as.double(difftime(Sys.time(), t0, units = "sec"))))
+
+
+      nn <- nn +1
+      print(nn)
+      }# fin while 1
+
+      # Just print some stuff
+      # nnewlines <- sum(!is.na(celltheque$res)) - before
+      # print( paste0(nnewlines,  " new lines proceeded"))
+      # print(Sys.time() - t0)
+      # print(Sys.time() - t00)
+
+
+
+print("here")
+print("#####################################################")
+    indexdone <- which(is.na(celltheque[, col_to_add]) %>% apply(1, sum) == 0 )
+
+    cellthequeDone <- bind_rows(cellthequeDone, celltheque %>% slice(indexdone))
+    celltheque <- celltheque %>% slice(-indexdone)
+
+
+    ## Allow to have intermediate save, usefull when we
 
       # pctdone <- (length(celltheque$rowid[!is.na(celltheque$res)]) +  nrow(cellthequeDone)) / ntotal
       # print(paste0("Percentage done: ", round(pctdone * 100, 3), "%"))
       # nn <- nn +1
       # print(nn)
-    }
+    }#fin while 2
 
     ## Here happen after nsave iteration
-    print("########################### SAVNG RDS #############################")
+    # print("########################### SAVNG RDS #############################")
 
-    return(celltheque)
+  if(time_compteur == T)  celltheque_compteur <<- celltheque_compteur
+
+    return(cellthequeDone)
     # # Recompute the whole celltheque
     # celltheque <- bind_rows(celltheque, cellthequeDone)
     # cellthequeDone <- celltheque %>% slice(0)
@@ -450,27 +469,27 @@ if(saveFilter == T) saveFilterDf <- tibble(filter = character(), res = logical()
   }
 
 
-  if(time_compteur == T){
-
-
-    celltheque_compteur <<- celltheque_compteur
-
-  }
-
-  if(saveFilter == T) saveFilterDf <<- saveFilterDf
-  # At the end of everything
-  # Recompute the whole celltheque
-  # celltheque <- bind_rows(celltheque, cellthequeDone)
-return(celltheque)
-
-  # And save the final and completely filled celltheque !
-  # saveRDS(object = celltheque, file = file)
-
-
-
-
-
-}
+#   if(time_compteur == T){
+#
+#
+#     celltheque_compteur <<- celltheque_compteur
+#
+#   }
+#
+#   if(saveFilter == T) saveFilterDf <<- saveFilterDf
+#   # At the end of everything
+#   # Recompute the whole celltheque
+#   # celltheque <- bind_rows(celltheque, cellthequeDone)
+# return(celltheque)
+#
+#   # And save the final and completely filled celltheque !
+#   # saveRDS(object = celltheque, file = file)
+#
+#
+#
+#
+#
+# }
 
 
 #' load_spread
