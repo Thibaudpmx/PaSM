@@ -35,45 +35,44 @@
 simulations <- function(ind_param = double(), add_events = tibble(), returnSim = T){
 
 
-
-events <-  tibble(cmt = names(initial_cmt_values)[[1]], time = 0, amt = 0) %>%
+  events <-  tibble(cmt = names(initial_cmt_values)[[1]], time = 0, amt = 0) %>%
     bind_rows(add_events) %>%
     mutate(evid = 1) %>%
-    bind_rows(crossing(time = times, evid = 0, cmt = c(NA)))
+    bind_rows(tibble(time = times, evid = 0, cmt = c(NA)))
 
 
 
-parameter <- parameters_default_values
-# colnames(parameter) <- names(parameters_default_values)
+  parameter <- parameters_default_values[!parameters_default_values %in% names(ind_param)]
 
-# ind_param <- c(ke_Venetoclax = 0.1)
-# ind_param[]
-
-for(a in names(ind_param)[map_lgl(ind_param, ~ is.numeric(.x))]){
-
-  parameter[a] <- ind_param[[a]]
-
-}
-
-# initial_cmt_values
-states <- initial_cmt_values
+  parameterinput <- as.double(unlist(ind_param[1, ]))
+  names(parameterinput) <- names(ind_param)
+  parameter <- c(parameter, parameterinput)
 
 
-# evaluate the character
-for(a in 1:length(states)){
+  # initial_cmt_values
+  states <- initial_cmt_values
 
-states[a] <- with(data = as.tibble(parameter) %>%
-                    mutate(rowname = names(parameter)) %>%
-                    spread(key = "rowname", value = "value"), expr = eval(parse_expr(as.character(states[a])) ))
+  # see if some states need to be evaluated
+  line_to_eval <-  which(is.na(as.double(states)))
+  # evaluate the character
+  if(length(line_to_eval) > 0){
 
-}
+    for(a in line_to_eval){
+
+      states[a] <- with(data = as.tibble(parameter) %>%
+                          mutate(rowname = names(parameter)) %>%
+                          spread(key = "rowname", value = "value"), expr = eval(parse_expr(as.character(states[a])) ))
+
+    }
+  }
+
+  states <- as.double(states)
+  names(states) <- names(initial_cmt_values)
 
 
-states <- as.double(states)
-names(states) <- names(initial_cmt_values)
+  res <- as_tibble(model_RxODE$solve(parameter, events, states))
 
 
-res <- as_tibble(model_RxODE$solve(parameter, events, states))
 
 if(returnSim == T ) return(res)
 

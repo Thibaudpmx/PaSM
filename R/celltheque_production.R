@@ -9,7 +9,7 @@
 # add_events <- tibble(cmt = c("Venetoclax")) %>%
 #   mutate(time = 0, amt = "conc1")
 
-celltheque_produc  <- function(file.name = "first_try.RDS", toadd = NULL, saven = 50, drug = NULL, update_at_end = T, time_compteur = F, saveFilter  = F){
+celltheque_produc  <- function(file.name = "first_try.RDS", toadd = NULL, saven = 50, drug = NULL, update_at_end = T, time_compteur = F, saveFilter  = F, saveSimul = T){
 
 
 
@@ -106,19 +106,33 @@ celltheque_compteur <- tibble(n = NA, time  = NA, nelim =NA, ninfo =NA_real_, co
 n_compteur <- 0
 }
 
-if(saveFilter == T) saveFilterDf <- tibble(time = double(),  filter = character(), res = logical())
+if(saveFilter == T) saveFilterDf <- character()
 
+if(saveSimul == T) siml <- tibble(cellid = integer(), protocols = character(), simul= list())
   # just in case we never enter into the loop (if already filled, almost always useless)
 
   ntotal <- nrow(celltheque)
   t00 <- Sys.time()
 
 
-# begining while ----------------------------------------------------------
+
+  # begining while ----------------------------------------------------------
 
   # cellthequeprev <-celltheque
   # celltheque <- cellthequeprev
   cellthequeDone <- celltheque %>% slice(0)
+
+  maxinfo <- is.na(celltheque[, col_to_add]) %>% sum
+
+  pb <- progress_bar$new(
+    format = "  VP creation [:bar] :current/:total (:percent) in :elapsed",
+    total = maxinfo, clear = FALSE, width= 60)
+  # pb <- progress_bar$new(total = )
+
+
+  above <- double()
+  below <- double()
+
   while(is.na(celltheque[, col_to_add]) %>% sum > 0 ){
     nn <- 0
 
@@ -137,6 +151,9 @@ if(saveFilter == T) saveFilterDf <- tibble(time = double(),  filter = character(
     # begining while 2----------------------------------------------------------
     while(is.na(celltheque[, col_to_add]) %>% sum > 0& nn < saven){
 
+      newratio <- is.na(celltheque[, col_to_add]) %>% sum
+     pb$update(ratio = (maxinfo -newratio )/maxinfo)
+
       if(time_compteur == T){
 
         n_compteur <- n_compteur + 1
@@ -152,20 +169,14 @@ if(saveFilter == T) saveFilterDf <- tibble(time = double(),  filter = character(
 
       # Sample one rows among the not done yet
 
-      filter =  which(is.na(celltheque[, col_to_add]) %>% apply(1, sum) != 0 )
+      # filter =  # which(is.na(celltheque[, col_to_add]) %>% apply(1, sum) != 0 )
 
-      celltheque %>%
-        slice(filter) %>%
-        filter(protocols=="dose50") -> temp
+       filter_to_use <-  paste0("is.na(", col_to_add,")") %>%
+          paste0(collapse = "|")
 
-      if(nrow(temp) > 0){
-        line <- temp %>% slice(sample(1:nrow(temp), size = 1))
-      }else{
-      n <- sample(x =c(filter,filter), size = 1);n
-      # and extract the line to be tested !
-      line <- celltheque %>%
-        slice(n);line
-      }
+       line <- celltheque %>%
+         filter(!!parse_expr(filter_to_use)) %>%
+         sample_n(1)
 
 
       # Now we need to handle the administrations
@@ -198,6 +209,7 @@ if(saveFilter == T) saveFilterDf <- tibble(time = double(),  filter = character(
 
       cmt_to_update <- cmt_to_update[cmt_to_update %in% gsub("(_AL$)|(_BU$)", "", currentlyna$key)]
 
+      remv <- F
       for(cmtt in cmt_to_update){
 
         targets_temp2 <- targets_temp %>%
@@ -259,10 +271,14 @@ if(saveFilter == T) saveFilterDf <- tibble(time = double(),  filter = character(
           celltheque <- celltheque %>%
             filter(!cellid %in%cellidtorem)
 
-          print(paste0(length(cellidtorem), " cells removed"))
+          if(saveFilter == T) saveFilterDf <- c(saveFilterDf, reject)
+          remv <- T
+          # print(paste0(length(cellidtorem), " cells removed"))
 
           if(time_compteur == T) celltheque_compteur_new <- celltheque_compteur_new %>%
             mutate(nelim = length(cellidtorem))
+
+         if(cmtt == "tumVol") above <- c(above, cellidtorem)
           ### if the line output is survival
         }else if(ab_low == F){
 
@@ -307,17 +323,22 @@ if(saveFilter == T) saveFilterDf <- tibble(time = double(),  filter = character(
 
           celltheque <- celltheque %>%
             filter(!cellid %in%cellidtorem)
-          print(paste0(length(cellidtorem), " cells removed"))
+
+          if(saveFilter == T) saveFilterDf <- c(saveFilterDf, reject)
+          remv <- T
+          # print(paste0(length(cellidtorem), " cells removed"))
 
           if(time_compteur == T) celltheque_compteur_new <- celltheque_compteur_new %>%
             mutate(nelim = length(cellidtorem))
+
+
+          if(cmtt == "tumVol") below <- c(below, cellidtorem)
         } # end if-else
 
 
 
 
-        if(saveFilter == T) saveFilterDf <-saveFilterDf  %>%
-          add_row(filter = also_dead_line)
+
 
 
 
@@ -409,23 +430,23 @@ if(saveFilter == T) saveFilterDf <- tibble(time = double(),  filter = character(
 
       }# end for each compartment
 
-# print(line)
-#       print(celltheque %>%
-#         group_by(cellid) %>%
-#         tally %>%
-#         filter(n != 3))
 
-     print( is.na(celltheque[, col_to_add]) %>% sum)
-     print(Sys.time() - t0)
-      print(Sys.time() - t00)
 
+
+if(remv == F & saveSimul == T){
+
+   siml <- siml %>%
+        add_row(cellid = line$cellid, protocols = line$protocols, simul = list(res))
+
+}
+  # if() siml <- tibble(cellid = integer(), protocoles = character(), simul= list())
 
       if(time_compteur == T)  celltheque_compteur <- bind_rows(celltheque_compteur,celltheque_compteur_new %>%
                                                                  mutate(time = as.double(difftime(Sys.time(), t0, units = "sec"))))
 
 
       nn <- nn +1
-      print(nn)
+      # print(nn)
       }# fin while 1
 
       # Just print some stuff
@@ -436,7 +457,7 @@ if(saveFilter == T) saveFilterDf <- tibble(time = double(),  filter = character(
 
 
 
-print("here")
+
 print("#####################################################")
     indexdone <- which(is.na(celltheque[, col_to_add]) %>% apply(1, sum) == 0 )
 
@@ -444,6 +465,8 @@ print("#####################################################")
     celltheque <- celltheque %>% slice(-indexdone)
 
 
+    above <<- above
+    below <<- below
     ## Allow to have intermediate save, usefull when we
 
       # pctdone <- (length(celltheque$rowid[!is.na(celltheque$res)]) +  nrow(cellthequeDone)) / ntotal
@@ -456,7 +479,13 @@ print("#####################################################")
     # print("########################### SAVNG RDS #############################")
 
   if(time_compteur == T)  celltheque_compteur <<- celltheque_compteur
+  print(Sys.time() - t00)
 
+
+  if(saveSimul == T) cellthequeDone <- cellthequeDone %>%
+    left_join(siml)
+
+  if(saveFilter == T) saveFilterDf <<- c(saveFilterDf, reject)
     return(cellthequeDone)
     # # Recompute the whole celltheque
     # celltheque <- bind_rows(celltheque, cellthequeDone)
@@ -491,11 +520,107 @@ print("#####################################################")
 #
 # }
 
+extract_filter <- function(toadd, results = celltheque2){
+
+above
+below
+
+toadd2 <- toadd %>%
+  group_by(!!!parse_exprs(names(toadd)[names(toadd) != "protocols"])) %>%
+  nest() %>%
+  rowid_to_column("cellid") %>%
+  unnest() %>%
+  rowid_to_column("rowid") %>%
+  ungroup()
+
+# Filter because above
+abovedf <- toadd2 %>%
+  filter(cellid %in% above)
+
+belowdf <- toadd2 %>%
+  filter(cellid %in% below)
+
+for(a in param_increase$tumVol){
+
+  abovedf[paste0(a, "sign")] <- ">="
+  belowdf[paste0(a, "sign")] <- "<="
+}
+
+for(a in param_reduce$tumVol){
+
+  abovedf[paste0(a, "sign")] <- "<="
+  belowdf[paste0(a, "sign")] <- ">="
+}
+
+abovedf %>%
+  bind_rows(belowdf) %>%
+  select(-rowid, - cellid) -> temp
+
+temp[ , order(names(temp))]
+
+}
+
+reduce_filter <- function(filter = filtre_rouge){
+
+
+
+  filter %>%
+    select(k2, k2sign, lambda0, lambda0sign) %>%
+    group_by(k2, k2sign, lambda0sign) %>%
+    nest() %>%
+    # pull(data)-> x; x <-x[[1]]
+    mutate(lambda0 = map2(lambda0sign, data, function(sign, x){
+
+       if(sign == ">=") return(min(x$lambda0))
+
+      return(max(x$lambda0))
+    })) %>%
+    select(-data) %>%
+    unnest() %>%
+    group_by( lambda0, k2sign,lambda0sign ) %>%
+    nest() %>%
+    # pull(data)-> x; x <-x[[1]]
+    mutate(k2 = map2(k2sign, data, function(sign, x){
+
+      if(sign == ">=") return(min(x$k2))
+
+      return(max(x$k2))
+    })) %>%
+    select(-data) %>%
+    unnest()
+
+}
 
 #' load_spread
 #' @export
 #'
 #'
+
+celltheque_produccomp_line_per_line <- function(toadd){
+
+
+  toadd %>%
+    slice(1:100) %>%
+    rowid_to_column() %>%
+    rename(protocol = protocols) %>%
+    mutate(simul = map(rowid, function(x){
+      print(x)
+      toadd %>%
+       slice(x) -> param
+  # print(param)
+  # print(param$protocols)
+  # print(protocols[[param$protocols]])
+      add_events <- protocols[[param$protocols]]
+
+      print(add_events)
+      simulations(param, add_events)
+
+    })) %>%
+    unnest()
+
+
+}
+
 
 # cellthequeLoad(toadd = toadd, fill = T, saven = 5)
 # Load -------------------------------------------------------
