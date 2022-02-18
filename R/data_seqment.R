@@ -3,8 +3,10 @@
 # YTYPEcol <-  expr(YTYPE )
 # filter <- expr(EVID == 0)
 # groups <- exprs(Dose, YTYPE)
-groups <- exprs(protocols, cmt)
-
+# groups <- exprs(protocols, cmt)
+#' @export
+#'
+#'
 data_segment <- function(data , ..., ntime = 3, filter = NULL, plot = T){
 
   filter <- enexpr(filter)
@@ -65,6 +67,9 @@ targets
 
 }
 
+#' @export
+#'
+#'
 data_segment_plot <- function(data, targets,  filter = NULL){
 
 

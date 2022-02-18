@@ -519,11 +519,14 @@ print("#####################################################")
 #
 #
 # }
-
+#'  Create celltheque
+#' @export
+#'
+#'
 extract_filter <- function(toadd, results = celltheque2){
 
-above
-below
+# # above
+# below
 
 toadd2 <- toadd %>%
   group_by(!!!parse_exprs(names(toadd)[names(toadd) != "protocols"])) %>%
@@ -560,6 +563,14 @@ temp[ , order(names(temp))]
 
 }
 
+
+
+
+
+#'  Create celltheque
+#' @export
+#'
+#'
 reduce_filter <- function(filter = filtre_rouge){
 
 
@@ -588,6 +599,37 @@ reduce_filter <- function(filter = filtre_rouge){
     })) %>%
     select(-data) %>%
     unnest()
+
+}
+
+#'  Create celltheque
+#' @export
+#'
+#'
+extra_filter_green <- function(results = celltheque2){
+
+#là on parle de square
+  results %>%
+    select(k2, lambda0) -> temp
+
+  crossing(a = unique(temp$k2), b = unique(temp$k2)) %>%
+    filter(b >= a) %>%
+    mutate(height = map2(a, b, function(a,b){
+
+temp %>%
+    filter(k2>=a & k2<=b) %>%
+        group_by(k2) %>%
+        summarise(max = max(lambda0), min = min(lambda0)) -> temp2
+
+      tibble( floor = max(temp2$min), ceiling = min(temp2$max))
+      # temp2
+
+    })) %>%
+    unnest() %>%
+    filter(ceiling >= floor) %>%
+    arrange(desc(b)) %>%
+    group_by(a, floor, ceiling) %>%
+    slice(1)
 
 }
 
@@ -629,250 +671,3 @@ celltheque_produccomp_line_per_line <- function(toadd){
 #' @export
 #' Create celltheque
 #'
-
-load_spread <- function(celltheque = NULL, path_celltheque, drug, returnOnIDperGroup = T, update = F){
-
-
-  # if path_celltheque is just the name, compute the full path
-  if(!grepl("/", path_celltheque)) path_celltheque <- file.path(active_VT_project, "2_celltheques", "celltheques",path_celltheque)
-
-  # get the  name
-  file.name <- gsub(".+/", "", path_celltheque)
-
-  # and read the celltheque from RDS if not provided
-  if(is.null(celltheque)) celltheque <- readRDS(path_celltheque)
-
-  # need to handle drug as list  (ex list(c(1,4), c(2,4)))
-
-  if(is.list(drug)){
-    name <-   map_chr(drug, ~ paste0(.x, collapse = "_")) %>% paste0(collapse = "_AND_")
-  }else{
-
-    name <-  paste0(drug, collapse = "_")
-  }
-
-  # Now, where is supposed to be the containing folder?
-  if(returnOnIDperGroup == T){
-    folder_path <- file.path(active_VT_project, "2_celltheques",
-                             paste0("/celltheque_one_per_cell_spread_drug_",name))
-
-  }else{
-
-    folder_path <- file.path(active_VT_project, "2_celltheques",
-                             paste0("/celltheque_spread_drug_", name))
-
-
-  }
-  # create the folder if it does not exist yet
-  if(!file.exists(folder_path)) dir.create(folder_path)
-
-
-  # Compute the path of where the celltheque file will be
-  file <- file.path(folder_path,
-                    file.name)
-
-  if(!file.exists(file) | update == T){
-
-    temp_spread  <- celltheque_spread(celltheque, returnOnIDperGroup = returnOnIDperGroup, drug = drug)
-    saveRDS(temp_spread, file)
-  }else{
-
-    temp_spread <- readRDS(file)
-
-  }
-
-  return(temp_spread)
-
-}
-
-
-
-cellthequeLoad <- function(drug = 1, update = F, return = 1){
-
-
-    # First let's take the path where the celltheque are
-    root <- file.path(active_VT_project, "2_celltheques")
-
-    # If it does not exist, create a folder containing  shrinked celltheque per drug combination
-   if(!file.exists(file.path(root, "celltheque_one_per_cell"))) dir.create(file.path(root, "celltheque_one_per_cell"))
-
-    # Compute the path of this shrinked celltheque and its "spread" version
-    path <- file.path(root, "celltheque_one_per_cell", paste0("Drug", paste0(drug, collapse = "_"), ".RDS"))
-    # path_spread <- gsub(".RDS", "_spread.RDS", path)
-
-
-    # See if this shrink version already exists
-    celltheque <- try(readRDS(path) )
-
-
-    # if yes, lets register which celltheque cells come from, and read the spread version
-    if(class(celltheque)[[1]] != "try-error"){
-
-    alreadytestest <- unique(celltheque$from)
-    # spread_base <- readRDS(path_spread)
-    spread_base <- celltheque_spread(celltheque, returnOnIDperGroup = T, drug = drug)
-    toupdate <- F
-    }else{
-
-      alreadytestest <- ""
-      spread_base <- NULL
-      toupdate <- T
-    }
-
-
-  # Now make a list of all celltheques available
-
-
-  # look if we need to update (not asked by user and spread_base already exists)
-  if(update == F  & !is.null(spread_base)){
-    listf <- character()
-  }else{
-    # else, make the likst of all celltheque
-    listf <- list.files(file.path(root,"celltheques"))
-  }
-
-    cont <- 0
-  # For each of this celltheque
-  for(a in listf[!listf %in%alreadytestest]){
-
-
-    print(a)
-    celltheque_temp <- readRDS(file.path(root, "celltheques", a))
-
-    # rm every non desired concentration
-
-    for(b in (1:ndrug)[! (1:ndrug %in%drug)]){
-
-      if(paste0("conc",b) %in% names(celltheque_temp)){
-
-        expr_temp <- parse_expr(paste0("conc",b))
-
-        celltheque_temp <-  celltheque_temp %>%
-          filter(!! expr_temp == 0) %>%
-          select(-!!expr_temp)
-
-
-      }
-
-    }
-
-    # First we need to make sure this cell line is complete (no NA res)
-    # AND all the asked drugs are there
-
-    if(sum(is.na(celltheque_temp$res)) == 0 &
-           sum(paste0("conc", drug) %in% names(celltheque_temp)) == length(drug)){
-
-
-    # Get the spread
-    temp_spread <- load_spread(path_celltheque = a, drug = drug, update = T, returnOnIDperGroup = T) # try(readRDS(path_spread))
-
-
-    # Then, let's make the celltheques ! If it does not exist yet
-    if(is.null(spread_base) & nrow(temp_spread) >0){
-
-      # Compute the newIDS (remember we keep only one ID per result profiles)
-      temp_spread %>% pull(cellid)-> newIDs
-
-      # celltheque is initialized as this first celltheque file
-      # keeping only one ID per result profile,
-      # and keeping track on which file they come from and
-      # waht was their ID in the original file
-      celltheque <-  celltheque_temp %>%
-        filter(cellid %in% newIDs) %>%
-        mutate(cellid0 = cellid, from = a)
-
-      # spread base is directly temp_spread
-      spread_base <- temp_spread
-
-    }else if(nrow(temp_spread) >0){
-
-      # Now imagine we already had a celltheque,
-      # We don't want to add profile we already had, right?
-      # So let's first compute profile we already have
-
-      spread_base %>%
-        select(starts_with("Conc")) %>%
-        mutate(torem = T) -> already_have
-
-      # and join the new profile to see those we already have (tagged by "torem")
-    temp_spread %>% # taking the new spread
-      select(cellid, starts_with("Conc")) %>% # keeping only cell id and all conc result columns
-      left_join(already_have) %>% # making the left_join
-      filter(is.na(torem)) %>%  # removing profiles we already have
-      pull(cellid) -> newIDs # extracting only the new ids !
-
-
-     # Now update the cellthque
-      celltheque <-  celltheque %>% # take the previous one and add
-        bind_rows(
-          celltheque_temp %>% # new rows
-                    filter(cellid %in% newIDs) %>% # but only if new profiles
-                    mutate(cellid0 = cellid, from = a,  # keep track of provenance
-                           cellid = cellid+max(celltheque$cellid)) # and create a new cell id
-          )
-
-     # And do the same thigs with spread_base
-      spread_base <- spread_base %>%
-        bind_rows(temp_spread %>%
-                    filter(cellid %in% newIDs) %>%
-                    mutate(from = a, cellid = cellid+max(spread_base$cellid)))
-    }
-    }else{
-
-      if(sum(is.na(celltheque_temp$res)) >  0)  print("Incomplete celltheque, can not be included")
-      if(sum(paste0("conc", drug) %in% names(celltheque_temp)) != length(drug)){
-
-
-        missi <- paste0("conc", drug)[!paste0("conc", drug) %in% names(celltheque_temp)]
-        print(paste0("Concentration needed in celltheque missing: ", paste0(missi, collapse = ", ")))
-
-      }
-
-      }
-
-  }
-
-  # Now take
-
-  path_spread <- gsub(".RDS", "_spread.RDS", path)
-
-
-
-# Just arrange
-
-  drugs <- parse_exprs(paste0("conc", drug))
-
-
-  celltheque <- celltheque %>%
-    arrange(cellid, !!!drugs)
-
-
-  if( ! (update == F  & toupdate == F)){
-
-
-    saveRDS(celltheque, path)
-    saveRDS(spread_base, path_spread)
-
-  }
-
-
-  # name <- paste0(gsub("(.+/)|(\\.RDS)", "", path),"_theque_minimal")
-  # if(! exists(name)) eval(expr(!!parse_expr(name) <<- try(celltheque, silent = T)))
-  #
-  # name <- paste0(gsub("(.+/)|(\\.RDS)", "", path),"_theque_minimal_spread")
-  # if(! exists(name)) eval(expr(!!parse_expr(name) <<- try(spread_base, silent = T)))
-
-  if(length(return) == 1 & return[[1]] == 1) return(celltheque)
-  if(length(return) == 1 & return[[1]] == 2) return(spread_base)
-  return(list(celltheque, spread_base))
-
-}
-
-# cellthequeLoad(drug = 2, equilibrium = F, return = 3)
-# toadd <- crossing(Bak = c(1000), Bax = c(1000), Bcl2 = seq(20,1020,120), Bclxl = seq(20,1020,120),
-#          Mcl1 = seq(10,130,40), BIM = seq(0,150,50), PUMA = seq(0,150,50), NOXA =  seq(0,150,50)); toadd
-# file = "D:/these/Second_project/QSP/modeling_work/celltheque_equilibrium_full"
-# with equilibrium
-# cellthequeFill_equilibrium(file, toadd = toadd, saven = 200)
-
-

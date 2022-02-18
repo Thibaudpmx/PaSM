@@ -3,3 +3,8 @@
 export(celltheque_produc)
 export(create_VT_Project)
 export(simulations)
+export(extract_filter)
+export(reduce_filter)
+export(extra_filter_green)
+export(data_segment)
+export(data_segment_plot)
