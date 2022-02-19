@@ -8,6 +8,7 @@
 #' @export
 #'
 #' @examples
+#'
 create_VT_Project <- function(path){
 
   path <- gsub("file:/*", "", path)
