@@ -32,8 +32,14 @@
 # simulations(ind_param = celltheque %>% slice(1), add_events = add_events) %>%
 #   ggplot()+
 #   geom_line(aes(time, Bcl2_I))
-simulations <- function(ind_param = double(), add_events = tibble(), returnSim = T){
+simulations <- function(ind_param = double(), add_events = tibble(), returnSim = T,
+                        icmt = initial_cmt_values, time_vec = times,
+                        pardf = parameters_default_values, model = model_RxODE){
 
+  model_RxODE <- model
+  parameters_default_values <-  pardf
+  initial_cmt_values <- icmt
+  times <- time_vec
 
   events <-  tibble(cmt = names(initial_cmt_values)[[1]], time = 0, amt = 0) %>%
     bind_rows(add_events) %>%
@@ -80,6 +86,15 @@ eval(criteria)
 
 }
 
+
+# res <- as_tibble(model_RxODE$solve(parameter, events, states)) %>% mutate(name = "test1")
+# res2 <- as_tibble(model_RxODE$solve(parameter[c(4,5,2,1,3,6,7)], events, states))%>%
+#   mutate(name = "test2")
+#
+# res %>%
+#   bind_rows(res2) %>%
+#   ggplot()+
+#   geom_line(aes(time, tumVol, col = name))
 #
 # TV <- res %>% filter(time == 25) %>% pull(tumVol)
 # targets <- tribble(~Dose, ~min, ~max, 0, 141, 208, 50, 22,

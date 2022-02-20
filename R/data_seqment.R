@@ -7,7 +7,7 @@
 #' @export
 #'
 #'
-data_segment <- function(data , ..., ntime = 3, filter = NULL, plot = T){
+data_segment <- function(data , ..., ntime = 3, timeforce = NULL, filter = NULL, plot = T){
 
   filter <- enexpr(filter)
   groups <- enexprs(...)
@@ -25,11 +25,19 @@ data %>%
     #   group_by(time) %>%
     #   tally %>%
     #   arrange(desc(n))
+
+    if(!is.null(timeforce)){
+
+      times <- timeforce
+
+    }else{
    x %>% distinct(time) %>%
       arrange(time) %>%
       pull(time) -> times
 
     times <- map_dbl(1:ntime, ~ times[(.x/ntime * length(times)) %>% round])
+
+    }
 
     x %>%
       group_by(ID) %>%
@@ -74,9 +82,10 @@ data_segment_plot <- function(data, targets,  filter = NULL){
 
 
   data %>%
+    filter(cmt %in% targets$cmt) %>%
     ggplot()+
     geom_line(aes(time, OBS, group = ID)) +
-    facet_wrap(cmt~protocols, scales = "free")+
+    facet_wrap(cmt~protocol, scales = "free")+
     geom_segment(data = targets,
                  aes(x = time, xend = time, y = min, yend = max), col ="red", size = 2)+
     scale_y_log10()
