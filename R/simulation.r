@@ -87,6 +87,66 @@ eval(criteria)
 }
 
 
+
+simulations2 <- function(ind_param = double(), add_events = tibble(), returnSim = T,
+                        icmt = initial_cmt_values, time_vec = times,
+                        pardf = parameters_default_values, model = model_RxODE){
+
+  model_RxODE <- model
+  parameters_default_values <-  pardf
+  initial_cmt_values <- icmt
+  times <- time_vec
+
+  events <-  add_events %>% #tibble(cmt = names(initial_cmt_values)[[1]], time = 0, amt = 0) %>%
+    # bind_rows() %>%
+    mutate(evid = 1) %>%
+    bind_rows(crossing(time = times, evid = 0, cmt = c(NA), id = unique(add_events$id))) %>%
+    arrange(id, time)
+
+
+
+  # parameter <- parameters_default_values[!parameters_default_values %in% names(ind_param)]
+  #
+  # parameterinput <- as.double(unlist(ind_param[1, ]))
+  # names(parameterinput) <- names(ind_param)
+  # parameter <- c(parameter, parameterinput)
+
+  for(a in names(parameters_default_values)){
+
+    ind_param[[a]] <- parameters_default_values[[a]]
+
+  }
+
+
+  # initial_cmt_values
+  states <- initial_cmt_values
+
+  # see if some states need to be evaluated
+  # line_to_eval <-  which(is.na(as.double(states)))
+  # # evaluate the character
+  # if(length(line_to_eval) > 0){
+  #
+  #   for(a in line_to_eval){
+  #
+  #     states[a] <- with(data = as.tibble(parameter) %>%
+  #                         mutate(rowname = names(parameter)) %>%
+  #                         spread(key = "rowname", value = "value"), expr = eval(parse_expr(as.character(states[a])) ))
+  #
+  #   }
+  # }
+#
+#   states <- as.double(states)
+#   names(states) <- names(initial_cmt_values)
+
+
+  res <- model_RxODE$solve(ind_param %>% select(-starts_with("protocol"), -starts_with("simul")), events, states)
+
+
+
+  if(returnSim == T ) return(res)
+
+}
+
 # res <- as_tibble(model_RxODE$solve(parameter, events, states)) %>% mutate(name = "test1")
 # res2 <- as_tibble(model_RxODE$solve(parameter[c(4,5,2,1,3,6,7)], events, states))%>%
 #   mutate(name = "test2")
