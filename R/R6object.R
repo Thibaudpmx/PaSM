@@ -19,8 +19,8 @@ VP_proj_creator <- R6Class("VT",
   # targets = NULL,
   filters_neg_above = NULL,
   filters_neg_below = NULL,
-  filters_ab_lo = NULL,
-  filters_be_up = NULL,
+  filters_pos_above = NULL,
+  filters_pos_below = NULL,
   data = NULL,
   parameters_default_values = NULL,# c(psi = 20) # paremeters value to be used by default (NA if you want to force providing value)
   initial_cmt_values = NULL, #c(X1 = 50) # initial compartment values. At least one, and every missing cmt name would be set to 0
@@ -64,26 +64,21 @@ VP_proj_creator <- R6Class("VT",
 
 #
 #
-VP_proj_creator$set("public", "set_targets", function(..., filter = NULL, ntime = 3, manual = NULL, timeforce = NULL, force = F){
+VP_proj_creator$set("public", "set_targets", function(..., filter = NULL, ntime = 3, manual = NULL, timeforce = NULL){
 
 filter <- enexpr(filter)
 
-if(!is.null(self$targets)){
+if(!is.null(self$self$poolVP))  return("Virtual Patients have already been generated - It is thus no possible to modify the targets.")
+if(!is.null(self$filters_neg_below)) if(map_dbl(self$filters_neg_below, nrow) %>% sum > 0)  return("Filters have already been generated - It is thus no possible to modify the targets.")
+if(!is.null(self$filters_neg_above)) if(map_dbl(self$filters_neg_above, nrow) %>% sum > 0)  return("Filters have already been generated - It is thus no possible to modify the targets.")
+if(!is.null(self$filters_pos_above)) if(map_dbl(self$filters_neg_below, nrow) %>% sum > 0)  return("Filters have already been generated - It is thus no possible to modify the targets.")
+if(!is.null(self$filters_pos_below)) if(map_dbl(self$filters_pos_below, nrow) %>% sum > 0)  return("Filters have already been generated - It is thus no possible to modify the targets.")
 
-
-
-  stop("Targets have already been set, it is not possible to modify them afterwards.
-This is because filters used for determining parameter values spaces of VP
-rejection / acceptation are strictly dependants on those targets.")
-
-}
 
 
 if(!is.null(manual)){
 
-  print(manual)
-  print(data_segment_plot(data = self$data, targets = manual))
-
+  targets <- manuel
 
 
 }else{
@@ -91,40 +86,30 @@ if(!is.null(manual)){
  targets <- data_segment(data = self$data, protocol, cmt, filter = !!filter, ntime = ntime, timeforce = timeforce) %>%
     filter(max != "0")
 
-
-
- print( as.data.frame(targets))
-
 }
 
-if(force == T){
 
-  self$targets <- targets
+print( as.data.frame(targets))
+print(data_segment_plot(data = self$data, targets = targets))
 
-  return("Done ! ")
-
-}
-
-  message("See the above segmentation table plus the plot for checking")
-  message("Defining targets is definitive.")
-  message("Is it okay (y) or do you want to perform manual changes (n) ?")
-
-
-  ask <- readline(prompt="")
-
-  if(ask == "y"){
-
+    # update targets
     self$targets <- targets
 
+    # initialise filters
+
+    filters_list= list()
+
+    for(a in unique(targets$cmt))  filters_list[[a]] <- tibble()
 
 
-    return("Done !")
-  }else{
+    self$filters_neg_above[[a]]  <- tibble()
+    self$filters_neg_below[[a]]  <- tibble()
+    self$filters_pos_above[[a]]  <- tibble()
+    self$filters_pos_below[[a]]  <- tibble()
 
-    message ("Targets not set. Use manual arg for manual targets definition")
 
 
-  }
+    return(  message("Once any VP's or filters have been created, targets will be locked."))
 
 })
 
@@ -132,21 +117,22 @@ if(force == T){
 # VP_production -----------------------------------------------------------
 
 
-VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F){
+VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F){
 
   # protocols = self$protocols
 
   toadd <- VP_df
 
-  poolVP <-   VP_df %>%
-    crossing(protocol = unique(self$targets$protocol)) %>%
-    group_by(!!!parse_exprs(names(toadd)[names(toadd) != "protocols"])) %>%
-    nest() %>%
+  poolVP <-     VP_df %>%
     rowid_to_column("cellid") %>%
-    unnest() %>%
-    rowid_to_column("rowid") %>%
-    ungroup()
-#
+    crossing(protocol = unique(self$targets$protocol)) %>%
+    rowid_to_column("rowid")
+
+
+
+
+
+  #
 #   poolVP %>%
 #     filter(round(k2,1) == 1.2 & round(lambda0,2) == 0.07)
 
@@ -160,6 +146,85 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
                   paste0(col_to_add, "_AL"))
 
   for(a in col_to_add) poolVP[a] <- NA
+
+
+  ## Apply the filters
+
+  for(cmt in "tumVol"){
+
+    filter_template <- self$make_filters(cmt)%>%
+      gsub(pattern = "line\\$", replacement = "")
+
+    # remove neg_above
+    temp <-  self$filters_neg_above[[cmt]]
+    filter_temp <- paste("!(", filter_template[[1]], ")")
+    if(nrow(temp) > 0){
+    for(a in 1:nrow(temp)){
+
+      ref <-temp %>% slice(a)
+
+      poolVP <- poolVP %>%
+        filter(!!parse_expr(filter_temp))
+
+    }
+    }
+    # remove neg_below
+    temp <-  self$filters_neg_below[[cmt]]
+    filter_temp <- paste("!(", filter_template[[2]], ")")
+    if(nrow(temp) > 0){
+    for(a in 1:nrow(temp)){
+
+      ref <-temp %>% slice(a)
+
+      poolVP <- poolVP %>%
+        filter(!!parse_expr(filter_temp))
+
+    }
+}
+    poolVP <- poolVP %>%
+      select(-rowid) %>%
+      rowid_to_column()
+
+    # set pos abov
+    temp <-  self$filters_pos_above[[cmt]]
+    filter_temp <- paste("(", filter_template[[1]], ")")
+    if(nrow(temp) > 0){
+    for(a in 1:nrow(temp)){
+
+      ref <-temp %>% slice(a)
+
+      poolVP %>%
+        filter(!!parse_expr(filter_temp)) %>%
+        pull(rowid) ->rowidstemp
+
+      poolVP[[paste0(cmt, "_AL")]][rowidstemp] <- rep(T, length(rowidstemp))
+
+    }
+}
+    # set pos below
+    temp <-  self$filters_pos_below[[cmt]]
+    filter_temp <- paste("(", filter_template[[2]], ")")
+
+    if(nrow(temp) > 0){
+    for(a in 1:nrow(temp)){
+
+      ref <-temp %>% slice(a)
+
+      poolVP %>%
+        filter(!!parse_expr(filter_temp)) %>%
+        pull(rowid) ->rowidstemp
+
+      poolVP[[paste0(cmt, "_BU")]][rowidstemp] <- T
+
+    }
+}
+  }
+
+
+
+ if(!is.null(self$poolVP$cellid)) poolVP <- poolVP %>%
+    mutate(cellid = cellid + max(self$poolVP$cellid),
+             rowid = rowid + max(self$poolVP$rowid))
 
 
 
@@ -252,13 +317,22 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
   # pb <- progress_bar$new(total = )
 
 
-  poolVPbef <- poolVP
 
-  above <- double() # filre_neg_above
-  below <- double() # filtre_neg_below
+  slice0 <- poolVP   %>% slice(0) %>% select(!!!parse_exprs(all_param[all_param != "protocol"])) # filre_neg_above
+
+  neg_below <- neg_above <-  pos_below <- pos_above <- list() # filtre_neg_below
 
 
-    # begining while 2----------------------------------------------------------
+  for(a in targets$cmt){
+
+    neg_below[[a]] <- slice0
+    neg_above[[a]] <- slice0
+    pos_below[[a]] <- slice0
+    pos_above[[a]] <- slice0
+
+    }
+
+    # begining while lopp----------------------------------------------------------
     while(is.na(poolVP[, col_to_add]) %>% sum > 0){
 
       newratio <- is.na(poolVP[, col_to_add]) %>% sum
@@ -306,7 +380,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
         mutate(computmodel = as.double(difftime(Sys.time(),b, units = "sec")))
 
 
-      # Add the columns for each output
+      # get targets for this patients
       targets_temp <- self$targets %>%
         filter(protocol %in% line$protocol)
 
@@ -322,6 +396,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
       cmt_to_update <- cmt_to_update[cmt_to_update %in% gsub("(_AL$)|(_BU$)", "", currentlyna$key)]
 
       remv <- F
+      cellidtorem <- double()
       for(cmtt in cmt_to_update){
 
         targets_temp2 <- targets_temp %>%
@@ -344,7 +419,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
         pa_ni_temp <- pa_ni_temp[pa_ni_temp %in% all_param]
 
 
-        # if the line output is death
+        # if the line output are above
         if(be_up == F){
 
           # create a copy of the line_compar with everything "=="
@@ -378,20 +453,22 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
           # Compute the test
           reject_eval <- eval(parse_expr(reject))
-          cellidtorem <- poolVP[reject_eval, "cellid"]$cellid
+          cellidtorem_above <- poolVP[reject_eval, "cellid"]$cellid
 
-          poolVP <- poolVP %>%
-            filter(!cellid %in%cellidtorem)
-
+          cellidtorem <- c(cellidtorem, cellidtorem_above)
           remv <- T
           # print(paste0(length(cellidtorem), " cells removed"))
 
           if(time_compteur == T) poolVP_compteur_new <- poolVP_compteur_new %>%
             mutate(nelim = length(cellidtorem))
 
-          if(cmtt == "tumVol") above <- c(above, cellidtorem)
+          neg_above[[cmtt]] <- bind_rows(neg_above[[cmtt]], line %>% select(!!!parse_exprs(all_param[all_param != "protocol"])))
           ### if the line output is survival
-        }else if(ab_low == F){
+        }
+
+
+
+        if(ab_low == F){
 
 
 
@@ -430,12 +507,9 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
           # Compute the test
           reject_eval <- eval(parse_expr(reject))
-          cellidtorem <- poolVP[reject_eval, "cellid"]$cellid
+          cellidtorem_below <- poolVP[reject_eval, "cellid"]$cellid
 
-          poolVP <- poolVP %>%
-            filter(!cellid %in%cellidtorem)
-
-
+          cellidtorem <- c(cellidtorem, cellidtorem_below)
           remv <- T
           # print(paste0(length(cellidtorem), " cells removed"))
 
@@ -443,7 +517,8 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
             mutate(nelim = length(cellidtorem))
 
 
-          if(cmtt == "tumVol") below <- c(below, cellidtorem)
+          neg_below[[cmtt]] <- bind_rows(neg_below[[cmtt]] , line %>% select(!!!parse_exprs(all_param[all_param != "protocol"])))
+
         } # end if-else
 
 
@@ -482,16 +557,18 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
 
           whichaboveloweer <- eval(parse_expr(test_above_lower_lim))
-          # poolVP %>%
-          #   slice(whichaboveloweer) %>%
-          #   filter(is.na(tumVol_AL)) %>% distinct(protocols)
+
           poolVP[[paste0(cmtt, "_AL")]][whichaboveloweer]  <- TRUE
 
 
           if(time_compteur == T) poolVP_compteur_new <- poolVP_compteur_new %>%
             mutate( ninfo = if_else(is.na(poolVP_compteur_new$ninfo),0,poolVP_compteur_new$ninfo)+  length(whichaboveloweer))
-          # poolVP %>% slice(whichaboveloweer) %>% filter(is.na(tumVol_AL))
+
+
+          pos_above[[cmtt]] <- bind_rows(pos_above[[cmtt]], line %>% select(!!!parse_exprs(all_param[all_param != "protocol"])))
         } # end if ab_low == T
+
+
 
         if(be_up == TRUE &  paste0(cmtt, "_BU") %in% currentlyna$key){
 
@@ -528,14 +605,14 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
           whichbelowupper <- eval(parse_expr(test_below_upper_lim))
 
-          # poolVP %>%
-          #   slice(whichbelowupper) %>%
-          #   filter(is.na(tumVol_BU))
+
 
           poolVP[[paste0(cmtt, "_BU")]][whichbelowupper]  <- TRUE
 
           if(time_compteur == T) poolVP_compteur_new <- poolVP_compteur_new %>%
             mutate( ninfo = if_else(is.na(poolVP_compteur_new$ninfo),0,poolVP_compteur_new$ninfo)+  length(whichbelowupper))
+
+          pos_below[[cmtt]]  <- bind_rows(pos_below[[cmtt]], line %>% select(!!!parse_exprs(all_param[all_param != "protocol"])))
 
         } # end if be_up == T
 
@@ -548,6 +625,11 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
         siml <- siml %>%
           add_row(cellid = line$cellid, protocol = line$protocol, simul = list(res))
+
+      }else{
+
+        poolVP <- poolVP %>%
+          filter(!cellid %in%cellidtorem)
 
       }
       # if() siml <- tibble(cellid = integer(), protocoles = character(), simul= list())
@@ -580,47 +662,30 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
 
 
-# Handle filter neg above
+# Update filters
 
-print("icii")
+for(a in unique(self$targets$cmt)){
 
+  self$filters_neg_above[[a]] <- bind_rows(self$filters_neg_above[[a]] %>% mutate(PrimFilter = T) , neg_above[[a]] )
+  self$filters_neg_below[[a]] <- bind_rows(self$filters_neg_below[[a]] %>% mutate(PrimFilter = T) , neg_below[[a]] )
+  self$filters_pos_above[[a]] <- bind_rows(self$filters_pos_above[[a]] %>% mutate(PrimFilter = T) , pos_above[[a]] )
+  self$filters_pos_below[[a]] <- bind_rows(self$filters_pos_below[[a]] %>% mutate(PrimFilter = T) , pos_below[[a]] )
 
-newfilnegab <-  poolVPbef %>%
-     filter(cellid %in% above) %>%
-    select( !!!parse_exprs(all_param)) %>%
-    select(-protocol) %>%
-    distinct()
-
-if(is.null(self$filters_neg_above )){
-
-
-  self$filters_neg_above<- newfilnegab
-}else{
-
-
-  self$filters_neg_above <- bind_rows(  self$filters_neg_above, newfilnegab )
 }
 
 
-# Handle filter neg below
+   # bind_rows(self$poolVP, poolVP )
 
-newfilnegbel <-  poolVPbef %>%
-  filter(cellid %in% below) %>%
-  select( !!!parse_exprs(all_param)) %>%
-  select(-protocol) %>%
-  distinct()
-
-if(is.null(self$filters_neg_below )){
-  self$filters_neg_below<- newfilnegbel
-}else{
-
-
-  self$filters_neg_below <- bind_rows(  self$filters_neg_below, newfilnegbel )
-}
 
 # save pooVP
+if(is.null(self$poolVP)){
 
-self$poolVP <- poolVP
+  self$poolVP <- poolVP
+
+}else{
+  self$poolVP <- bind_rows(self$poolVP, poolVP )
+}
+
 
 
 # Fill missing profile if required
@@ -628,6 +693,12 @@ if(fillatend){
 
 print("filling")
   self$fill_simul()
+}
+
+if(reducefilteratend){
+
+  print("filter reduction")
+  self$n_filter_reduc()
 }
   # # Recompute the whole poolVP
 
@@ -678,22 +749,110 @@ VP_proj_creator$set("public", "plot_VP", function(){
 })
 
 
+# make_filters ------------------------------------------------------------
+
+
+VP_proj_creator$set("public", "make_filters", function(cmt = "tumVol"){
+
+  all_param <- names(self$filters_neg_above[[1]])
+  all_param <- all_param[! all_param %in% c("cellid", "rowid", "PrimFilter")]
+
+
+  line_compar <-   paste0("line$", all_param, " == ref$", all_param) %>%
+    paste0(collapse = " & ")
+
+
+  # above
+  line_above <- line_compar
+  line_below <- line_compar
+
+
+  # self$filters_neg_above
+
+  for(a in self$param_increase[[cmt]]){
+
+    line_above <- gsub(paste0(a, " *=="), paste0(a, " >="), line_above)
+    line_below <- gsub(paste0(a, " *=="), paste0(a, " <="), line_below)
+
+  }
+
+
+  for(a in self$param_reduce[[cmt]]){
+
+    line_above <- gsub(paste0(a, " *=="), paste0(a, " <="), line_above)
+    line_below <- gsub(paste0(a, " *=="), paste0(a, " >="), line_below)
+  }
+
+  return(c(above = line_above, below = line_below))
+
+})
+
+
 # plot 2D -----------------------------------------------------------------
 # x = expr(k2)
 # y = expr(lambda0)
-VP_proj_creator$set("public", "plot_2D", function(x, y){
+# toaddneg = VP_df
+VP_proj_creator$set("public", "plot_2D", function(x, y , cmt_green = "tumVol", toaddneg = NULL, plotMain = F, add_point =F , IDref = NULL){
 
   x <- enexpr(x)
   y <-  enexpr(y)
 
- plot_dot <- ggplot()+
-    geom_point(data = self$filters_ab_lo, aes(k2, lambda0), col = "darkgreen") +
-   geom_point(data = self$filters_be_up, aes(k2, lambda0), col = "darkgreen") +
-    geom_point(data = self$filters_neg_above, aes(k2, lambda0), col = "red", alpha = 1)+
-    geom_point(data = self$filters_neg_below, aes(k2, lambda0), col = "red", alpha = 1)+
-   theme_bw()+
-   ggtitle( "VP tested")+
-   theme(plot.title = element_text(hjust = 0.5)); plot_dot
+
+
+  # Apply filter to keep only on plan
+
+  # if( is.null(IDref)) IDref <- sample(  self$poolVP$cellid, size = 1)
+  #
+  # line <- self$poolVP %>%
+  #   filter(cellid == IDref)
+  #
+  # namesparam <- names(line)
+  # namesparam <- namesparam[! namesparam %in% c("rowid", "cellid", "protocol", "simul", deparse(x), deparse(y))]
+  # namesparam <- namesparam[!grepl("(_BU$)|(_AL$)", namesparam)]
+  #
+  # filtre <- line[, namesparam] %>%
+  #   unlist() %>%
+  #   imap_chr(~ paste0(.y, " == " ,.x)) %>%
+  #   paste0(collapse = " & ") %>%
+  #   parse_expr
+  # end apply filter
+
+
+  neg_above <- invoke(self$filters_neg_above, .fn = bind_rows) #%>% filter(!!filtre)
+  neg_below <- invoke(self$filters_neg_below, .fn = bind_rows) #%>% filter(!!filtre)
+  pos_above <- invoke(self$filters_pos_above, .fn = bind_rows) #%>% filter(!!filtre)
+  pos_below <- invoke(self$filters_pos_below, .fn = bind_rows) #%>% filter(!!filtre)
+
+
+
+
+    plot_dot <-
+
+      ggplot()+
+      geom_point(data = pos_above, aes(!!x, !!y), col = "darkgreen") +
+      geom_point(data = pos_below, aes(!!x, !!y), col = "darkgreen") +
+      geom_point(data = neg_below, aes(!!x, !!y), col = "red") +
+      geom_point(data = neg_above , aes(!!x, !!y), col = "red", alpha = 1)+
+      # geom_point(data = self$filters_neg_below, aes(k2, lambda0), col = "red", alpha = 1)+
+      theme_bw()+
+      ggtitle( "VP tested")+
+      theme(plot.title = element_text(hjust = 0.5)); plot_dot
+
+if(!is.null(toaddneg)){
+
+  toaddneg %>%
+    left_join(self$poolVP) %>%
+    filter(is.na(rowid)) -> addneg
+
+  plot_dot <- plot_dot +
+    geom_point(data = addneg, aes(!!x, !!y), col = "red")+
+    geom_point(data = self$poolVP, aes(!!x, !!y), col = "darkgreen")
+
+}
+
+
+    if(add_point == T) plot_dot <-   plot_dot+
+      geom_point(data = self$poolVP, aes(!!x, !!y))
 
  xana <- case_when(deparse(x) %in% self$param_increase$tumVol ~ "inc",
                    deparse(x) %in% self$param_reduce$tumVol ~ "dec",
@@ -705,13 +864,13 @@ VP_proj_creator$set("public", "plot_2D", function(x, y){
                    T ~ "None")
 
 
-  rectangles_above  <- self$filters_neg_above %>%
+  rectangles_above  <- neg_above %>%
     mutate(xmin = case_when(xana == "dec" ~ 0, T ~ !!x),
            xmax = case_when(xana == "dec" ~ !!x, T ~Inf),
            ymin = case_when(yana == "dec" ~ 0, T ~!!y),
            ymax = case_when(yana == "dec" ~ !!y, T ~Inf))
 
-  rectangles_below  <- self$filters_neg_below %>%
+  rectangles_below  <- neg_below %>%
     mutate(xmin = case_when(xana == "inc" ~ 0, T ~ !!x),
            xmax = case_when(xana == "inc" ~ !!x, T ~Inf),
            ymin = case_when(yana == "inc" ~ 0, T ~!!y),
@@ -719,13 +878,13 @@ VP_proj_creator$set("public", "plot_2D", function(x, y){
 
   rectangles <- bind_rows(rectangles_above, rectangles_below)
 
-  rectangles_above_lower <-  self$filters_ab_lo %>%
+  rectangles_above_lower <-  pos_above %>%
           mutate(xmin = case_when(xana == "dec" ~ 0, T ~ !!x),
          xmax = case_when(xana == "dec" ~ !!x, T ~Inf),
          ymin = case_when(yana == "dec" ~ 0, T ~!!y),
          ymax = case_when(yana == "dec" ~ !!y, T ~Inf))
 
-  rectangles_below_upper  <- self$filters_be_up %>%
+  rectangles_below_upper  <- pos_below%>%
     mutate(xmin = case_when(xana == "inc" ~ 0, T ~ !!x),
            xmax = case_when(xana == "inc" ~ !!x, T ~Inf),
            ymin = case_when(yana == "inc" ~ 0, T ~!!y),
@@ -737,6 +896,7 @@ VP_proj_creator$set("public", "plot_2D", function(x, y){
     ggtitle( "zone rejection")
 
 
+
  plot2 <-   plot_dot +
     geom_rect(data = rectangles_below_upper, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), alpha = 0.3,  fill = "darkgreen",  col = "darkgreen")+
    ggtitle( "zone below upper limit")
@@ -745,12 +905,14 @@ VP_proj_creator$set("public", "plot_2D", function(x, y){
     geom_rect(data = rectangles_above_lower, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), alpha = 0.3,  fill = "darkgreen",  col = "darkgreen")+
    ggtitle( "zone above lower limit")
 
- plot_dot +
-   geom_rect(data = rectangles_above_lower, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), alpha = 0.3,  fill = "red",  col = "red")+
-   geom_rect(data = rectangles_below_upper, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), alpha = 0.3,  fill = "blue",  col = "blue")
-   ggtitle( "zone above lower limit")
+ # plot_dot +
+ #   geom_rect(data = rectangles_above_lower, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), alpha = 0.3,  fill = "red",  col = "red")+
+ #   geom_rect(data = rectangles_below_upper, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), alpha = 0.3,  fill = "blue",  col = "blue")
+ #   ggtitle( "zone above lower limit")
 
-#
+if(plotMain == F) return(plot_grid(plot_dot, plot1, plot2, plot3))
+
+
  self$poolVP %>%
    select(!!x, !!y) -> temp
 
@@ -786,19 +948,130 @@ VP_proj_creator$set("public", "plot_2D", function(x, y){
    theme(plot.title = element_text(hjust = 0.5))
 
 
+ if(!is.null(toaddneg)){
+
+
+     plot4 <- plot4 +
+     geom_point(data = addneg, aes(!!x, !!y), col = "red", alpha = 0)+
+     geom_point(data = self$poolVP, aes(!!x, !!y), col = "darkgreen", alpha = 0)
+
+ }
 
 plot_grid(plot4,plot_grid(plot_dot, plot1, plot2, plot3))
 
 })
 
+
+# plot 3 D ----------------------------------------------------------------
+# x = expr(k2)
+# y = expr(lambda0)
+# z = expr(Vd)
+VP_proj_creator$set("public", "plot_3D", function(x, y, z,  toaddneg = NULL,add_point =F ){
+
+  x <- enexpr(x)
+  y <- enexpr(y)
+  z <- enexpr(z)
+
+  neg_above <- invoke(self$filters_neg_above, .fn = bind_rows) #%>% filter(!!filtre)
+  neg_below <- invoke(self$filters_neg_below, .fn = bind_rows) #%>% filter(!!filtre)
+  pos_above <- invoke(self$filters_pos_above, .fn = bind_rows) #%>% filter(!!filtre)
+  pos_below <- invoke(self$filters_pos_below, .fn = bind_rows) #%>% filter(!!filtre)
+
+
+  allpoints <- bind_rows(self$poolVP %>% mutate(test = "Accepted"),
+                         neg_above %>% mutate(test = "Rejected_Above"),
+                         neg_below %>% mutate(test = "Rejected_Below")
+
+                         )
+
+
+ pltly <-  plot_ly()%>%
+    add_markers(type = "scatter3d",
+                mode = "markers",
+                data = allpoints,
+                x = ~lambda0,
+                y = ~k2,
+                z = ~Vd,
+                color = ~test,
+                opacity = 1,
+                colors = c('darkgreen', "orange", 'red'))
+
+
+
+
+
+  # Add above
+
+  # neg_above %>%
+  #   slice(1)
+
+ neg_above %>%
+   mutate(a = pmap(list(k2, lambda0, Vd), function(k2, lambda0, Vd){
+
+     filtrecube <- crossing(k2 = c(0, k2),
+                            lambda0 = c(lambda0, 0.18),
+                            Vd  = c(Vd, 50)) %>%
+                    slice(1,2,6,5,3,4,8,7)
+
+     pltly <<- pltly %>%
+       add_trace(type = 'mesh3d',
+                 data = filtrecube,
+                 x = ~lambda0,
+                 y = ~k2,
+                 z = ~Vd,
+                 i = c(7, 0, 0, 0, 4, 4, 6, 1, 4, 0, 3, 6),
+                 j = c(3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3),
+                 k = c(0, 7, 2, 3, 6, 7, 1, 6, 5, 5, 7, 2),
+                 facecolor = rep("orange", 12),
+                 opacity = 0.4
+       )
+
+     "r"
+
+   }))
+
+ # Add below
+
+
+ neg_below %>%
+   mutate(a = pmap(list(k2, lambda0, Vd), function(k2, lambda0, Vd){
+
+     filtrecube <- crossing(k2 = c(k2, 3),
+                            lambda0 = c(0,  lambda0),
+                            Vd  = c(0, Vd)) %>%
+       slice(1,2,6,5,3,4,8,7)
+
+
+     pltly <<- pltly %>%
+ add_trace(type = 'mesh3d',
+           data = filtrecube,
+           x = ~lambda0,
+           y = ~k2,
+           z = ~Vd,
+           i = c(7, 0, 0, 0, 4, 4, 6, 1, 4, 0, 3, 6),
+           j = c(3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3),
+           k = c(0, 7, 2, 3, 6, 7, 1, 6, 5, 5, 7, 2),
+           facecolor = rep("red", 12),
+           opacity = 0.4
+ )
+ "r"
+
+   }))
+
+
+
+print(pltly)
+"Done"
+
+})
 # filter reduc -----------------------------------------------------------------
 
 
 VP_proj_creator$set("public", "n_filter_reduc", function(){
 
 
-  all_param <- names(self$filters_neg_above)
-  all_param <- all_param[! all_param %in% c("cellid", "rowid")]
+  all_param <- names(self$filters_neg_above[[1]])
+  all_param <- all_param[! all_param %in% c("cellid", "rowid", "PrimFilter")]
 
 
   line_compar <-   paste0("line$", all_param, " == ref$", all_param) %>%
@@ -806,12 +1079,12 @@ VP_proj_creator$set("public", "n_filter_reduc", function(){
 
 # Handle negative above
 
-
+for(cmtt in unique((self$targets$cmt))){
 
 line_above_reject <- line_compar
 line_above_rem_filtre_pre <- line_compar
 
-for(a in self$param_increase$tumVol){
+for(a in self$param_increase[[cmtt]]){
 
   line_above_reject <- gsub(paste0(a, " *=="), paste0(a, " >="), line_above_reject)
   line_above_rem_filtre_pre <- gsub(paste0(a, " *=="), paste0(a, " <="), line_above_rem_filtre_pre)
@@ -819,23 +1092,26 @@ for(a in self$param_increase$tumVol){
 }
 
 
-for(a in self$param_reduce$tumVol){
+for(a in self$param_reduce[[cmtt]]){
 
   line_above_reject <- gsub(paste0(a, " *=="), paste0(a, " <="), line_above_reject)
   line_above_rem_filtre_pre <- gsub(paste0(a, " *=="), paste0(a, " >="), line_above_rem_filtre_pre)
 }
 
-self$filters_neg_above <- self$filters_neg_above %>%
+filters_neg_above_temp <- self$filters_neg_above[[cmtt]] %>%
   select(-starts_with("rowid")) %>%
   rowid_to_column()
 
-list_filter <- list(self$filters_neg_above %>%
-  slice(1))
+filters_neg_above_temp$PrimFilter[[1]] <- T
+
+list_filter <- filters_neg_above_temp %>%
+  filter(PrimFilter == T) %>%
+  group_split(rowid)
 # a <- a + 1
-for(a in 2:nrow( self$filters_neg_above)){
+for(a in filters_neg_above_temp %>% filter(is.na(PrimFilter)) %>% pull(rowid)){
 # print(a)
 
-line <-  self$filters_neg_above %>%
+line <- filters_neg_above_temp %>%
         filter(rowid == a);line
 
 # test if to add
@@ -863,7 +1139,7 @@ line <-  self$filters_neg_above %>%
 # print("ici?")
 }
 
-self$filters_neg_above <- invoke(bind_rows, list_filter)
+self$filters_neg_above[[cmtt]] <- reduce(list_filter, bind_rows) %>% select(-rowid) %>% mutate(PrimFilter = T)
 
 
 # Handle negative below
@@ -873,7 +1149,7 @@ self$filters_neg_above <- invoke(bind_rows, list_filter)
 line_below_reject <- line_compar
 line_below_rem_filtre_pre <- line_compar
 
-for(a in self$param_increase$tumVol){
+for(a in self$param_increase[[cmtt]]){
 
   line_below_reject <- gsub(paste0(a, " *=="), paste0(a, " <="), line_below_reject)
   line_below_rem_filtre_pre <- gsub(paste0(a, " *=="), paste0(a, " >="), line_below_rem_filtre_pre)
@@ -881,23 +1157,27 @@ for(a in self$param_increase$tumVol){
 }
 
 
-for(a in self$param_reduce$tumVol){
+for(a in self$param_reduce[[cmtt]]){
 
   line_below_reject <- gsub(paste0(a, " *=="), paste0(a, " >="), line_below_reject)
   line_below_rem_filtre_pre <- gsub(paste0(a, " *=="), paste0(a, " <="), line_below_rem_filtre_pre)
 }
 
-self$filters_neg_below <- self$filters_neg_below %>%
+filters_neg_below_temp  <- self$filters_neg_below[[cmtt]] %>%
   select(-starts_with("rowid")) %>%
   rowid_to_column()
 
-list_filter <- list(self$filters_neg_below %>%
-                      slice(1))
-# a <- a + 1
-for(a in 2:nrow( self$filters_neg_below)){
+filters_neg_below_temp$PrimFilter[[1]] <- T
+
+list_filter <- filters_neg_below_temp %>%
+  filter(PrimFilter == T) %>%
+  group_split(rowid)
+
+  # a <- a + 1
+for(a in filters_neg_below_temp %>% filter(is.na(PrimFilter)) %>% pull(rowid)){
   # print(a)
 
-  line <-  self$filters_neg_below %>%
+  line <-  filters_neg_below_temp %>%
     filter(rowid == a);line
 
   # test if to add
@@ -925,17 +1205,16 @@ for(a in 2:nrow( self$filters_neg_below)){
   # print("ici?")
 }
 
-self$filters_neg_below <- invoke(bind_rows, list_filter)
+self$filters_neg_below[[cmtt]] <- reduce(list_filter, bind_rows) %>% select(-rowid) %>% mutate(PrimFilter = T)
 
-
-# filter above low
+# filter pos above <low
 
 
 
 line_above_reject <- line_compar
 line_above_rem_filtre_pre <- line_compar
 
-for(a in self$param_increase$tumVol){
+for(a in self$param_increase[[cmtt]]){
 
   line_above_reject <- gsub(paste0(a, " *=="), paste0(a, " >="), line_above_reject)
   line_above_rem_filtre_pre <- gsub(paste0(a, " *=="), paste0(a, " <="), line_above_rem_filtre_pre)
@@ -943,24 +1222,30 @@ for(a in self$param_increase$tumVol){
 }
 
 
-for(a in self$param_reduce$tumVol){
+for(a in self$param_reduce[[cmtt]]){
 
   line_above_reject <- gsub(paste0(a, " *=="), paste0(a, " <="), line_above_reject)
   line_above_rem_filtre_pre <- gsub(paste0(a, " *=="), paste0(a, " >="), line_above_rem_filtre_pre)
 }
 
-self$filters_ab_lo  <- self$poolVP %>%
+filters_pos_above_temp  <- self$filters_pos_above[[cmtt]] %>%
   select(-starts_with("rowid")) %>%
-  rowid_to_column() %>%
-  select(-simul)
+  rowid_to_column()
 
-list_filter <- list(self$filters_ab_lo %>%
-                      slice(1))
+
+
+filters_pos_above_temp$PrimFilter[[1]] <- T
+
+
+list_filter <- filters_pos_above_temp %>%
+                      filter(PrimFilter == T) %>%
+                     group_split(rowid)
+###
 # a <- a + 1
-for(a in 2:nrow( self$filters_ab_lo)){
+for(a in filters_pos_above_temp %>% filter(is.na(PrimFilter)) %>% pull(rowid)){
   # print(a)
 
-  line <-  self$filters_ab_lo %>%
+  line <-  filters_pos_above_temp %>%
     filter(rowid == a);line
 
   # test if to add
@@ -988,14 +1273,14 @@ for(a in 2:nrow( self$filters_ab_lo)){
   # print("ici?")
 }
 
-self$filters_ab_lo <- invoke(bind_rows, list_filter)
+self$filters_pos_above[[cmtt]] <-reduce(list_filter, bind_rows) %>% select(-rowid) %>% mutate(PrimFilter = T)
 
-# handle below up
+# handle pos belw
 
 line_below_reject <- line_compar
 line_below_rem_filtre_pre <- line_compar
 
-for(a in self$param_increase$tumVol){
+for(a in self$param_increase[[cmtt]]){
 
   line_below_reject <- gsub(paste0(a, " *=="), paste0(a, " <="), line_below_reject)
   line_below_rem_filtre_pre <- gsub(paste0(a, " *=="), paste0(a, " >="), line_below_rem_filtre_pre)
@@ -1003,24 +1288,30 @@ for(a in self$param_increase$tumVol){
 }
 
 
-for(a in self$param_reduce$tumVol){
+for(a in self$param_reduce[[cmtt]]){
 
   line_below_reject <- gsub(paste0(a, " *=="), paste0(a, " >="), line_below_reject)
   line_below_rem_filtre_pre <- gsub(paste0(a, " *=="), paste0(a, " <="), line_below_rem_filtre_pre)
 }
 
-self$filters_be_up <- self$poolVP %>%
+filters_pos_below_temp  <- self$filters_pos_below[[cmtt]] %>%
   select(-starts_with("rowid")) %>%
-  rowid_to_column() %>%
-  select(-simul)
+  rowid_to_column()
 
-list_filter <- list(self$filters_be_up %>%
-                      slice(1))
+
+
+filters_pos_below_temp$PrimFilter[[1]] <- T
+
+
+list_filter <- filters_pos_below_temp %>%
+                      filter(PrimFilter == T) %>%
+                      group_split(rowid)
+###
 # a <- a + 1
-for(a in 2:nrow( self$filters_be_up)){
+for(a in filters_pos_below_temp %>% filter(is.na(PrimFilter)) %>% pull(rowid)){
   # print(a)
 
-  line <-  self$filters_be_up %>%
+  line <- filters_pos_below_temp %>%
     filter(rowid == a);line
 
   # test if to add
@@ -1048,10 +1339,10 @@ for(a in 2:nrow( self$filters_be_up)){
   # print("ici?")
 }
 
-self$filters_be_up <- invoke(bind_rows, list_filter)
+self$filters_pos_below[[cmtt]] <- reduce(list_filter, bind_rows) %>% select(-rowid) %>% mutate(PrimFilter = T)
 
 
-
+}
 
 
 })

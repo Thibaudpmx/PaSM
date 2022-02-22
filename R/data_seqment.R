@@ -82,7 +82,7 @@ data_segment_plot <- function(data, targets,  filter = NULL){
 
 
   data %>%
-    filter(cmt %in% targets$cmt) %>%
+    filter(cmt %in%  unique(targets$cmt) & protocol %in% unique(targets$protocol)) %>%
     ggplot()+
     geom_line(aes(time, OBS, group = ID)) +
     facet_wrap(cmt~protocol, scales = "free")+
