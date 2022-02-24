@@ -18,16 +18,15 @@ VP_proj_creator <- R6Class("VT",
   public = list( model = NULL,
 
   param = NULL,
-  # targets = NULL,
-  filters_neg_above = NULL,
-  filters_neg_below = NULL,
+  filters_neg_above = tibble(),
+  filters_neg_below  = tibble(),
   filters_pos_above = NULL,
   filters_pos_below = NULL,
   data = NULL,
   parameters_default_values = NULL,# c(psi = 20) # paremeters value to be used by default (NA if you want to force providing value)
   initial_cmt_values = NULL, #c(X1 = 50) # initial compartment values. At least one, and every missing cmt name would be set to 0
   times = NULL, #seq(0,52, 1)
-  poolVP = NULL,
+  poolVP = tibble(),
   protocols = NULL,
   param_reduce = NULL,
   param_increase = NULL,
@@ -107,11 +106,8 @@ print( as.data.frame(targets))
 
     for(a in unique(targets$cmt))  filters_list[[a]] <- tibble()
 
-
-    self$filters_neg_above[[a]]  <- tibble()
-    self$filters_neg_below[[a]]  <- tibble()
-    self$filters_pos_above[[a]]  <- tibble()
-    self$filters_pos_below[[a]]  <- tibble()
+    self$filters_pos_above  <- filters_list
+    self$filters_pos_below  <- filters_list
 
 
 
@@ -144,10 +140,10 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
   self$targets %>%
     filter(protocol %in% unique(poolVP$protocol)) %>%
     pull(cmt) %>%
-    unique -> col_to_add
+    unique -> cmts
 
-  col_to_add <- c(paste0(col_to_add, "_BU"),
-                  paste0(col_to_add, "_AL"))
+  col_to_add <- c(paste0(cmts, "_BU"),
+                  paste0(cmts, "_AL"))
 
   for(a in col_to_add) poolVP[a] <- NA
 
@@ -158,40 +154,50 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
     t0 <- Sys.time()
     nbef <- nrow(poolVP)
   }
-  for(cmt in "tumVol"){
+
+  # remove filter neg
+
+  if(nrow(self$filters_neg_above) > 0){
+
+    # remove neg_above
+    # temp <-  self$filters_neg_above[[cmt]]
+    # filter_temp <- paste("!(", filter_template[[1]], ")")
+    # if(nrow(temp) > 0){
+    #   for(a in 1:nrow(temp)){
+    #
+    #     ref <-temp %>% slice(a)
+    #
+    #     poolVP <- poolVP %>%
+    #       filter(!!parse_expr(filter_temp))
+    #
+    #   }
+    # }
+    # # remove neg_below
+    # temp <-  self$filters_neg_below[[cmt]]
+    # filter_temp <- paste("!(", filter_template[[2]], ")")
+    # if(nrow(temp) > 0){
+    #   for(a in 1:nrow(temp)){
+    #
+    #     ref <-temp %>% slice(a)
+    #
+    #     poolVP <- poolVP %>%
+    #       filter(!!parse_expr(filter_temp))
+    #
+    #   }
+    # }
+    # poolVP <- poolVP %>%
+    #   select(-rowid) %>%
+    #   rowid_to_column()
+
+  }
+
+  # rm filter pos
+  for(cmt in cmts){
 
     filter_template <- self$make_filters(cmt)%>%
       gsub(pattern = "line\\$", replacement = "")
 
-    # remove neg_above
-    temp <-  self$filters_neg_above[[cmt]]
-    filter_temp <- paste("!(", filter_template[[1]], ")")
-    if(nrow(temp) > 0){
-      for(a in 1:nrow(temp)){
 
-        ref <-temp %>% slice(a)
-
-        poolVP <- poolVP %>%
-          filter(!!parse_expr(filter_temp))
-
-      }
-    }
-    # remove neg_below
-    temp <-  self$filters_neg_below[[cmt]]
-    filter_temp <- paste("!(", filter_template[[2]], ")")
-    if(nrow(temp) > 0){
-      for(a in 1:nrow(temp)){
-
-        ref <-temp %>% slice(a)
-
-        poolVP <- poolVP %>%
-          filter(!!parse_expr(filter_temp))
-
-      }
-    }
-    poolVP <- poolVP %>%
-      select(-rowid) %>%
-      rowid_to_column()
 
     # set pos abov
     temp <-  self$filters_pos_above[[cmt]]
@@ -233,13 +239,13 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
   }
 
 
-  if(!is.null(self$poolVP$cellid)) poolVP <- poolVP %>%
+  if(nrow(self$poolVP) > 0 ) poolVP <- poolVP %>%
     mutate(cellid = cellid + max(self$poolVP$cellid),
            rowid = rowid + max(self$poolVP$rowid))
 
 
 
-  ### eviter les loupes infinis si un protocole n'as pas d'observion..
+  ### eviter les loupes infinis si un protocole n'as pas d'observion (ex no PK for control PD group)..
 
   if(time_compteur == T) t0 <- Sys.time()
   crossing(protocols = unique(toadd$protocol), cmt =  self$targets %>%
@@ -271,8 +277,15 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
   all_param <- self$param
 
 
-  filters <-   self$make_filters()   %>%
-    gsub(pattern = "line\\$", replacement = "" )
+  filters <-  list()
+
+  for(a in unique(self$targets$cmt)){
+
+    filters[[a]] <- self$make_filters(cmt = a)   %>%
+      gsub(pattern = "line\\$", replacement = "" )
+
+    }
+
 
   # line_compar <- paste0("which(", line_compar,")")
   # saveRDS(object = poolVP, file = gsub("\\.RDS", "_todetermine.RDS", file))
@@ -295,13 +308,6 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
   t00 <- Sys.time()
 
 
-
-
-
-  # poolVPprev <-poolVP
-  # poolVP <- poolVPprev
-
-
   maxinfo <- is.na(poolVP[, col_to_add]) %>% sum
 
   pb <- progress_bar$new(
@@ -318,13 +324,13 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
   for(a in targets$cmt){
 
-    neg_below[[a]] <- slice0
-    neg_above[[a]] <- slice0
     pos_below[[a]] <- slice0
     pos_above[[a]] <- slice0
 
   }
   use_red_filter <- T
+
+  message(green("Start main loop"))
   # begining while lopp----------------------------------------------------------
   while(is.na(poolVP[, col_to_add]) %>% sum > 0){
 
@@ -396,14 +402,13 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
       # mutate(computmodel = as.double(difftime(Sys.time(),b, units = "sec")))
 
 
-    # # get targets for this patients
-    targets_temp <- self$targets #%>%
+
       # filter(protocol %in% line$protocol)
 
 
     remv <- F
     cellidtorem <- double()
-    for(cmtt in unique(self$targets$cmt)){
+
 
       # targets_temp2 <- targets_temp %>%
         # filter(cmt == cmtt, protocol == line$protocol[[1]])
@@ -414,10 +419,16 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
       if(time_compteur == T) t02 <- Sys.time()
 
+
+
+    # # get targets for this patients
+    targets_temp <- self$targets %>%
+      filter(protocol == unique(line$protocol))#%>%
+
       res2 <- res %>%
-        gather("cmt", "value", unique(self$targets$cmt)) %>%
-        filter(time %in% self$targets$time) %>%
-        left_join( self$targets %>% filter(protocol == line$protocol[[1]]), by = c("time", "cmt")) %>%
+        gather("cmt", "value", unique(targets_temp$cmt)) %>%
+        filter(time %in% targets_temp$time) %>%
+        left_join( targets_temp, by = c("time", "cmt")) %>%
         filter(!is.na(min)) %>%
         mutate(be_up = value <= max) %>%
         mutate(ab_low = value >= min)
@@ -446,15 +457,6 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
       # if red filter
       if(time_compteur == T) poolVP_compteur_new[paste0("res2_", cmtt)] <- difftime(Sys.time(), t02, units = "s")
 
-#
-#       pa_in_temp <- self$param_increase[[cmtt]]
-#       pa_in_temp <- pa_in_temp[pa_in_temp %in% all_param]
-#
-#       pa_re_temp <-  self$param_reduce[[cmtt]]
-#       pa_re_temp <- pa_re_temp[pa_re_temp %in% all_param]
-#
-#       pa_ni_temp <-  self$param_no_impact[[cmtt]]
-#       pa_ni_temp <- pa_ni_temp[pa_ni_temp %in% all_param]
 
 ##### Remove patients neg  and compute red filters if activated ########
       # lines output neg_ below
@@ -464,16 +466,21 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
       res2 %>%
         filter(ab_low == 0) %>%
-        group_by(id) %>%
-        slice(1) %>% pull(id) -> idsbelow
+        group_by(id, cmt) %>%
+        slice(1) %>% ungroup() -> idsbelow
 
-      line %>% filter(id %in% idsbelow) -> filters_neg_below
+      filters_neg_below <- idsbelow %>%
+        left_join(line,by = c("id", "protocol")) %>%
+        select(!!!parse_exprs(all_param), "cmt","cellid")
 
+      if(nrow(filters_neg_below) > 0){
       filters_neg_below_up_reduc <- filter_reduc(filters_neg_below %>%
-                                                   arrange(k2, desc(lambda0)), filters[["below"]])
+                                                   arrange(k2, desc(lambda0)),obj = self, direction = "below")
 
+      }else{
 
-      neg_below[[cmtt]] <- bind_rows(neg_below[[cmtt]], filters_neg_below_up_reduc[names(pos_below[[1]])])
+        filters_neg_below_up_reduc <- filters_neg_below
+      }
 
       if(time_compteur == T){
         poolVP_compteur_new$filter_neg_below <- difftime(Sys.time(), t02, units = "s")
@@ -491,16 +498,21 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
       res2 %>%
         filter(be_up == 0) %>%
-        group_by(id) %>%
-        slice(1) %>% pull(id) ->idsabove
+        group_by(id, cmt) %>%
+        slice(1) %>% ungroup() ->idsabove
 
-      line %>% filter(id %in% idsabove) -> filters_neg_above
 
+      filters_neg_above <-  idsabove %>%
+        left_join(line,by = c("id", "protocol")) %>%
+        select(!!!parse_exprs(all_param), "cmt" , "cellid")
+
+      if(nrow(filters_neg_above) > 0){
       filters_neg_above_reduc <- filter_reduc(filters_neg_above %>%
-                                                arrange(desc(k2), lambda0), filters[["above"]])
+                                                arrange(desc(k2), lambda0),obj = self, direction =  "above")
+      }else{
 
-
-      neg_above[[cmtt]] <- bind_rows(neg_above[[cmtt]], filters_neg_above_reduc[names(neg_above[[1]])])
+        filters_neg_above_reduc <- filters_neg_above
+      }
 
        if(time_compteur == T){
         poolVP_compteur_new$filter_neg_above <- difftime(Sys.time(), t02, units = "s")
@@ -533,7 +545,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
           ref <- filters_neg_above_reduc %>% slice(a)
 
           poolVP <- poolVP %>%
-            mutate(test = !!parse_expr(filters[["above"]])) %>%
+            mutate(test = !!parse_expr(filters[[ref$cmt]][["above"]])) %>%
             filter(test == F)
         }
       }
@@ -550,7 +562,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
           ref <- filters_neg_below_up_reduc %>% slice(a)
 
           poolVP <- poolVP %>%
-            mutate(test = !!parse_expr(filters[["below"]])) %>%
+            mutate(test = !!parse_expr(filters[[ref$cmt]][["below"]])) %>%
             filter(test == F)
         }
       }
@@ -581,12 +593,16 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 }
       }
   # gree filter --------------------------------------------------------------
+
+
+
       if(use_green_filter == F | nrow(res2 %>% filter(be_up == T & ab_low== T)) < pctActivGreen * nrow(res2)  ){
+
 
         if(time_compteur == T) t02 <- Sys.time()
 
-        self$targets %>%
-          filter(protocol == unique(line$protocol), cmt == cmtt) %>%
+       targets_temp %>%
+          # filter(protocol == unique(line$protocol), cmt == cmtt) %>%
           pull(time) %>% length -> nmax
 
 
@@ -603,8 +619,8 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
         line %>% filter(id %in% idsgood) %>% pull(cellid) -> idsgood
 
-        poolVP$tumVol_AL[poolVP$cellid %in% idsgood & poolVP$protocol == unique(line$protocol)] <- T
-        poolVP$tumVol_BU[poolVP$cellid %in% idsgood & poolVP$protocol == unique(line$protocol)] <- T
+        poolVP[poolVP$cellid %in% idsgood & poolVP$protocol == unique(line$protocol), col_to_add     ] <- T
+
 
         if(time_compteur == T)  poolVP_compteur_new$time_addgreennofil <- difftime(Sys.time(), t02, units = "s")
 
@@ -632,9 +648,9 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
 
 
-      }else
-        {
+      }else {
 
+    for(cmtt in unique(self$targets$cmt)){
       if(time_compteur == T){
 
         befusegreen <-   poolVP %>%
@@ -662,9 +678,9 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
           slice(1) %>% pull(id) -> idsbelowpos
 
         line %>% filter(id %in% idsbelowpos) -> filters_pos_below_up
-
+        filters_pos_below_up$cmt = cmtt
         filters_pos_below_up_reduc <- filter_reduc(filters_pos_below_up %>%
-                                                     arrange(k2, desc(lambda0)), filters[["below"]])
+                                                     arrange(k2, desc(lambda0)), filtre =  "below")
 
         pos_below[[cmtt]] <- bind_rows(pos_below[[cmtt]], filters_pos_below_up_reduc[names(pos_below[[1]])])
 
@@ -692,8 +708,10 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
         line %>% filter(id %in% idsabovepos) -> filters_ps_above_lo
 
+        filters_ps_above_lo$cmt = cmtt
+
         filters_ps_above_lo_reduc <- filter_reduc(filters_ps_above_lo%>%
-                                                    arrange(desc(k2), lambda0), filters[["above"]])
+                                                    arrange(desc(k2), lambda0), filtre = "above")
 
 
         pos_above[[cmtt]] <- bind_rows(pos_above[[cmtt]], filters_ps_above_lo_reduc[names(pos_above[[1]])])
@@ -718,7 +736,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
             ref <- filters_ps_above_lo_reduc %>% slice(a)
 
             poolVP %>%
-              mutate(test = !!parse_expr(filters[["above"]])) %>%
+              mutate(test = !!parse_expr(filters[[ref$cmt]][["above"]])) %>%
               filter(test == T) %>% pull(cellid) -> id_temp
 
             poolVP$tumVol_AL[poolVP$cellid %in% id_temp & poolVP$protocol == unique(line$protocol)] <- T
@@ -742,7 +760,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
             ref <- filters_pos_below_up_reduc %>% slice(a)
 
             poolVP %>%
-              mutate(test = !!parse_expr(filters[["below"]])) %>%
+              mutate(test = !!parse_expr(filters[[ref$cmt]][["below"]])) %>%
               filter(test == T) %>% pull(cellid) -> id_temp
 
             poolVP$tumVol_BU[poolVP$cellid %in% id_temp & poolVP$protocol == unique(line$protocol)] <- T
@@ -832,12 +850,16 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
   if(time_compteur == T)  t02 <- Sys.time()
   for(a in unique(self$targets$cmt)){
 
-    self$filters_neg_above[[a]] <- bind_rows(self$filters_neg_above[[a]] %>% mutate(PrimFilter = T) , neg_above[[a]] )
-    self$filters_neg_below[[a]] <- bind_rows(self$filters_neg_below[[a]] %>% mutate(PrimFilter = T) , neg_below[[a]] )
-    self$filters_pos_above[[a]] <- bind_rows(self$filters_pos_above[[a]] %>% mutate(PrimFilter = T) , pos_above[[a]] )
+  self$filters_pos_above[[a]] <- bind_rows(self$filters_pos_above[[a]] %>% mutate(PrimFilter = T) , pos_above[[a]] )
     self$filters_pos_below[[a]] <- bind_rows(self$filters_pos_below[[a]] %>% mutate(PrimFilter = T) , pos_below[[a]] )
 
   }
+
+
+  self$filters_neg_above <- bind_rows(self$filters_neg_above %>% mutate(PrimFilter = T) , filters_neg_above_reduc )
+  self$filters_neg_below <- bind_rows(self$filters_neg_below %>% mutate(PrimFilter = T) , filters_neg_below_up_reduc )
+
+
   if(time_compteur == T)  timesaver$updatefilters <- difftime(Sys.time(), t02, units = "s")
 
 
@@ -871,572 +893,6 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
 })
 
-#
-# VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F){
-#
-#   # protocols = self$protocols
-#
-#   toadd <- VP_df
-#
-#   poolVP <-     VP_df %>%
-#     rowid_to_column("cellid") %>%
-#     crossing(protocol = unique(self$targets$protocol)) %>%
-#     rowid_to_column("rowid")
-#
-#
-#
-#
-#
-#   #
-# #   poolVP %>%
-# #     filter(round(k2,1) == 1.2 & round(lambda0,2) == 0.07)
-#
-#   # Add the columns for each output
-#   self$targets %>%
-#     filter(protocol %in% unique(poolVP$protocol)) %>%
-#     pull(cmt) %>%
-#     unique -> col_to_add
-#
-#   col_to_add <- c(paste0(col_to_add, "_BU"),
-#                   paste0(col_to_add, "_AL"))
-#
-#   for(a in col_to_add) poolVP[a] <- NA
-#
-#
-#   ## Apply the filters
-#
-#   for(cmt in "tumVol"){
-#
-#     filter_template <- self$make_filters(cmt)%>%
-#       gsub(pattern = "line\\$", replacement = "")
-#
-#     # remove neg_above
-#     temp <-  self$filters_neg_above[[cmt]]
-#     filter_temp <- paste("!(", filter_template[[1]], ")")
-#     if(nrow(temp) > 0){
-#     for(a in 1:nrow(temp)){
-#
-#       ref <-temp %>% slice(a)
-#
-#       poolVP <- poolVP %>%
-#         filter(!!parse_expr(filter_temp))
-#
-#     }
-#     }
-#     # remove neg_below
-#     temp <-  self$filters_neg_below[[cmt]]
-#     filter_temp <- paste("!(", filter_template[[2]], ")")
-#     if(nrow(temp) > 0){
-#     for(a in 1:nrow(temp)){
-#
-#       ref <-temp %>% slice(a)
-#
-#       poolVP <- poolVP %>%
-#         filter(!!parse_expr(filter_temp))
-#
-#     }
-# }
-#     poolVP <- poolVP %>%
-#       select(-rowid) %>%
-#       rowid_to_column()
-#
-#     # set pos abov
-#     temp <-  self$filters_pos_above[[cmt]]
-#     filter_temp <- paste("(", filter_template[[1]], ")")
-#     if(nrow(temp) > 0){
-#     for(a in 1:nrow(temp)){
-#
-#       ref <-temp %>% slice(a)
-#
-#       poolVP %>%
-#         filter(!!parse_expr(filter_temp)) %>%
-#         pull(rowid) ->rowidstemp
-#
-#       poolVP[[paste0(cmt, "_AL")]][rowidstemp] <- rep(T, length(rowidstemp))
-#
-#     }
-# }
-#     # set pos below
-#     temp <-  self$filters_pos_below[[cmt]]
-#     filter_temp <- paste("(", filter_template[[2]], ")")
-#
-#     if(nrow(temp) > 0){
-#     for(a in 1:nrow(temp)){
-#
-#       ref <-temp %>% slice(a)
-#
-#       poolVP %>%
-#         filter(!!parse_expr(filter_temp)) %>%
-#         pull(rowid) ->rowidstemp
-#
-#       poolVP[[paste0(cmt, "_BU")]][rowidstemp] <- T
-#
-#     }
-# }
-#   }
-#
-#
-#
-#  if(!is.null(self$poolVP$cellid)) poolVP <- poolVP %>%
-#     mutate(cellid = cellid + max(self$poolVP$cellid),
-#              rowid = rowid + max(self$poolVP$rowid))
-#
-#
-#
-#   ### eviter les loupes infinis si un protocole n'as pas d'observion..
-#   crossing(protocols = unique(toadd$protocol), cmt =  self$targets %>%
-#              filter(protocol %in% unique(poolVP$protocol)) %>%
-#              pull(cmt) %>%
-#              unique) %>%
-#     full_join(self$targets) %>%
-#     filter(is.na(time)) -> torem
-#
-#   if(nrow(torem)>0){
-#
-#     for(a in 1:nrow(torem)){
-#
-#       cmt_to_rm <- torem$cmt[[a]]
-#       pro <- torem$protocol[[a]]
-#
-#       poolVP[[paste0(cmt_to_rm,"_BU")]][poolVP$protocol == pro] <- FALSE
-#       poolVP[[paste0(cmt_to_rm,"_AL")]][poolVP$protocol == pro] <- FALSE
-#     }
-#
-#   }
-#
-#
-#
-#
-#   # Handling death and survival agents, to greatly accelerate the process
-#   all_param <- names(poolVP)
-#   all_param <- all_param[! all_param %in% c("cellid", "rowid",col_to_add)]
-#
-#
-#   line_compar <-   paste0("poolVP$", all_param, " == line$", all_param) %>%
-#     paste0(collapse = " & ")
-#   # line_compar <- paste0("which(", line_compar,")")
-#   # saveRDS(object = poolVP, file = gsub("\\.RDS", "_todetermine.RDS", file))
-#
-#
-#   # Time compteur
-#
-#   if(time_compteur == T){
-#
-#     poolVP_compteur <- tibble(n = NA, time  = NA, nelim =NA, ninfo =NA_real_, computmodel = NA)
-#     n_compteur <- 0
-#   }
-#
-#
-#
-#   siml <- tibble(cellid = integer(), protocol = character(), simul= list())
-#   # just in case we never enter into the loop (if already filled, almost always useless)
-#
-#   ntotal <- nrow(poolVP)
-#   t00 <- Sys.time()
-#
-#
-#
-#
-#
-#   # poolVPprev <-poolVP
-#   # poolVP <- poolVPprev
-#
-#
-#   maxinfo <- is.na(poolVP[, col_to_add]) %>% sum
-#
-#   pb <- progress_bar$new(
-#     format = "  VP creation [:bar] :current/:total (:percent) in :elapsed",
-#     total = maxinfo, clear = FALSE, width= 60)
-#   # pb <- progress_bar$new(total = )
-#
-#
-#
-#   slice0 <- poolVP   %>% slice(0) %>% select(!!!parse_exprs(all_param[all_param != "protocol"])) # filre_neg_above
-#
-#   neg_below <- neg_above <-  pos_below <- pos_above <- list() # filtre_neg_below
-#
-#
-#   for(a in targets$cmt){
-#
-#     neg_below[[a]] <- slice0
-#     neg_above[[a]] <- slice0
-#     pos_below[[a]] <- slice0
-#     pos_above[[a]] <- slice0
-#
-#     }
-#
-#     # begining while lopp----------------------------------------------------------
-#     while(is.na(poolVP[, col_to_add]) %>% sum > 0){
-#
-#       newratio <- is.na(poolVP[, col_to_add]) %>% sum
-#       pb$update(ratio = (maxinfo -newratio )/maxinfo)
-#
-#       if(time_compteur == T){
-#
-#         n_compteur <- n_compteur + 1
-#
-#         poolVP_compteur_new <- poolVP_compteur %>%
-#           slice(1) %>%
-#           mutate(n = n_compteur)
-#       }
-#
-#       # Just compute some stat...
-#       t0 <- Sys.time()
-#
-#
-#       # Sample one rows among the not done yet
-#
-#       # filter =  # which(is.na(poolVP[, col_to_add]) %>% apply(1, sum) != 0 )
-#
-#       filter_to_use <-  paste0("is.na(", col_to_add,")") %>%
-#         paste0(collapse = "|")
-#
-#       line <- poolVP %>%
-#         filter(!!parse_expr(filter_to_use)) %>%
-#         sample_n(1)
-#
-#
-#       # Now we need to handle the administrations
-#       # by making a temporar copy
-#       protocol  <- self$protocols[[line$protocol]]
-#
-#       # add_events_line$amt[is.na(add_events_line$amt )] <- 0
-#
-#       # And now we can make the simulation and extract the result !
-#
-#       b <- Sys.time()
-#       res <- simulations(ind_param = line, add_events = protocol, returnSim = T,
-#                          icmt = self$initial_cmt_values, time_vec =self$times,
-#                          pardf = self$parameters_default_values, model = self$model);res
-#
-#       if(time_compteur == T) poolVP_compteur_new <- poolVP_compteur_new %>%
-#         mutate(computmodel = as.double(difftime(Sys.time(),b, units = "sec")))
-#
-#
-#       # get targets for this patients
-#       targets_temp <- self$targets %>%
-#         filter(protocol %in% line$protocol)
-#
-#       # Now let's see if we can extrapolate some other results
-#       # cmtt <- "tumVol"
-#       # cmtt <- "Conc"
-#       cmt_to_update <- unique(targets_temp$cmt)
-#
-#       line %>%
-#         gather("key", "value") %>%
-#         filter(is.na(value)) -> currentlyna
-#
-#       cmt_to_update <- cmt_to_update[cmt_to_update %in% gsub("(_AL$)|(_BU$)", "", currentlyna$key)]
-#
-#       remv <- F
-#       cellidtorem <- double()
-#       for(cmtt in cmt_to_update){
-#
-#         targets_temp2 <- targets_temp %>%
-#           filter(cmt == cmtt)
-#         # below upper?
-#         res %>%
-#           filter(time %in% targets_temp2$time) %>%
-#           pull(!!parse_expr(cmtt)) -> values
-#
-#         be_up <- if_else(min(values <= targets_temp2$max) == 0, F, T);be_up
-#         ab_low <-  if_else(min(values >= targets_temp2$min) == 0, F, T);ab_low
-#
-#         pa_in_temp <- self$param_increase[[cmtt]]
-#         pa_in_temp <- pa_in_temp[pa_in_temp %in% all_param]
-#
-#         pa_re_temp <-  self$param_reduce[[cmtt]]
-#         pa_re_temp <- pa_re_temp[pa_re_temp %in% all_param]
-#
-#         pa_ni_temp <-  self$param_no_impact[[cmtt]]
-#         pa_ni_temp <- pa_ni_temp[pa_ni_temp %in% all_param]
-#
-#
-#         # if the line output are above
-#         if(be_up == F){
-#
-#           # create a copy of the line_compar with everything "=="
-#           reject <- paste0("which(", line_compar,")")
-#
-#           # Then replace "==" by "<=" for survival parameters
-#           for(a in pa_in_temp){
-#
-#             reject <- gsub(paste0(a, " *=="), paste0(a, " >= "), reject)%>%
-#               gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
-#
-#
-#           }
-#
-#           # Then replace "==" by ">=" for survival parameters
-#           for(a in pa_re_temp){
-#
-#             reject <- gsub(paste0(a, " *=="), paste0(a, " <= "), reject)%>%
-#               gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
-#
-#
-#           }
-#
-#           for(a in pa_ni_temp){
-#
-#             reject <-
-#               gsub(paste0("&? * poolVP\\$", a, " *== *line\\$",a),"", reject)
-#           }
-#
-#           reject <- gsub("line\\$protocol",  paste0("\"", line$protocol,"\""), reject)
-#
-#           # Compute the test
-#           reject_eval <- eval(parse_expr(reject))
-#           cellidtorem_above <- poolVP[reject_eval, "cellid"]$cellid
-#
-#           cellidtorem <- c(cellidtorem, cellidtorem_above)
-#           remv <- T
-#           # print(paste0(length(cellidtorem), " cells removed"))
-#
-#           if(time_compteur == T) poolVP_compteur_new <- poolVP_compteur_new %>%
-#             mutate(nelim = length(cellidtorem))
-#
-#           neg_above[[cmtt]] <- bind_rows(neg_above[[cmtt]], line %>% select(!!!parse_exprs(all_param[all_param != "protocol"])))
-#           ### if the line output is survival
-#         }
-#
-#
-#
-#         if(ab_low == F){
-#
-#
-#
-#           # create a copy of the line_compar with everything "=="
-#           # reject <- paste0(line_compar, "& is.na(poolVP$",    paste0(cmtt, "_AL"),")")
-#           reject <- paste0("which(", line_compar,")")
-#
-#           # Then replace "==" by "<=" for death parameters
-#           for(a in pa_re_temp){
-#
-#
-#             reject <- gsub(paste0(a, " *=="), paste0(a, " >= "), reject)%>%
-#               gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
-#
-#
-#           }
-#
-#           # Then replace "==" by ">=" for survival parameters
-#           for(a in pa_in_temp){
-#
-#             reject <- gsub(paste0(a, " *=="), paste0(a, " <= "), reject)%>%
-#               gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
-#
-#
-#           }
-#
-#
-#
-#           for(a in pa_ni_temp){
-#
-#             reject <-
-#               gsub(paste0("&? * poolVP\\$", a, " *== *line\\$",a),"", reject)
-#           }
-#
-#           reject <- gsub("line\\$protocol",  paste0("\"", line$protocol,"\""), reject)
-#
-#           # Compute the test
-#           reject_eval <- eval(parse_expr(reject))
-#           cellidtorem_below <- poolVP[reject_eval, "cellid"]$cellid
-#
-#           cellidtorem <- c(cellidtorem, cellidtorem_below)
-#           remv <- T
-#           # print(paste0(length(cellidtorem), " cells removed"))
-#
-#           if(time_compteur == T) poolVP_compteur_new <- poolVP_compteur_new %>%
-#             mutate(nelim = length(cellidtorem))
-#
-#
-#           neg_below[[cmtt]] <- bind_rows(neg_below[[cmtt]] , line %>% select(!!!parse_exprs(all_param[all_param != "protocol"])))
-#
-#         } # end if-else
-#
-#
-#
-#
-#
-#
-#
-#
-#         # Now update the lines
-#         if(ab_low == TRUE &   paste0(cmtt, "_AL") %in% currentlyna$key){
-#
-#           # create a copy of the line_compar with everything "=="
-#           test_above_lower_lim <- paste0(line_compar, "& is.na(poolVP$",    paste0(cmtt, "_AL"),")")
-#           test_above_lower_lim <- paste0("which(", test_above_lower_lim,")")
-#
-#           for(a in pa_re_temp){
-#
-#             test_above_lower_lim <- gsub(paste0(a, " *=="), paste0(a, " <= "), test_above_lower_lim)%>%
-#               gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
-#           }
-#
-#           for(a in pa_in_temp){
-#
-#             test_above_lower_lim <- gsub(paste0(a, " *=="), paste0(a, " >= "), test_above_lower_lim)%>%
-#               gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
-#
-#           }
-#
-#           for(a in pa_ni_temp){
-#
-#             test_above_lower_lim  <-
-#               gsub(paste0("&? * poolVP\\$", a, " *== *line\\$",a),"", test_above_lower_lim)
-#           }
-#
-#
-#
-#           whichaboveloweer <- eval(parse_expr(test_above_lower_lim))
-#
-#           poolVP[[paste0(cmtt, "_AL")]][whichaboveloweer]  <- TRUE
-#
-#
-#           if(time_compteur == T) poolVP_compteur_new <- poolVP_compteur_new %>%
-#             mutate( ninfo = if_else(is.na(poolVP_compteur_new$ninfo),0,poolVP_compteur_new$ninfo)+  length(whichaboveloweer))
-#
-#
-#           pos_above[[cmtt]] <- bind_rows(pos_above[[cmtt]], line %>% select(cellid, !!!parse_exprs(all_param[all_param != "protocol"])))
-#         } # end if ab_low == T
-#
-#
-#
-#         if(be_up == TRUE &  paste0(cmtt, "_BU") %in% currentlyna$key){
-#
-#           # create a copy of the line_compar with everything "=="
-#           test_below_upper_lim <- paste0(line_compar, "& is.na(poolVP$",    paste0(cmtt, "_BU"),")")
-#           test_below_upper_lim <- paste0("which(", test_below_upper_lim,")")
-#
-#           # Then replace "==" by "<=" for death parameters
-#           for(a in pa_re_temp){
-#
-#
-#             test_below_upper_lim <- gsub(paste0(a, " *=="), paste0(a, " >= "), test_below_upper_lim)%>%
-#               gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
-#
-#
-#           }
-#
-#           # Then replace "==" by ">=" for survival parameters
-#           for(a in pa_in_temp){
-#
-#             test_below_upper_lim <- gsub(paste0(a, " *=="), paste0(a, " <= "), test_below_upper_lim)%>%
-#               gsub(pattern = paste0("line\\$", a), replacement = line[[a]])
-#
-#
-#           }
-#
-#           for(a in pa_ni_temp){
-#
-#             test_below_upper_lim  <-
-#               gsub(paste0("&? * poolVP\\$", a, " *== *line\\$",a),"", test_below_upper_lim)
-#           }
-#
-#
-#
-#           whichbelowupper <- eval(parse_expr(test_below_upper_lim))
-#
-#
-#
-#           poolVP[[paste0(cmtt, "_BU")]][whichbelowupper]  <- TRUE
-#
-#           if(time_compteur == T) poolVP_compteur_new <- poolVP_compteur_new %>%
-#             mutate( ninfo = if_else(is.na(poolVP_compteur_new$ninfo),0,poolVP_compteur_new$ninfo)+  length(whichbelowupper))
-#
-#           pos_below[[cmtt]]  <- bind_rows(pos_below[[cmtt]], line %>% select(cellid,!!!parse_exprs(all_param[all_param != "protocol"])))
-#
-#         } # end if be_up == T
-#
-#       }# end for each compartment
-#
-#
-#
-#
-#       if(remv == F ){
-#
-#         siml <- siml %>%
-#           add_row(cellid = line$cellid, protocol = line$protocol, simul = list(res))
-#
-#       }else{
-#
-#         poolVP <- poolVP %>%
-#           filter(!cellid %in%cellidtorem)
-#
-#
-#
-#       }
-#       # if() siml <- tibble(cellid = integer(), protocoles = character(), simul= list())
-#
-#       if(time_compteur == T)  poolVP_compteur <- bind_rows(poolVP_compteur,poolVP_compteur_new %>%
-#                                                              mutate(time = as.double(difftime(Sys.time(), t0, units = "sec"))))
-#
-#
-#
-#       # print(nn)
-#     }# fin while 1
-#
-#
-#   ## Need to remove filter pos for which some have been delated (because of multiple protocol,one ok, one bad)
-#
-#   pos_below <- map(pos_below, function(x) x %>% filter(cellid %in% poolVP$cellid) %>% select(-cellid))
-#   pos_above <- map(pos_above, function(x) x %>% filter(cellid %in% poolVP$cellid) %>% select(-cellid))
-#
-#   ## Here happen after nsave iteration
-#   # print("########################### SAVNG RDS #############################")
-#
-#   if(time_compteur == T)  poolVP_compteur <<- poolVP_compteur
-#   print(Sys.time() - t00)
-#
-#
-#    poolVP <- poolVP %>%
-#     left_join(siml)
-#
-#
-#
-# # Update filters
-#
-# for(a in unique(self$targets$cmt)){
-#
-#   self$filters_neg_above[[a]] <- bind_rows(self$filters_neg_above[[a]] %>% mutate(PrimFilter = T) , neg_above[[a]] )
-#   self$filters_neg_below[[a]] <- bind_rows(self$filters_neg_below[[a]] %>% mutate(PrimFilter = T) , neg_below[[a]] )
-#   self$filters_pos_above[[a]] <- bind_rows(self$filters_pos_above[[a]] %>% mutate(PrimFilter = T) , pos_above[[a]] )
-#   self$filters_pos_below[[a]] <- bind_rows(self$filters_pos_below[[a]] %>% mutate(PrimFilter = T) , pos_below[[a]] )
-#
-# }
-#
-#
-#    # bind_rows(self$poolVP, poolVP )
-#
-#
-# # save pooVP
-# if(is.null(self$poolVP)){
-#
-#   self$poolVP <- poolVP
-#
-# }else{
-#   self$poolVP <- bind_rows(self$poolVP, poolVP )
-# }
-#
-#
-#
-# # Fill missing profile if required
-# if(fillatend){
-#
-# print("filling")
-#   self$fill_simul()
-# }
-#
-# if(reducefilteratend){
-#
-#   print("filter reduction")
-#   self$n_filter_reduc()
-# }
-#   # # Recompute the whole poolVP
-#
-# })
-#
 
 # Complete VP simul -------------------------------------------------------
 
@@ -1839,28 +1295,91 @@ print(pltly)
 #' @export
 #'
 #'
-filter_reduc <- function(df = filters_neg_up, filtre = filters[[1]] ){
+filter_reduc <- function(df = filters_neg_up, filtre = NULL , obj = NULL, direction = "below") { #filters[[1]]
 
-  df <- df %>%
+cmts <- unique(df$cmt)
+
+
+if(!is.null(obj)){
+
+
+  filters_per_cmt <- list()
+
+  ## look first for cmt with ni ==o impacting parameters
+cmt_w_indp <- self$param_no_impact[map_lgl(obj$param_no_impact, ~length(.x) > 0) ]
+cmt_w_indp <- cmt_w_indp[names(cmt_w_indp) %in% cmts]
+
+for(a in  names(cmt_w_indp)){
+
+
+  filters_per_cmt[[a]] <-  filter_reduc(df = df %>% filter(cmt == a), direction = direction, obj = NULL, filtre = obj$make_filters(cmt = a)[[direction]]) %>%
+    mutate(cmt = a)
+}
+
+### remaining cmt
+
+if(length(cmt_w_indp) >0) cmts <- cmts[!cmts %in% names(cmt_w_indp)]
+
+
+for(a in cmts){
+
+  dftemp <- df %>%
+    filter(cmt == a)
+
+### module to apply first the previous filters
+  if(length(cmt_w_indp) >0){
+for(b in names(filters_per_cmt)){
+
+
+
+  filter_temp <- obj$make_filters(b)[[direction]] %>%
+    gsub(pattern = "line\\$", replacement = "")
+
+  filter_temp <- paste0("!(", filter_temp, ")")
+
+for(d in 1:nrow(filters_per_cmt[[b]])){
+
+ref <-filters_per_cmt[[b]] %>% slice(d)
+
+dftemp <- dftemp %>%
+  filter(!!parse_expr(filter_temp))
+
+} # end for d
+
+} # end for b
+  }
+#### end module reduce datafilter
+
+  filters_per_cmt[[a]] <-  filter_reduc(df = dftemp, direction = direction, obj = NULL, filtre = obj$make_filters(a)[[direction]])%>%
+    mutate(cmt = a)
+}
+
+return(filters_per_cmt %>% reduce(bind_rows))
+}
+
+
+  df2 <- df %>%
     select(-starts_with("iddummy")) %>%
     rowid_to_column("iddummy")
 
-  for(a in df$iddummy){
+  filtre <- gsub("line\\$", "", filtre)
+
+  for(a in df2$iddummy){
     # print(a)
 
-    if(a %in% df$iddummy){
-      ref <- df %>%
+    if(a %in% df2$iddummy){
+      ref <- df2 %>%
         filter(iddummy == a)
 
-      df %>%
-        mutate(test = !!parse_expr(filtre))  -> df
+      df2 %>%
+        mutate(test = !!parse_expr(filtre))  -> df2
 
-      df$test[df$iddummy == a] <- F
-      df <- df %>%
+      df2$test[df2$iddummy == a] <- F
+      df2 <- df2 %>%
         filter(test == F)
     }
   }
-df
+  df2
 }
 
 VP_proj_creator$set("public", "n_filter_reduc", function(){
