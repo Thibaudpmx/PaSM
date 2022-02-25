@@ -40,8 +40,7 @@ VP_proj_creator <- R6Class("VT",
     # attach(myEnv, name="sourced_scripts")
 
     self$model <- myEnv$model_RxODE
-    self$param <- myEnv$model_RxODE$params
-    self$param <-  self$param[!self$param %in%  names(myEnv$parameters_default_values)]
+
     self$data <- myEnv$data_VT
     self$parameters_default_values <- myEnv$parameters_default_values
     self$initial_cmt_values <- myEnv$initial_cmt_values
@@ -50,7 +49,21 @@ VP_proj_creator <- R6Class("VT",
     self$param_reduce <- myEnv$param_reduce
     self$param_increase <- myEnv$param_increase
     self$param_no_impact <- myEnv$param_no_impact
+    self$filters_neg_above <- tibble()
+    self$filters_neg_below <- tibble()
 
+    # get param
+
+    param <- myEnv$model_RxODE$params
+    param  <-  param[!param%in%  names(myEnv$parameters_default_values)]
+
+    lines_model <- str_split(deparse(myEnv$model_RxODE$model), pattern = "\\\\n")[[1]] %>%
+      gsub(pattern = "==", replacement = "nop")
+
+    already_computed <- lines_model[grepl("=", lines_model)] %>%
+      gsub(pattern = "=.+", replacement = "")
+    param <- param[!param %in% already_computed]
+    self$param <- param
   },
   print = function(...) {
     cat("Person: \n")
@@ -201,6 +214,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
     # set pos abov
     temp <-  self$filters_pos_above[[cmt]]
+    if(is.null(temp)) temp <- tibble()
     filter_temp <- paste("(", filter_template[[1]], ")")
     if(nrow(temp) > 0){
       for(a in 1:nrow(temp)){
@@ -218,7 +232,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
     # set pos below
     temp <-  self$filters_pos_below[[cmt]]
     filter_temp <- paste("(", filter_template[[2]], ")")
-
+    if(is.null(temp)) temp <- tibble()
     if(nrow(temp) > 0){
       for(a in 1:nrow(temp)){
 
@@ -322,7 +336,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
   neg_below <- neg_above <-  pos_below <- pos_above <- list() # filtre_neg_below
 
 
-  for(a in targets$cmt){
+  for(a in self$targets$cmt){
 
     pos_below[[a]] <- slice0
     pos_above[[a]] <- slice0
@@ -474,8 +488,9 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
         select(!!!parse_exprs(all_param), "cmt","cellid")
 
       if(nrow(filters_neg_below) > 0){
-      filters_neg_below_up_reduc <- filter_reduc(filters_neg_below %>%
-                                                   arrange(k2, desc(lambda0)),obj = self, direction = "below")
+      filters_neg_below_up_reduc <- filter_reduc(filters_neg_below ,obj = self, direction = "below")
+      #%>%
+      # arrange(k2, desc(lambda0))
 
       }else{
 
@@ -507,8 +522,9 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
         select(!!!parse_exprs(all_param), "cmt" , "cellid")
 
       if(nrow(filters_neg_above) > 0){
-      filters_neg_above_reduc <- filter_reduc(filters_neg_above %>%
-                                                arrange(desc(k2), lambda0),obj = self, direction =  "above")
+      filters_neg_above_reduc <- filter_reduc(filters_neg_above , lambda0,obj = self, direction =  "above")
+# %>%
+  # arrange(desc(k2))
       }else{
 
         filters_neg_above_reduc <- filters_neg_above
@@ -679,8 +695,10 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
         line %>% filter(id %in% idsbelowpos) -> filters_pos_below_up
         filters_pos_below_up$cmt = cmtt
-        filters_pos_below_up_reduc <- filter_reduc(filters_pos_below_up %>%
-                                                     arrange(k2, desc(lambda0)), filtre =  "below")
+        filters_pos_below_up_reduc <- filter_reduc(filters_pos_below_up , filtre =  "below")
+
+        # %>%
+        #   arrange(k2, desc(lambda0))
 
         pos_below[[cmtt]] <- bind_rows(pos_below[[cmtt]], filters_pos_below_up_reduc[names(pos_below[[1]])])
 
@@ -710,9 +728,9 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 
         filters_ps_above_lo$cmt = cmtt
 
-        filters_ps_above_lo_reduc <- filter_reduc(filters_ps_above_lo%>%
-                                                    arrange(desc(k2), lambda0), filtre = "above")
-
+        filters_ps_above_lo_reduc <- filter_reduc(filters_ps_above_lo, filtre = "above")
+        # %>%
+        #   arrange(desc(k2), lambda0)
 
         pos_above[[cmtt]] <- bind_rows(pos_above[[cmtt]], filters_ps_above_lo_reduc[names(pos_above[[1]])])
 
@@ -850,8 +868,11 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
   if(time_compteur == T)  t02 <- Sys.time()
   for(a in unique(self$targets$cmt)){
 
+    if(is.null(self$filters_pos_above[[a]])) self$filters_pos_above[[a]] = tibble()
   self$filters_pos_above[[a]] <- bind_rows(self$filters_pos_above[[a]] %>% mutate(PrimFilter = T) , pos_above[[a]] )
-    self$filters_pos_below[[a]] <- bind_rows(self$filters_pos_below[[a]] %>% mutate(PrimFilter = T) , pos_below[[a]] )
+
+  if(is.null(self$filters_pos_below[[a]])) self$filters_pos_below[[a]] = tibble()
+   self$filters_pos_below[[a]] <- bind_rows(self$filters_pos_below[[a]] %>% mutate(PrimFilter = T) , pos_below[[a]] )
 
   }
 
@@ -955,6 +976,7 @@ VP_proj_creator$set("public", "plot_VP", function(){
 
 
   self$poolVP %>%
+    # slice(1:100) %>%
     unnest(simul) %>%
     gather("cmt", "value", !!!parse_exprs(unique(self$targets$cmt))) %>%
     filter( ! (cmt == "Conc" & value == 0)) %>%
@@ -1387,18 +1409,18 @@ VP_proj_creator$set("public", "n_filter_reduc", function(){
 
   filters <- self$make_filters() %>%
     gsub(pattern = "line\\$", replacement = "" )
-  # for each cmtt
-for(cmtt in unique((self$targets$cmt))){
+
+
 
   # Handle negative above
 
 
-  self$filters_neg_above[[cmtt]] %>%
+  self$filters_neg_above %>%
     select(-starts_with("rowid")) %>%
     # arrange(desc(k2), k2, lambda0, lambda1, Vd) %>%
     rowid_to_column() -> temp
 
-message("Reducing negative above filters")
+  message("Reducing negative above filters")
 
   for(a in 1:nrow(temp)){
     # print(a)
@@ -1414,42 +1436,47 @@ message("Reducing negative above filters")
       temp <- temp %>%
         filter(test == F)
     }
-    self$filters_neg_above[[cmtt]] <- temp %>% mutate(PrimFilter = T) %>% select(-test)
+    self$filters_neg_above <- temp %>% mutate(PrimFilter = T) %>% select(-test)
   }
 
 
 
 
 
-# Handle negative below
+  # Handle negative below
 
-self$filters_neg_below[[cmtt]] %>%
-  select(-starts_with("rowid")) %>%
-  # arrange(desc(k2), k2, lambda0, lambda1, Vd) %>%
-  rowid_to_column() -> temp
+  self$filters_neg_below %>%
+    select(-starts_with("rowid")) %>%
+    # arrange(desc(k2), k2, lambda0, lambda1, Vd) %>%
+    rowid_to_column() -> temp
 
-message("Reducing negative below filters")
+  message("Reducing negative below filters")
 
-for(a in 1:nrow(temp)){
-  # print(a)
+  for(a in 1:nrow(temp)){
+    # print(a)
 
-  if(a %in% temp$rowid){
-    ref <- temp %>%
-      filter(rowid == a)
+    if(a %in% temp$rowid){
+      ref <- temp %>%
+        filter(rowid == a)
 
-    temp %>%
-      mutate(test = !!parse_expr(filters[[2]]))  -> temp
+      temp %>%
+        mutate(test = !!parse_expr(filters[[2]]))  -> temp
 
-    temp$test[temp$rowid == a] <- F
-    temp <- temp %>%
-      filter(test == F)
+      temp$test[temp$rowid == a] <- F
+      temp <- temp %>%
+        filter(test == F)
+    }
+
+    self$filters_neg_below <- temp %>% mutate(PrimFilter = T) %>% select(-test)
   }
 
-  self$filters_neg_below[[cmtt]] <- temp %>% mutate(PrimFilter = T) %>% select(-test)
-}
 
 
 
+
+
+  # for each cmtt
+for(cmtt in unique((self$targets$cmt))){
 
 # filter pos above <low
 
@@ -1566,6 +1593,124 @@ sum(timetoanaloop$remneg_above_fil)
 
 
 
+
+})
+
+
+
+
+# Massive screening -------------------------------------------------------
+
+
+
+# 1000^6
+# 10^18
+VP_proj_creator$set("public", "big_screening", function(domain){
+
+
+  if(!"param" %in% names(domain) & nrow(domain) == 2){
+
+  domain <-   imap(domain, function(x,y){
+
+      values <- domain[[y]]
+      values <- values[order(values)]
+      tibble(param = y, from = values[[1]], to = values[[2]]) %>%
+       mutate(step = if_else(from == to, 0,1))
+
+    }) %>%
+      invoke(.fn = bind_rows)
+  }
+# nsize = 10^18
+
+param_fluct <- domain %>%
+  filter(step != 0)
+
+# How many param for having 20000
+nperparam <- 200000^(1/nrow(param_fluct)) %>% ceiling()
+
+
+
+param_fluct %>%
+  mutate(values = pmap(list(from, to , step), function(from, to , step){
+
+    seqq <- seq(from, to, step)
+  indic <- length(seqq) * 0:(nperparam-1)/(nperparam-1)
+  indic[indic == 0 ] <- 1
+  round(seqq[indic])
+
+  })) %>%
+  unnest() -> allparamcut
+
+allparamcut %>%
+  group_split(param) %>%
+  map(function(x){
+
+    list()
+
+    x %>%
+      select(values) -> temp
+    names(temp) <- unique(x$param)
+    temp
+  }) %>%
+  invoke(.fn = crossing) -> toadd
+
+# fixed one
+domain %>%
+  filter(step == 0) -> fixed
+
+if(nrow(fixed)>0){
+for(a in 1:nrow(fixed)){
+
+  toadd[[fixed$param[[a]]]] <- fixed$from[[a]]
+}
+}
+
+nsize/nrow(toadd)
+
+VP_temp <- self#VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner.r")
+VP_temp$filters_neg_above <- tibble()
+VP_temp$filters_neg_below <- tibble()
+
+VP_temp$add_VP(toadd)
+
+VP_temp$n_filter_reduc()
+if(nrow(VP_temp$poolVP) >0) return(VP_temp$poolVP)
+# VP_temp$plot_VP()
+group_split(VP_temp$filters_neg_above,rowid)[[1]] -> x
+nrowss <- nrow(VP_temp$filters_neg_above)
+whereVP <- group_split(VP_temp$filters_neg_above,rowid)[1:min(20,nrowss)] %>%
+  map(function(x){
+
+    y <- x
+    for(a in unique(allparamcut$param)){
+
+      temp <- allparamcut %>% filter(param == a)
+      currentloc <- which(temp$values == y[[a]])
+
+      if(currentloc == 1){
+        value_if_increase <- 0
+        value_if_decrease <- temp$values[[currentloc+1]]
+      }else if (currentloc == nrow(temp)){
+
+        value_if_increase <- temp$values[[currentloc-1]]
+        value_if_decrease <-  max(temp$values)
+
+      }else{
+        value_if_increase <- temp$values[[currentloc-1]]
+        value_if_decrease <- temp$values[[currentloc+1]]
+      }
+
+
+      y[[a]] <- case_when(a %in% self$param_increase$Pore ~ value_if_increase ,
+                          a %in% self$param_reduce$Pore ~ value_if_decrease)
+
+    }
+
+    bind_rows(x, y)[, domain$param]
+
+  })
+
+return(whereVP)
 
 })
 

@@ -21,16 +21,16 @@ celltheque
 
 dose = 100
 add_events <- tibble(cmt = c("Central")) %>%  # Administration sampling, with "concX" being replaced by concentration
-  mutate(time = 0, amt = dose) 
+  mutate(time = 0, amt = dose)
 
-# 
+#
 res <- simulations(ind_param = ind_param, add_events = add_events,returnSim = T)
-simulations(ind_param = ind_param, add_events = add_events,returnSim = T) %>% 
+simulations(ind_param = ind_param, add_events = add_events,returnSim = T) %>%
   filter(time >23)
 simulations(ind_param = ind_param, add_events = add_events,returnSim = F)
-# 
-# res %>% 
-#   gather("key", "value", Conc, tumVol) %>% 
+#
+# res %>%
+#   gather("key", "value", Conc, tumVol) %>%
 #   ggplot()+
 #   geom_line(aes(time, value))+
 #   facet_wrap(~key, scales = "free")+
@@ -40,7 +40,7 @@ read.table("D:/Peccary_Annexe/Exemple_demo/Simeoni/closeIV/IndividualParameters/
   filter(id == 218)
 
 # Step3: create celltheque
- #%>% 
+ #%>%
   # slice(1:(3*6000))# what you want to add in your celltheque as individuals
 
 
@@ -72,12 +72,12 @@ VP_df <- crossing(k1 = c(0.5),
          ke = 1 ,#*  seq(0.6,1.4,0.2),
          lambda0 =seq(0,0.16,0.025),
          lambda1 = c(12),
-         Vd =  40) %>% #c(0.8,1,1.2)) %>% 
+         Vd =  40) %>% #c(0.8,1,1.2)) %>%
   map_df(function(x){
-    
+
     if(is.character(x)) return(x)
     round(x,3)
-    
+
   } )
 
 self$add_VP(VP_df, fillatend = F, reducefilteratend = T, testnofV = F)
@@ -117,12 +117,12 @@ VP_df <- crossing(k1 = c(0.5),
                   ke = 1 ,#*  seq(0.6,1.4,0.2),
                   lambda0 =seq(0,0.16,0.0025),
                   lambda1 = c(12),
-                  Vd =  40) %>% #c(0.8,1,1.2)) %>% 
+                  Vd =  40) %>% #c(0.8,1,1.2)) %>%
   map_df(function(x){
-    
+
     if(is.character(x)) return(x)
     round(x,3)
-    
+
   } )
 
 
@@ -134,9 +134,9 @@ self$plot_VP()
 
 self$targets
 
-self$poolVP %>% 
-  unnest(simul) %>% 
-  filter(time == 12 & tumVol < 21) %>% 
+self$poolVP %>%
+  unnest(simul) %>%
+  filter(time == 12 & tumVol < 21) %>%
   pull(cellid) -> idtarget
 
 self$plot_2D(x = k2, y = lambda0, plotMain = F)
@@ -148,7 +148,7 @@ self$fill_simul()
 
 difftime( Sys.time(), ti, units = "sec")
 self$filters_neg_above
-self$filters_neg_below  
+self$filters_neg_below
 self$filters_pos_above
 self$filters_pos_below
 
@@ -175,12 +175,12 @@ VP_df <- crossing(k1 = c(0.5),
                   ke = 1 ,#*  seq(0.6,1.4,0.2),
                   lambda0 =seq(0.04,0.16,0.025),
                   lambda1 = c(12),
-                  Vd =  c(20:40)) %>% #c(0.8,1,1.2)) %>% 
+                  Vd =  c(20:40)) %>% #c(0.8,1,1.2)) %>%
   map_df(function(x){
-    
+
     if(is.character(x)) return(x)
     round(x,3)
-    
+
   } )
 
 # VP_df <- crossing(k1 = c(0.5),
@@ -190,10 +190,10 @@ VP_df <- crossing(k1 = c(0.5),
 #                   lambda1 = c(12),
 #                   Vd =  c(0:40)) %>% #c(0.8,1,1.2)) %>%
 #   map_df(function(x){
-# 
+#
 #     if(is.character(x)) return(x)
 #     round(x,3)
-# 
+#
 #   } )
 
 self$add_VP(VP_df, fillatend =F, reducefilteratend = F, testnofV = F)
@@ -204,7 +204,7 @@ self$n_filter_reduc()
 self$plot_3D(k2, lambda0, Vd)
 
 self$filters_neg_above
-self$filters_neg_below  
+self$filters_neg_below
 self$filters_pos_above
 self$filters_pos_below
 
@@ -218,7 +218,7 @@ source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
 
 
 self <- VP_proj_creator$new()
-# 
+#
 # saveRDS(self, "D:/these/Second_project/QSP/modeling_work/VT_simeoni/longrun.RDS")
 
 # self$set_targets(filter = Dose == 50 & cmt == "tumVol", ntime = 8)
@@ -245,7 +245,7 @@ self$plot_VP()
 self$n_filter_reduc()
 
 self$filters_neg_above
-self$filters_neg_below  
+self$filters_neg_below
 self$filters_pos_above
 self$filters_pos_below
 
@@ -275,12 +275,12 @@ VP_df <- crossing(k1 = c(0.5),
                   ke = seq(0,3,0.2) ,#*  seq(0.6,1.4,0.2),
                   lambda0 = c(0.025),
                   lambda1 = c(12),
-                  Vd =  40) %>% #c(0.8,1,1.2)) %>% 
+                  Vd =  40) %>% #c(0.8,1,1.2)) %>%
   map_df(function(x){
-    
+
     if(is.character(x)) return(x)
     round(x,3)
-    
+
   } )
 
 self$add_VP(VP_df, fillatend = F, reducefilteratend =F, use_green_filter = F)
@@ -305,10 +305,10 @@ dat <- rbind(data.frame(ID=1, ev1$get.EventTable()),
 
 rxSolve(model_RxODE, dat )
  rxSolve(mod, theta, dat, omega=omega, sigma=sigma)
- 
- 
- 
- 
+
+
+
+
  mod <- RxODE({
    eff(0) = 1
    C2 = centr/V2;
@@ -321,10 +321,10 @@ rxSolve(model_RxODE, dat )
    e = eff
    cp = centr*(1)
  })
- 
- theta <- c(KA=2.94E-01, TCl=1.86E+01, V2=4.02E+01,  # central 
+
+ theta <- c(KA=2.94E-01, TCl=1.86E+01, V2=4.02E+01,  # central
             Q=1.05E+01, V3=2.97E+02,                # peripheral
-            Kin=1, Kout=1, EC50=200)                # effects  
+            Kin=1, Kout=1, EC50=200)                # effects
  omega <- lotri(eta.Cl ~ 0.4^2)
  sigma <- lotri(eff.err ~ 0.1, cp.err ~ 0.1)
  tmp <- matrix(rnorm(8^2), 8, 8)
@@ -332,138 +332,138 @@ rxSolve(model_RxODE, dat )
  dimnames(tMat) <- list(NULL, names(theta))
  ev <- et(amount.units="mg", time.units="hours") %>%
    et(amt=10000, cmt="centr")
- 
+
  a <- Sys.time()
  sim  <- rxSolve(mod, theta, ev, omega=omega, nSub=100, sigma=sigma,
                  thetaMat=tMat, nStud=10,
                  simVariability=FALSE)
- difftime(Sys.time(), a) 
- 
+ difftime(Sys.time(), a)
 
- 
+
+
  # obs <- tibble
 
- 
+
  theta %>% as.data.frame()
- 
- ### 1 
- aa_1 <- tibble( KA = 2,  TCl  = 2,    V2  = 2,     Q  = 2,    V3  = 2,   Kin = 2,   Kout  = 2,  EC50= 2) %>% 
+
+ ### 1
+ aa_1 <- tibble( KA = 2,  TCl  = 2,    V2  = 2,     Q  = 2,    V3  = 2,   Kin = 2,   Kout  = 2,  EC50= 2) %>%
    crossing(id = 1:1)
  ev3_1 <- ev2 %>% select(-id) %>% crossing (id = 1:1) %>% arrange(id) %>%  select(id, everything())
- 
+
  test1 <- function(){
 
- 
+
  # a <- Sys.time()
  b <- mod$solve(aa_1, ev3_1)
  # difftime(Sys.time(), a)
  }
- 
- ### 10 
- aa_10 <- tibble( KA = rnorm(10, 2,0.1),  TCl  =  rnorm(10, 2,0.1),    V2  =  rnorm(10, 2,0.1),     Q  =  rnorm(10, 2,0.1),  
-                  V3  =  rnorm(10, 2,0.1),   Kin =  rnorm(10, 2,0.1),   Kout  =  rnorm(10, 2,0.1),  EC50=  rnorm(10, 2,0.1)) %>% 
+
+ ### 10
+ aa_10 <- tibble( KA = rnorm(10, 2,0.1),  TCl  =  rnorm(10, 2,0.1),    V2  =  rnorm(10, 2,0.1),     Q  =  rnorm(10, 2,0.1),
+                  V3  =  rnorm(10, 2,0.1),   Kin =  rnorm(10, 2,0.1),   Kout  =  rnorm(10, 2,0.1),  EC50=  rnorm(10, 2,0.1)) %>%
    rowid_to_column("id")
  ev3_10 <- ev2 %>% select(-id) %>% crossing (id = 1:10) %>% arrange(id) %>%  select(id, everything())
- 
+
  test10 <- function(){
-   
-   
+
+
    # a <- Sys.time()
    b <- mod$solve(aa_10, ev3_10)
    # difftime(Sys.time(), a)
  }
- 
- b %>% 
-   as_tibble() %>% 
+
+ b %>%
+   as_tibble() %>%
    ggplot()+
    geom_line(aes(time, C2, group= factor(id)))+
    scale_y_log10()
- ### 100 
- aa_100 <- tibble( KA = 2,  TCl  = 2,    V2  = 2,     Q  = 2,    V3  = 2,   Kin = 2,   Kout  = 2,  EC50= 2) %>% 
+ ### 100
+ aa_100 <- tibble( KA = 2,  TCl  = 2,    V2  = 2,     Q  = 2,    V3  = 2,   Kin = 2,   Kout  = 2,  EC50= 2) %>%
    crossing(id = 1:100)
  ev3_100 <- ev2 %>% select(-id) %>% crossing (id = 1:100) %>% arrange(id) %>%  select(id, everything())
- 
+
  test100 <- function(){
-   
-   
+
+
    # a <- Sys.time()
    b <- mod$solve(aa_100, ev3_100)
    # difftime(Sys.time(), a)
  }
- 
- 
- ### 1000 
- aa_1000 <- tibble( KA = 2,  TCl  = 2,    V2  = 2,     Q  = 2,    V3  = 2,   Kin = 2,   Kout  = 2,  EC50= 2) %>% 
+
+
+ ### 1000
+ aa_1000 <- tibble( KA = 2,  TCl  = 2,    V2  = 2,     Q  = 2,    V3  = 2,   Kin = 2,   Kout  = 2,  EC50= 2) %>%
    crossing(id = 1:1000)
  ev3_1000 <- ev2 %>% select(-id) %>% crossing (id = 1:1000) %>% arrange(id) %>%  select(id, everything())
- 
+
  test1000 <- function(){
-   
-   
+
+
    # a <- Sys.time()
    b <- mod$solve(aa_1000, ev3_1000)
    # difftime(Sys.time(), a)
  }
- 
- 
- ### 1000 
- aa_10000 <- tibble( KA = 2,  TCl  = 2,    V2  = 2,     Q  = 2,    V3  = 2,   Kin = 2,   Kout  = 2,  EC50= 2) %>% 
+
+
+ ### 1000
+ aa_10000 <- tibble( KA = 2,  TCl  = 2,    V2  = 2,     Q  = 2,    V3  = 2,   Kin = 2,   Kout  = 2,  EC50= 2) %>%
    crossing(id = 1:10000)
  ev3_10000 <- ev2 %>% select(-id) %>% crossing (id = 1:10000) %>% arrange(id) %>%  select(id, everything())
- 
+
  test10000 <- function(){
-   
-   
+
+
    # a <- Sys.time()
    b <- mod$solve(aa_10000, ev3_10000)
    # difftime(Sys.time(), a)
  }
- 
 
- test(3) 
+
+ test(3)
 
  library(microbenchmark)
- 
- 
+
+
  mb <- microbenchmark(test1(),test10(), test100(), test1000(), times = 30L, unit = "s"); mb
  plot(mb)
- 
+
  microbenchmark(test10000(), times = 30L, unit = "s")
 
- 
- tribble(~nsimn, ~mean, 
+
+ tribble(~nsimn, ~mean,
          1,0.0027,
          10,0.0030,
          100, 0.0056,
          1000,0.035,
-         2000, 0.539) %>% 
-   mutate(per_sim = mean / nsimn) %>% 
+         2000, 0.539) %>%
+   mutate(per_sim = mean / nsimn) %>%
    ggplot()+
    geom_line(aes(nsimn, per_sim))+
    scale_y_log10()+
    scale_x_log10()
- 
- tribble(~nsimn, ~mean, 
+
+ tribble(~nsimn, ~mean,
          1,0.0027,
          10,0.0030,
          100, 0.0056,
          1000,0.035,
-         2000, 0.539) %>% 
-   mutate(per_sim = mean / nsimn) %>% 
+         2000, 0.539) %>%
+   mutate(per_sim = mean / nsimn) %>%
    ggplot()+
    geom_line(aes(nsimn, mean))+
    scale_x_log10()
    scale_y_log10()
- 
+
 
 # test two compartment whole time -----------------------------------------
 
-   
-   
+
+
    model <- model_RxODE <-  RxODE({
      d/dt(Central) <- -ke * Central
      Conc <- Central/Vd
-     
+
      tumVol <- X1 + X2 + X3 + X4
      growth <- lambda0 * X1/((1 + (lambda0 * tumVol/lambda1)^20)^(1/20))
      X1(0) <- 50
@@ -472,56 +472,136 @@ rxSolve(model_RxODE, dat )
      d/dt(X3) <- k1 * (X2 - X3)
      d/dt(X4) <- k1 * (X3 - X4)
    })
-   
-   
+
+
    VP_df <- crossing(k1 = c(0.5),
                      k2 = seq(0,8,0.2),
                      ke = 1 ,#*  seq(0.6,1.4,0.2),
                      lambda0 =seq(0,0.16,0.025),
                      lambda1 = c(12),
-                     Vd =  40) %>% 
+                     Vd =  40) %>%
      rowid_to_column("id")
-  
+
    VP_df <-  crossing(k1 = c(0.5),
             k2 = seq(0,8,0.01),
             ke = 1 ,#*  seq(0.6,1.4,0.2),
             lambda0 =seq(0,0.16,0.0025),
             lambda1 = c(12),
-            Vd =  40)%>% 
+            Vd =  40)%>%
      rowid_to_column("id")
-   
+
    VP_df <-  crossing(k1 = c(0.5),
                       k2 = 4,
                       ke = 1 ,#*  seq(0.6,1.4,0.2),
                       lambda0 =0.16,
                       lambda1 = c(12),
-                      Vd =  1:1000)%>% 
+                      Vd =  1:1000)%>%
      rowid_to_column("id")
-   
-  eve <-  tibble(cmt = "Central", time = 0, amt = 50, evid = 1) %>% 
-     bind_rows(tibble(cmt = NA, time = seq(0,54,1), amt = NA, evid = 0)) %>% 
+
+  eve <-  tibble(cmt = "Central", time = 0, amt = 50, evid = 1) %>%
+     bind_rows(tibble(cmt = NA, time = seq(0,54,1), amt = NA, evid = 0)) %>%
     crossing(id = VP_df$id)
-  
-  
+
+
   b <- model$solve(VP_df, eve)
-  
-  
+
+
   mb2 <- microbenchmark( model$solve(VP_df, eve), unit = "s", times = 30);mb2
-  
+
   ####♠ Il prend 0.15 sec pour 1000 -> 30 sec
  30/6
-  
+
   mb2 <- microbenchmark( model$solve(VP_df, eve), unit = "s")
      crossing(id = 1:287)
-   
+
      bind_rows(mb, mb2)
- 
+
 found_opti_n_pack_simul <- function(model_RxODE){
-  
-params <-   model_RxODE$params 
+
+params <-   model_RxODE$params
 
 matrix
 
 }
 
 
+
+# Lindner !  --------------------------------------------------------------
+
+
+
+source("D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner.r")
+
+
+# Defining targets
+
+
+source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+self <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner.r")
+
+self$targets <- tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                        "unique",740,"Pore", 20, 23
+                  )
+
+
+VP_df <- crossing(Bcl20 = seq(100,1000,100),
+                  Bclxl0 = seq(100,1000,100),
+                  Mcl10 = 50 ,#*  seq(0.6,1.4,0.2),
+                  BIM0 = seq(100,1000,100),
+                  PUMA0 =seq(100,1000,100),
+                  NOXA0 =  seq(100,1000,100),
+                  BAXc0 = 1000,
+                  BAK0 = 1000) %>% #c(0.8,1,1.2)) %>%
+  map_df(function(x){
+
+    if(is.character(x)) return(x)
+    round(x,3)
+
+  } )
+
+self$add_VP(VP_df, fillatend = F, reducefilteratend = F)
+
+
+
+self$plot_VP()
+
+self$plot_2D(x = k2, y = lambda0, plotMain = T)
+
+self$plot_2D(x = k2, y = lambda0,toaddneg = VP_df, plotMain = T)
+
+
+# Massive screening -------------------------------------------------------
+
+
+
+source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+self <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner.r")
+
+self$targets <- tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                        "unique",740,"Pore", 20, 20.0001
+)
+
+
+domain <- tribble(~param, ~from, ~to, ~step,
+                  "Bcl20", 0, 1000, 1 ,
+                  "Bclxl0", 0, 1000, 1,
+                  "Mcl10", 0,1000,1,
+                  "BIM0", 0, 1000, 1 ,
+                  "PUMA0", 0, 1000, 1,
+                  "NOXA0", 0,1000,1,
+                  "BAXc0", 1000,1000,0,
+                  "BAK0" , 1000,1000,0
+
+)
+
+demo <- self$big_screening(domain)
+
+
+demo2 <- self$big_screening(domain = demo[[1]])
+
+demo3 <- self$big_screening(domain = demo2[[1]])
+
+demo3 %>%
+  unnest() %>%
+  filter(time == 740) %>%
+  pull(Pore)
