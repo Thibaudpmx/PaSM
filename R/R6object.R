@@ -522,7 +522,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
         select(!!!parse_exprs(all_param), "cmt" , "cellid")
 
       if(nrow(filters_neg_above) > 0){
-      filters_neg_above_reduc <- filter_reduc(filters_neg_above , lambda0,obj = self, direction =  "above")
+      filters_neg_above_reduc <- filter_reduc(filters_neg_above ,obj = self, direction =  "above")
 # %>%
   # arrange(desc(k2))
       }else{
@@ -608,7 +608,9 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
       use_red_filter <- F
 }
       }
-  # gree filter --------------------------------------------------------------
+
+
+      # gree filter --------------------------------------------------------------
 
 
 
@@ -1038,8 +1040,9 @@ VP_proj_creator$set("public", "make_filters", function(cmt = "tumVol"){
 # plot 2D -----------------------------------------------------------------
 # x = expr(k2)
 # y = expr(lambda0)
+# y = expr(ke)
 # toaddneg = VP_df
-VP_proj_creator$set("public", "plot_2D", function(x, y , cmt_green = "tumVol", toaddneg = NULL, plotMain = F, add_point =F , IDref = NULL){
+VP_proj_creator$set("public", "plot_2D", function(x, y , cmt_green = "tumVol", toaddneg = NULL, plotMain = F, add_point =F , IDref = NULL, plotoreturn = 3){
 
   x <- enexpr(x)
   y <-  enexpr(y)
@@ -1064,6 +1067,7 @@ VP_proj_creator$set("public", "plot_2D", function(x, y , cmt_green = "tumVol", t
   #   parse_expr
   # end apply filter
 
+ ytype <- names(self$filters_pos_above)[[1]]#Conc
 
   neg_above <- invoke(self$filters_neg_above, .fn = bind_rows) #%>% filter(!!filtre)
   neg_below <- invoke(self$filters_neg_below, .fn = bind_rows) #%>% filter(!!filtre)
@@ -1078,12 +1082,14 @@ VP_proj_creator$set("public", "plot_2D", function(x, y , cmt_green = "tumVol", t
       ggplot()+
       geom_point(data = pos_above, aes(!!x, !!y), col = "darkgreen") +
       geom_point(data = pos_below, aes(!!x, !!y), col = "darkgreen") +
-      geom_point(data = neg_below, aes(!!x, !!y), col = "red") +
-      geom_point(data = neg_above , aes(!!x, !!y), col = "red", alpha = 1)+
+      geom_point(data = neg_below, aes(!!x, !!y, shape = cmt), col = "chocolate") +
+      geom_point(data = neg_above , aes(!!x, !!y, shape = cmt), col = "red", alpha = 1)+
       # geom_point(data = self$filters_neg_below, aes(k2, lambda0), col = "red", alpha = 1)+
       theme_bw()+
       ggtitle( "VP tested")+
       theme(plot.title = element_text(hjust = 0.5)); plot_dot
+
+if(length(unique(self$targets$cmt) == 1))  plot_dot <- plot_dot + guides(shape = NULL)
 
 if(!is.null(toaddneg)){
 
@@ -1099,31 +1105,62 @@ if(!is.null(toaddneg)){
 
 
     if(add_point == T) plot_dot <-   plot_dot+
-      geom_point(data = self$poolVP, aes(!!x, !!y))
+      geom_point(data = self$poolVP, aes(!!x, !!y), col = "darkgreen")
 
- xana <- case_when(deparse(x) %in% self$param_increase$tumVol ~ "inc",
-                   deparse(x) %in% self$param_reduce$tumVol ~ "dec",
-                   T ~ "None")
+    rectangles_above <- tibble()
+    rectangles_below <- tibble()
 
-
- yana <- case_when(deparse(y) %in% self$param_increase$tumVol ~ "inc",
-                   deparse(y) %in% self$param_reduce$tumVol ~ "dec",
-                   T ~ "None")
+  for(a in unique(self$targets$cmt) ){
 
 
-  rectangles_above  <- neg_above %>%
-    mutate(xmin = case_when(xana == "dec" ~ 0, T ~ !!x),
-           xmax = case_when(xana == "dec" ~ !!x, T ~Inf),
-           ymin = case_when(yana == "dec" ~ 0, T ~!!y),
-           ymax = case_when(yana == "dec" ~ !!y, T ~Inf))
+    xana <- case_when(deparse(x) %in% self$param_increase[[a]] ~ "inc",
+                      deparse(x) %in% self$param_reduce[[a]] ~ "dec",
+                      deparse(x) %in% self$param_no_impact[[a]] ~ "no_impact",
+                      T ~ "None")
 
-  rectangles_below  <- neg_below %>%
-    mutate(xmin = case_when(xana == "inc" ~ 0, T ~ !!x),
-           xmax = case_when(xana == "inc" ~ !!x, T ~Inf),
-           ymin = case_when(yana == "inc" ~ 0, T ~!!y),
-           ymax = case_when(yana == "inc" ~ !!y, T ~Inf))
 
-  rectangles <- bind_rows(rectangles_above, rectangles_below)
+    yana <- case_when(deparse(y) %in% self$param_increase[[a]] ~ "inc",
+                      deparse(y) %in% self$param_reduce[[a]] ~ "dec",
+                      deparse(y) %in% self$param_no_impact[[a]] ~ "no_impact",
+                      T ~ "None")
+
+
+    rectangles_above  <- neg_above %>%
+      filter(cmt == a) %>%
+      mutate(xmin = case_when(xana %in% c("dec", "no_impact") ~ 0, T ~ !!x),
+             xmax = case_when(xana %in% c("dec","None") ~ !!x, T ~Inf),
+             ymin = case_when(yana %in% c("dec", "no_impact") ~ 0, T ~!!y),
+             ymax = case_when(yana  %in% c("dec","None") ~ !!y, T ~Inf)) %>%
+            bind_rows(rectangles_above)
+
+    rectangles_below  <- neg_below %>%
+      filter(cmt == a) %>%
+      mutate(xmin = case_when(xana %in% c("inc","no_impact") ~ 0, T ~ !!x),
+             xmax = case_when(xana %in% c("inc","None") ~ !!x, T ~Inf),
+             ymin = case_when(yana %in% c("inc","no_impact") ~ 0, T ~!!y),
+             ymax = case_when(yana %in% c("inc","None") ~ !!y, T ~Inf))%>%
+      bind_rows(rectangles_below)
+
+
+
+
+  }
+
+rectangles <- bind_rows(rectangles_above %>% mutate(where = "above"), rectangles_below %>% mutate(where = "below"))
+
+
+  plot1 <-  plot_dot +
+    geom_rect(data = rectangles, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax,  fill = where, col = where), alpha = 0.3)+
+    ggtitle( "zone rejection")+
+    scale_color_manual(values = c("red", "chocolate"))+
+    scale_fill_manual(values = c("red", "chocolate"));plot1
+
+  if(plotoreturn == 1) return(plot1)
+  # plot1 +
+  #   geom_point(data = self$poolVP, aes(!!x, !!y), col = "darkgreen", alpha = 0.2)
+  #
+
+
 
   rectangles_above_lower <-  pos_above %>%
           mutate(xmin = case_when(xana == "dec" ~ 0, T ~ !!x),
@@ -1138,9 +1175,6 @@ if(!is.null(toaddneg)){
            ymax = case_when(yana == "inc" ~ !!y, T ~Inf))
 
 
- plot1 <-  plot_dot +
-    geom_rect(data = rectangles, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), alpha = 0.3,  fill = "red", col = "red")+
-    ggtitle( "zone rejection")
 
 
 
@@ -1187,8 +1221,9 @@ if(plotMain == F) return(plot_grid(plot_dot, plot1, plot2, plot3))
 #
  plot4<-
    ggplot()+
-   geom_rect(data = rectangles, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), alpha = 1,  fill = "red", col = "red")+
-
+     geom_rect(data = rectangles, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax,  fill = where, col = where), alpha = 1)+
+   scale_color_manual(values = c("red", "chocolate"))+
+   scale_fill_manual(values = c("red", "chocolate"))+
    geom_rect(data = col_green, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), alpha = 1,  fill = "darkgreen",  col = "darkgreen")+
    theme_bw()+
    ggtitle( "Total")+
@@ -1422,6 +1457,7 @@ VP_proj_creator$set("public", "n_filter_reduc", function(){
 
   message("Reducing negative above filters")
 
+  if(nrow(temp) > 0 ){
   for(a in 1:nrow(temp)){
     # print(a)
 
@@ -1438,7 +1474,7 @@ VP_proj_creator$set("public", "n_filter_reduc", function(){
     }
     self$filters_neg_above <- temp %>% mutate(PrimFilter = T) %>% select(-test)
   }
-
+  }
 
 
 
@@ -1452,6 +1488,7 @@ VP_proj_creator$set("public", "n_filter_reduc", function(){
 
   message("Reducing negative below filters")
 
+  if(nrow(temp) > 0 ){
   for(a in 1:nrow(temp)){
     # print(a)
 
@@ -1469,7 +1506,7 @@ VP_proj_creator$set("public", "n_filter_reduc", function(){
 
     self$filters_neg_below <- temp %>% mutate(PrimFilter = T) %>% select(-test)
   }
-
+}
 
 
 
