@@ -130,7 +130,8 @@ print( as.data.frame(targets))
 
 
 # VP_production -----------------------------------------------------------
-VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F, pctActivGreen = 0.75){
+VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F, pctActivGreen = 0.75,
+                                                 keepRefFiltaftDis = F){
 
   # protocols = self$protocols
 
@@ -322,7 +323,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
   t00 <- Sys.time()
 
 
-  maxinfo <- is.na(poolVP[, col_to_add]) %>% sum
+  maxinfo <- nrow(poolVP)
 
   pb <- progress_bar$new(
     format = "  VP creation [:bar] :current/:total (:percent) in :elapsed",
@@ -344,12 +345,13 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
   }
   use_red_filter <- T
 
+
   message(green("Start main loop"))
   # begining while lopp----------------------------------------------------------
   while(is.na(poolVP[, col_to_add]) %>% sum > 0){
 
     newratio <- is.na(poolVP[, col_to_add]) %>% sum
-    pb$update(ratio = (maxinfo -newratio )/maxinfo)
+    pb$update(ratio = (maxinfo -newratio / length(col_to_add))/maxinfo)
 
     if(time_compteur == T){
 
@@ -363,7 +365,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
     # Just compute some stat...
     t0 <- Sys.time()
 
-
+    # set.seed(89651)
     # Sample one rows among the not done yet
 
     # filter =  # which(is.na(poolVP[, col_to_add]) %>% apply(1, sum) != 0 )
@@ -400,6 +402,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
     time_simulations <- Sys.time()
 
     b <- Sys.time()
+
     res <- simulations2(ind_param = line, add_events = protocol, returnSim = T,
                        icmt = self$initial_cmt_values, time_vec =self$times,
                        pardf = self$parameters_default_values, model = self$model)#;res
@@ -458,6 +461,30 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
           filter(be_up == F | ab_low == F) %>%
           pull(cellid) %>%
           unique -> cellidstorem
+
+        if(keepRefFiltaftDis == T){
+
+
+          newfilters <- res2 %>%
+            filter(be_up == F) %>%
+            distinct(id, cmt) %>%
+                          left_join(line, by  = "id") %>%
+            distinct(!!!parse_exprs(all_param), cmt,cellid)
+
+
+          self$filters_neg_above <- bind_rows(self$filters_neg_above %>% mutate(PrimFilter = T) ,
+                                              newfilters )
+
+          newfilters <- res2 %>%
+                         filter( ab_low == F) %>%
+          left_join(line, by  = "id") %>%
+            # filter( cellid %in% cellidstorem) %>%
+            distinct(!!!parse_exprs(all_param), cmt,cellid)
+
+          self$filters_neg_below <- bind_rows(self$filters_neg_below %>% mutate(PrimFilter = T), newfilters )
+
+        }
+
 
         poolVP <- poolVP %>%
           filter(! cellid %in% cellidstorem)
@@ -544,9 +571,6 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
         filter(! cellid %in% unique(filters_neg_above$cellid) & !  cellid %in% unique(filters_neg_below$cellid))
 
 
-
-
-
 #### Apply red filter if activated
 
       t02 <- Sys.time()
@@ -596,7 +620,14 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
        if(time_compteur == T){
                  poolVP_compteur_new$remneg_below_fil <- time_filter_neg_above_apply
                  poolVP_compteur_new$nremoved_below_fil <- nremoved_below_fil
-              }
+       }
+
+
+### Update filters
+
+      self$filters_neg_above <- bind_rows(self$filters_neg_above %>% mutate(PrimFilter = T) , filters_neg_above_reduc )
+      self$filters_neg_below <- bind_rows(self$filters_neg_below %>% mutate(PrimFilter = T) , filters_neg_below_up_reduc )
+
 ##### Compute the rendement of red filter and disable if negative
 
       totaltimeredfilter <- time_filter_neg_apply + timefilternegabovemake + timefilternegbelowmake
@@ -879,10 +910,6 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
   }
 
 
-  self$filters_neg_above <- bind_rows(self$filters_neg_above %>% mutate(PrimFilter = T) , filters_neg_above_reduc )
-  self$filters_neg_below <- bind_rows(self$filters_neg_below %>% mutate(PrimFilter = T) , filters_neg_below_up_reduc )
-
-
   if(time_compteur == T)  timesaver$updatefilters <- difftime(Sys.time(), t02, units = "s")
 
 
@@ -1038,8 +1065,8 @@ VP_proj_creator$set("public", "make_filters", function(cmt = "tumVol"){
 
 
 # plot 2D -----------------------------------------------------------------
-# x = expr(k2)
-# y = expr(lambda0)
+x = expr(k2)
+y = expr(lambda0)
 # y = expr(ke)
 # toaddneg = VP_df
 VP_proj_creator$set("public", "plot_2D", function(x, y , cmt_green = "tumVol", toaddneg = NULL, plotMain = F, add_point =F , IDref = NULL, plotoreturn = 3){
@@ -1127,17 +1154,17 @@ if(!is.null(toaddneg)){
 
     rectangles_above  <- neg_above %>%
       filter(cmt == a) %>%
-      mutate(xmin = case_when(xana %in% c("dec", "no_impact") ~ 0, T ~ !!x),
+      mutate(xmin = case_when(xana %in% c("dec", "no_impact") ~ -Inf, T ~ !!x),
              xmax = case_when(xana %in% c("dec","None") ~ !!x, T ~Inf),
-             ymin = case_when(yana %in% c("dec", "no_impact") ~ 0, T ~!!y),
+             ymin = case_when(yana %in% c("dec", "no_impact") ~ -Inf, T ~!!y),
              ymax = case_when(yana  %in% c("dec","None") ~ !!y, T ~Inf)) %>%
             bind_rows(rectangles_above)
 
     rectangles_below  <- neg_below %>%
       filter(cmt == a) %>%
-      mutate(xmin = case_when(xana %in% c("inc","no_impact") ~ 0, T ~ !!x),
+      mutate(xmin = case_when(xana %in% c("inc","no_impact") ~ -Inf, T ~ !!x),
              xmax = case_when(xana %in% c("inc","None") ~ !!x, T ~Inf),
-             ymin = case_when(yana %in% c("inc","no_impact") ~ 0, T ~!!y),
+             ymin = case_when(yana %in% c("inc","no_impact") ~ -Inf, T ~!!y),
              ymax = case_when(yana %in% c("inc","None") ~ !!y, T ~Inf))%>%
       bind_rows(rectangles_below)
 

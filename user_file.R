@@ -109,7 +109,7 @@ self <- VP_proj_creator$new()
 
 
 
-# self$set_targets(filter = Dose == 50 & cmt == "tumVol", ntime = 8)
+self$set_targets(filter = Dose == 50 & cmt == "tumVol", ntime = 8)
 self$set_targets(filter = Dose==50 & cmt == "tumVol",timeforce = c(12,19, 30,45))
 
 VP_df <- crossing(k1 = c(0.5),
@@ -196,7 +196,7 @@ VP_df <- crossing(k1 = c(0.5),
 #
 #   } )
 
-self$add_VP(VP_df, fillatend =F, reducefilteratend = F, testnofV = F)
+self$add_VP(VP_df, fillatend =F, reducefilteratend = F)
 
 self$plot_VP()
 self$n_filter_reduc()
