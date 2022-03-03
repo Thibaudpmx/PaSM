@@ -96,7 +96,22 @@ if(!is.null(self$filters_pos_below)) if(map_dbl(self$filters_pos_below, nrow) %>
 
 if(!is.null(manual)){
 
-  targets <- manuel
+  targets <- manual
+
+  print(
+
+    ggplot()+
+    facet_wrap(cmt~protocol, scales = "free")+
+    geom_segment(data = targets,
+                 aes(x = time, xend = time, y = min, yend = max), col ="red", size = 2)+
+    scale_y_log10()+
+    geom_point(data = targets %>%
+                 gather("key", "value", min, max),
+               aes(x = time, y = value), col = "red")+
+      theme_bw()+
+      geom_point(aes(x=0,y=0), alpha = 0)
+  )
+
 
 
 }else{
@@ -1684,7 +1699,7 @@ VP_proj_creator$set("public", "big_screening", function(domain){
     }) %>%
       invoke(.fn = bind_rows)
   }
-# nsize = 10^18
+nsize = 10^18
 
 param_fluct <- domain %>%
   filter(step != 0)

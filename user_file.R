@@ -64,7 +64,7 @@ self <- VP_proj_creator$new()
 
 
 
-self$set_targets(filter = cmt == "tumVol", ntime = 6)
+# self$set_targets(filter = cmt == "tumVol", ntime = 6)
 self$set_targets(filter = Dose ==50 ,timeforce = c(12,19, 30,45))
 
 VP_df <- crossing(k1 = c(0.5),
@@ -80,13 +80,13 @@ VP_df <- crossing(k1 = c(0.5),
 
   } )
 
-self$add_VP(VP_df, fillatend = F, reducefilteratend = T, testnofV = F)
+self$add_VP(VP_df, fillatend = F, reducefilteratend = F)
 
 
 
 self$plot_VP()
 
-self$plot_2D(x = k2, y = lambda0, plotMain = T)
+self$plot_2D(x = k2, y = lambda0,plotoreturn = 1, add_point = T)
 
 self$plot_2D(x = k2, y = lambda0,toaddneg = VP_df, plotMain = T)
 self$n_filter_reduc()
@@ -109,11 +109,11 @@ self <- VP_proj_creator$new()
 
 
 
-self$set_targets(filter = Dose == 50 & cmt == "tumVol", ntime = 8)
+# self$set_targets(filter = Dose == 50 & cmt == "tumVol", ntime = 8)
 self$set_targets(filter = Dose==50 & cmt == "tumVol",timeforce = c(12,19, 30,45))
 
 VP_df <- crossing(k1 = c(0.5),
-                  k2 = seq(0,8,0.01),
+                  k2 = seq(0,8,0.0025),
                   ke = 1 ,#*  seq(0.6,1.4,0.2),
                   lambda0 =seq(0,0.16,0.0025),
                   lambda1 = c(12),
@@ -127,7 +127,7 @@ VP_df <- crossing(k1 = c(0.5),
 
 
 
-self$add_VP(VP_df, fillatend = F, reducefilteratend = F,  npersalve = 2000,  time_compteur = F)
+self$add_VP(VP_df, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F)
 
 self$n_filter_reduc()
 self$plot_VP()
@@ -139,7 +139,7 @@ self$poolVP %>%
   filter(time == 12 & tumVol < 21) %>%
   pull(cellid) -> idtarget
 
-self$plot_2D(x = k2, y = lambda0, plotMain = F)
+self$plot_2D(x = k2, y = lambda0, plotMain = F, plotoreturn = 1, add_point = T)
 
 self$n_filter_reduc()
 
@@ -565,9 +565,6 @@ self$add_VP(VP_df, fillatend = F, reducefilteratend = F)
 
 self$plot_VP()
 
-self$plot_2D(x = k2, y = lambda0, plotMain = T)
-
-self$plot_2D(x = k2, y = lambda0,toaddneg = VP_df, plotMain = T)
 
 
 # Massive screening -------------------------------------------------------
