@@ -65,7 +65,7 @@ self <- VP_proj_creator$new()
 
 
 # self$set_targets(filter = cmt == "tumVol", ntime = 6)
-self$set_targets(filter = Dose ==50 ,timeforce = c(12,19, 30,45))
+self$set_targets(filter = Dose ==50  & cmt == "tumVol",timeforce = c(12,19, 30,45))
 
 VP_df <- crossing(k1 = c(0.5),
          k2 = seq(0,8,0.2),
@@ -80,7 +80,7 @@ VP_df <- crossing(k1 = c(0.5),
 
   } )
 
-self$add_VP(VP_df, fillatend = F, reducefilteratend = F)
+self$add_VP(VP_df, fillatend = F, reducefilteratend = T)
 
 
 
@@ -98,6 +98,8 @@ self$filters_pos_above
 
 
 # 2cm big -----------------------------------------------------------------
+
+
 
 
 
@@ -130,7 +132,7 @@ VP_df <- crossing(k1 = c(0.5),
 self$add_VP(VP_df, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F)
 
 self$n_filter_reduc()
-self$plot_VP()
+self$plot_VP(nmax = 200)
 
 self$targets
 
@@ -539,9 +541,9 @@ source("D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_con
 source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
 self <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner.r")
 
-self$targets <- tribble(~protocol, ~time, ~cmt, ~ min, ~max,
-                        "unique",740,"Pore", 20, 23
-                  )
+self$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                                  "unique",740,"Pore", 20, 23
+))
 
 
 VP_df <- crossing(Bcl20 = seq(100,1000,100),

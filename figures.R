@@ -768,7 +768,7 @@ allsquares %>%
 
 # Now lets use those square
 
-VP_df2 <- allsquares %>%
+VP_df2 <- c %>%
   mutate(data = pmap(list(lambda0max, lambda0min, k2max, k2min), function(lambda0max, lambda0min, k2max, k2min){
 
       crossing(k2 = seq(k2min, k2max, 0.0002), lambda0 = seq(lambda0min, lambda0max, 0.0002) )
@@ -783,16 +783,14 @@ VP_df2 <- allsquares %>%
 
 self$add_VP(VP_df2, fillatend = F, reducefilteratend = F,  npersalve = 2000,  time_compteur = F,keepRefFiltaftDis = T)
 
-self$poolVP %>%
-  slice(1:10) %>%
-  unnest() %>%
-  ggplot()+
-  geom_line(aes(time, tumVol))+
+self$plot_VP(nmax = 20)+
   geom_point(aes(x = 12, y = 100.1846), col = "red")+
   geom_point(aes(x = 40, y = 431.0057), col = "red")
 
+self$plot_VP(nmax = 10)
 self$n_filter_reduc()
 
+length(seq(0,3,0.0002)) * length(seq(seq(0,1,0.0002))) * 0.6 / 2000/3600 # temps en heure
 
 self$plot_2D(k2, lambda0, plotoreturn = 1)
 

@@ -66,9 +66,9 @@ VP_proj_creator <- R6Class("VT",
     self$param <- param
   },
   print = function(...) {
-    cat("Person: \n")
-    cat("  Name: ", self$times, "\n", sep = "")
-    cat("  Age: ")
+    cat(green(paste0("Number of VP found: ", nrow(self$poolVP))))
+    cat(red(paste0("\nNumber of red filter above: ", nrow(self$filters_neg_above))))
+    cat(red(paste0("\nNumber of red filter below: ", nrow(self$filters_neg_below))))
     invisible(self)
   }
 
@@ -954,6 +954,8 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
     print("filter reduction")
     self$n_filter_reduc()
   }
+
+  self
   # # Recompute the whole poolVP
 
 })
@@ -1016,10 +1018,13 @@ self$poolVP %>%
 
 # VP plot -----------------------------------------------------------------
 
-VP_proj_creator$set("public", "plot_VP", function(){
+VP_proj_creator$set("public", "plot_VP", function(nmax = Inf){
 
+nmax <- min(nrow(self$poolVP), nmax )
 
   self$poolVP %>%
+    sample_n(nmax) %>%
+    # slice() %>%
     # slice(1:100) %>%
     unnest(simul) %>%
     gather("cmt", "value", !!!parse_exprs(unique(self$targets$cmt))) %>%
