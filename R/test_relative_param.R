@@ -6,12 +6,57 @@
 #'
 #' @examples
 #'
-find_relative <- function(..., model = model_RxODE, time_simul = times, states = initial_cmt_values,   values = domain, protocol = "dose50", sensitivity = 1E-6){
+find_relative <- function(..., model = model_RxODE, time_simul = times, states = initial_cmt_values,   values = domain, protocol = "dose50", sensitivity = 1E-6,
+                          printPlot = T, deepAnalysis = F, printCode = T){
 
   # output  = exprs(tumVol, Conc)
   output = exprs(Pore)
   output <- enexprs(...)
   model_RxODE <- model
+
+
+  if(deepAnalysis == T){
+
+    print("here")
+
+  base <-  find_relative( !!!output, model = model, time_simul = time_simul, states = states,   values = values, protocol = protocol, sensitivity = sensitivity,
+                  printPlot = F, deepAnalysis = F, printCode = F ) %>%
+    mutate(which = "base")
+
+  for(a in values$param){
+    # min
+    valuestemp <- values
+    valuestemp$ref[valuestemp$param == a] <-  valuestemp$min[valuestemp$param == a]
+
+   temp <- find_relative( !!!output, model = model, time_simul = time_simul, states = states,   values = valuestemp, protocol = protocol, sensitivity = sensitivity,
+                   printPlot = F, deepAnalysis = F , printCode = F) %>%
+      mutate(which = paste0(a, "_min"))
+
+   base <- bind_rows(base, temp)
+
+   # max
+   valuestemp <- values
+   valuestemp$ref[valuestemp$param == a] <-  valuestemp$max[valuestemp$param == a]
+
+   temp <- find_relative( !!!output, model = model, time_simul = time_simul, states = states,   values = valuestemp, protocol = protocol, sensitivity = sensitivity,
+                          printPlot = F, deepAnalysis = F, printCode = F ) %>%
+     mutate(which = paste0(a, "_max"))
+
+   base <- bind_rows(base, temp)
+  }
+
+# base %>%
+#   spread(which, Pore) %>%
+#   View
+
+base %>%
+  group_by(param, !!!output) %>%
+  slice(1) %>%
+  gather("ytype", "res", !!!output)-> analyse
+
+
+
+  }else{
 
   # get the name of parameters
   param <- values$param
@@ -143,6 +188,51 @@ find_relative <- function(..., model = model_RxODE, time_simul = times, states =
     })) %>%
     unnest(res) -> analyse
 
+  }
+
+
+
+
+  analyse_temp <- analyse
+
+  # in case of deepAnalysis, need to remove the inconsistent one
+  if(deepAnalysis == T){
+
+
+
+    # rem NON-USABLE
+    analyse_temp %>%
+      filter(res == "NON-USABLE") %>% pull(param) -> torem
+
+    analyse_temp <- analyse_temp %>%
+      filter(! param %in% torem)
+
+    # once dec, once inc
+    analyse_temp %>%
+      filter(res %in% c("dec", "inc")) %>%
+      group_by(param) %>%
+      tally %>%
+      filter(n == 2) %>%
+      pull(param) -> torem
+
+    analyse_temp <- analyse_temp %>%
+      filter(! param %in% torem)
+
+    # dec / in + ind
+
+    analyse_temp %>%
+      # filter(res %in% c("dec", "inc")) %>%
+      group_by(param) %>%
+      tally %>%
+      filter(n == 2) %>%
+      pull(param) -> torem_ind
+
+    analyse_temp <- analyse_temp %>%
+      filter( !( param %in% torem_ind & res == "ind"))
+
+  }
+
+
 
   # Here the goal is to produce the code for the user
   # Because we need to produce three code (for reducer, increaser and non-modifier)
@@ -150,14 +240,19 @@ find_relative <- function(..., model = model_RxODE, time_simul = times, states =
   # here "sens" represent the possible variation analysed above ("inc", "dec" or "alt)
   # "name" is the name of the vector we want to create
 
+
   func_temp <- function(sens, name){
 
 
+
+
+
     # for each ytype
-    temp <- map_chr(unique(analyse$ytype),function(x){
+    temp <- map_chr(unique(analyse_temp$ytype),function(x){
 
       # look at the parameters that increase/decrease/unchange (use of sens!) that YTYPE
-      para <- analyse$param[analyse$ytype == x & analyse$res == sens]
+      para <- analyse_temp$param[analyse_temp$ytype == x & analyse_temp$res == sens]
+
 
       # if there is none, simply output "character"
       if(length(para) == 0) return(  paste0(x, " =character()" ) )
@@ -175,6 +270,7 @@ find_relative <- function(..., model = model_RxODE, time_simul = times, states =
 
   }
 
+ if( printCode ){
 
   cat(red("Code generator - use carefully"))
 
@@ -185,9 +281,12 @@ find_relative <- function(..., model = model_RxODE, time_simul = times, states =
     cat
 
   cat(red("End of code generation"))
+ }
 
+  # if(deepAnalysis == T) return()
 # Then Print the plot to help the users verify/understand the dynamic
 # One plot per ytype/output in the end gather with plot_grid
+  if(printPlot == T & deepAnalysis == F){
   print(  map(output, ~   simulations %>%
                 filter(what != "ref") %>%
                 # filter(tumVol > 1e-5) %>%
@@ -200,14 +299,17 @@ find_relative <- function(..., model = model_RxODE, time_simul = times, states =
                 ggtitle(deparse(.x))
   ) %>%
     invoke(.fn = plot_grid))
-
+  }
 # As a output, a table summarising the influence of each paramter for each ytype
+
   analyse %>%
     mutate(res = if_else(res == "same", "ind", res)) %>%
     mutate(res = if_else(res == "alt", "NON-USABLE", res)) %>%
     spread(ytype, res)
 }
 
+
+find_relative(Pore, protocol = "unique", model = model_RxODE, values = domain, sensitivity = 0.1, deepAnalysis = T)
 
 
 # helper to create --------------------------------------------------------
