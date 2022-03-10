@@ -18,15 +18,15 @@ VP_proj_creator <- R6Class("VT",
   public = list( model = NULL,
 
   param = NULL,
-  filters_neg_above = tibble(),
-  filters_neg_below  = tibble(),
+  filters_neg_above = data.frame(),
+  filters_neg_below  = data.frame(),
   filters_pos_above = NULL,
   filters_pos_below = NULL,
   data = NULL,
   parameters_default_values = NULL,# c(psi = 20) # paremeters value to be used by default (NA if you want to force providing value)
   initial_cmt_values = NULL, #c(X1 = 50) # initial compartment values. At least one, and every missing cmt name would be set to 0
   times = NULL, #seq(0,52, 1)
-  poolVP = tibble(),
+  poolVP = data.frame(),
   protocols = NULL,
   param_reduce = NULL,
   param_increase = NULL,
@@ -1085,8 +1085,8 @@ VP_proj_creator$set("public", "make_filters", function(cmt = "tumVol"){
 
 
 # plot 2D -----------------------------------------------------------------
-x = expr(k2)
-y = expr(lambda0)
+# x = expr(k2)
+# y = expr(lambda0)
 # y = expr(ke)
 # toaddneg = VP_df
 VP_proj_creator$set("public", "plot_2D", function(x, y , cmt_green = "tumVol", toaddneg = NULL, plotMain = F, add_point =F , IDref = NULL, plotoreturn = 3){

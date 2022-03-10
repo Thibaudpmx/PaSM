@@ -1,206 +1,253 @@
-# library(peccary)
-# library(QSPVP)
-# library(RxODE)
-# library(progress)
-# Step 1 create or load project ---------------------------------------------------
-# create_VT_Project("D:/these/Second_project/QSP/modeling_work/VT_simeoni")
-#
-# values <- tibble(k1 = 10,
-#                   k2 = 2,
-#                   ke =1,
-#                   lambda0 = 2,
-#                   lambda1 = 100,
-#                   Vd =  40
-# )
-#
-#
-#                   # protocols = c("dose0", "dose50", "dose100")
-#
-# model_RxODE <-  RxODE({
-#   d/dt(Central) <- -ke * Central
-#   Conc <- Central/Vd
-#
-#   tumVol <- X1 + X2 + X3 + X4
-#   growth <- lambda0 * X1/((1 + (lambda0 * tumVol/lambda1)^psi)^(1/psi))
-#   d/dt(X1) <- growth - X1 * Conc * k2
-#   d/dt(X2) <- X1 * Conc * k2 - k1 * X2
-#   d/dt(X3) <- k1 * (X2 - X3)
-#   d/dt(X4) <- k1 * (X3 - X4)
-# })
-#
-#
-# model_RxODE <-  RxODE({
-#   d/dt(Central) <- -ke * Central
-#   Conc <- Central/Vd
-#
-#   tumVol <- X1 + X2 + X3 + X4
-#
-#   if(tumVol < lambda1/lambda0){
-#
-#   growth <- lambda0 * X1
-#
-#   }else{
-#
-#     growth <- lambda1
-#   }
-#
-#
-#   d/dt(X1) <- growth - X1 * Conc * k2
-#   d/dt(X2) <- X1 * Conc * k2 - k1 * X2
-#   d/dt(X3) <- k1 * (X2 - X3)
-#   d/dt(X4) <- k1 * (X3 - X4)
-# })
+#' Title
+#'
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#'
+find_relative <- function(..., model = model_RxODE, time_simul = times, states = initial_cmt_values,   values = domain, protocol = "dose50", sensitivity = 1E-6){
+
+  # output  = exprs(tumVol, Conc)
+  output = exprs(Pore)
+  output <- enexprs(...)
+  model_RxODE <- model
+
+  # get the name of parameters
+  param <- values$param
 
 
-# goal : take a model, a number of parameter to try, to extract the value
 
-find_relative <- function(output,  values = toadd, param = NULL, protocol = "dose50", sensitivity = 1E-6){
+  # get the reference profile (set all parameter value as their "ref" columns)
+  ref <- values %>%
+    distinct(param, ref) %>%
+    spread(param, ref) %>%
+    mutate(what = "ref", param = "ref")
 
-  # output  = expr(tumVol)
-  output <- enexpr(output)
 
-  if(is.null(param)) param <- names(values)
+  # Create all the id
+  # for each param, create two rows equal to the ref
+  # then replace the param in the map by respectively its min and max value
+  # at the end add the ref raw
+  map(param, function(x){
 
-  ref <-  simulations( values, add_events = protocols[[protocol]]) %>%
-      mutate(ref = !!output) %>%
-      select(time, ref)
+    min <- max <- ref
+    min[[x]] <- values$min[values$param == x]
+    max[[x]] <- values$max[values$param == x]
 
+    bind_rows(
+
+      min %>% mutate(what = "min"),
+      max %>% mutate(what = "max")
+    ) %>%
+      mutate(param = x)
+
+  }) %>%
+    bind_rows() %>%
+    bind_rows(ref) %>%
+    rowid_to_column("id") -> ind_params
+
+  # add the default values if not added
+
+  for(a in names(parameters_default_values)[! names(parameters_default_values) %in% names(ind_params)]){
+
+    ind_params[[a]] <- parameters_default_values[[a]]
+
+  }
+
+  # Select the protocol to use
+  protocol2 <- protocols[[protocol]]
+
+  # Create the protocol dataset
+  # first generate the observation raws
+  # combine with   the administraiton one
+  # then copy this df for each id
+  protocol2 <-   protocol2 %>%
+    select(-time) %>%
+    crossing(time = time_simul) %>%
+    mutate(amt = 0, evid = 0) %>%
+    bind_rows(protocol2 %>% mutate(evid = 1)) %>%
+    crossing(id = unique(ind_params$id)) %>%
+    arrange(id, time, desc(amt))
+
+
+  # Perform the simulation, transform into tibble and join the parameter for use after
+  simulations <- model_RxODE$solve(ind_params %>% select(-what, - param),protocol2 , states) %>%
+    as_tibble %>%
+    left_join(ind_params)
+
+
+  # Time to analyse the influence of each parameter
+  # first select th esimulation of reference
+  refsim <- simulations %>%
+    filter(what == "ref")
+
+  # for each parameter
   tibble(param) %>%
-    mutate(test = map_chr(param, function(x){
+    mutate(res = map(param, function(x){
 
-     values2 <- values
-     values2[[x]] <- values2[[x]] * 2
+      # select the two id with low and high current param value
+      simulations %>%
+        filter(param == x) %>%
+        select(time, !!!output, x) %>% # select the output/ytype desired
+        gather("ytype", "value", !!!output) %>% # one row per ytype observation
+        arrange(x) %>%
+        spread( x, value) -> temp # but one column for min and max (easier for comparison)
 
-     simx2 <- simulations( values2, add_events = protocols[[protocol]])
+      names(temp) <- c("time","ytype", "min", "max") # modify the name of the column for easier manipulation
 
-     for_analysis <- ref %>%
-       left_join(simx2, by = "time") %>%
-       mutate(test = !!output - ref) %>%
-       mutate(test = if_else(abs(test) < sensitivity, 0, test)) %>%
-       pull(test)
+      temp %>%
+        # join the reference for each time and ytype
+        left_join(refsim %>% distinct(time, !!!output) %>% gather("ytype", "int", !!!output),by = c("time", "ytype")) %>%
+        # compare 1) the intermerdiate value minus the lowest, and 2) the highest versus the intermediate
+        mutate(test1 = int-min, test2 = max-int) %>%
+        # if the difference are smaller than the sensitivity, replace by 0
+        mutate(test1 = if_else(abs(test1) < sensitivity, 0, test1),
+               test2 = if_else(abs(test2) < sensitivity, 0, test2)) %>%
+        # gather to have each test in a separate column
+        gather("test", "value", test1, test2) %>%
+        # compute the result of the test (increased, decreased, or unchanged)
+        mutate(res= case_when( value == 0  ~ "same",
+                               value <= 0  ~ "dec",
+                               value >= 0 ~ "inc")) %>%
+        distinct(ytype, res) -> temp
 
-     lengthref <- length(for_analysis)
+      #  For each ytype we can have several res at different time
+      #  We need to extract only one value per ytype and param
+      #  so let's do a loop for each ytype
+      for (a in unique(temp$ytype)){
 
-     # is it always higher?
-     if(sum(for_analysis == 0) == lengthref) return("all0_indep_or_need_increase")
-    if(sum(for_analysis >= 0) == lengthref) return("increase")
-    if(sum(for_analysis <= 0) == lengthref) return("decrease")
+        # see the results of the tests
+        line <- temp %>% filter(ytype == a) %>% pull(res)
 
-     return("time_dep")
+        # if "same" + another one, remove the "same" line
+        if(length(line) > 1 & "same" %in% line){
+          temp <- temp %>%
+            filter(!(ytype == a & res == "same"))
+        }
 
-    }))
+        # if both decreased and increased value, then put to "alt" ("alternating")
+        if("dec" %in% line & "inc" %in% line){
+
+          temp <- temp %>%
+            filter(!ytype %in% a ) %>%
+            bind_rows(tibble(ytype = a, res = "alt") )
+
+        }
+      }
+
+      # finally return the temp
+      temp
+
+
+    })) %>%
+    unnest(res) -> analyse
+
+
+  # Here the goal is to produce the code for the user
+  # Because we need to produce three code (for reducer, increaser and non-modifier)
+  # Let's create a generic function
+  # here "sens" represent the possible variation analysed above ("inc", "dec" or "alt)
+  # "name" is the name of the vector we want to create
+
+  func_temp <- function(sens, name){
+
+
+    # for each ytype
+    temp <- map_chr(unique(analyse$ytype),function(x){
+
+      # look at the parameters that increase/decrease/unchange (use of sens!) that YTYPE
+      para <- analyse$param[analyse$ytype == x & analyse$res == sens]
+
+      # if there is none, simply output "character"
+      if(length(para) == 0) return(  paste0(x, " =character()" ) )
+
+      # else paste all the paramer to have a code like " "param1", "param2",..."
+      temp <- paste0("\"", para, "\"") %>% paste0(collapse = ", ")
+
+      # then create the final vector code for that YTYPE
+      paste0(x, " = c(",temp, ")" )
+
+    }) %>%
+      paste0(collapse = ", ") # separate all YTYPE vector by a comma
+
+    paste0(name, " <- list(", temp, ")\n\n") # finally generate the final vector
+
+  }
+
+
+  cat(red("Code generator - use carefully"))
+
+  paste0("\n\n", func_temp("inc", "param_increase" ),
+         func_temp("dec", "param_decrease" ),
+         func_temp("same", "param_no_impact" ), "\n"
+  ) %>%
+    cat
+
+  cat(red("End of code generation"))
+
+# Then Print the plot to help the users verify/understand the dynamic
+# One plot per ytype/output in the end gather with plot_grid
+  print(  map(output, ~   simulations %>%
+                filter(what != "ref") %>%
+                # filter(tumVol > 1e-5) %>%
+                ggplot()+
+                geom_line(aes(time, !!.x, col = what))+
+                geom_line(data = refsim %>% select(-param), aes(time, !!.x, col = "ref"))+
+                facet_wrap(~param, scales = "free")+
+                scale_y_log10()+
+                theme_bw()+
+                ggtitle(deparse(.x))
+  ) %>%
+    invoke(.fn = plot_grid))
+
+# As a output, a table summarising the influence of each paramter for each ytype
+  analyse %>%
+    mutate(res = if_else(res == "same", "ind", res)) %>%
+    mutate(res = if_else(res == "alt", "NON-USABLE", res)) %>%
+    spread(ytype, res)
 }
 
 
-#
-# values <- tibble(k1 = 0.5,
-#                  k2 = 2,
-#                  ke =1,
-#                  lambda0 = 2,
-#                  lambda1 = 4,
-#                  Vd =  40
-# )
-# x <- "k1"
-# values2 <- values
-# values2[[x]] <- values2[[x]] * 10
-#
-# simulations(ind_param =  values, add_events = protocols[[protocol]]) %>%
-#   mutate(test = "ref") %>%
-#   bind_rows(
-# simulations( values2, add_events = protocols[[protocol]]) %>%
-#   mutate(test = "x2")
-#   ) %>%
-#   gather("key", "value", tumVol, X1, X2, X3) %>%
-#   filter(time  < 20) %>%
-#   ggplot()+
-#
-#   geom_line(aes(time, value, col = test))+
-#   facet_wrap(~key, scales = "free")
-#
-#
-# simulations(ind_param =  values, add_events = protocols[[protocol]]) %>%
-#   mutate(test = "ref") %>%
-#   bind_rows(
-#     simulations( values2, add_events = protocols[[protocol]]) %>%
-#       mutate(test = "x2")
-#   ) %>%
-#   # gather("key", "value", tumVol, X1, X2, X3) %>%
-#   # filter(time  < 20) %>%
-#   ggplot()+
-#
-#   geom_line(aes(time, tumVol, col = test))
-# 2**(1:10)
-#
-#
-#
-# # Simeoni demo plot -------------------------------------------------------
-#
-# # ind_param <- tibble(k1 = c(0.1, 10), k2 = c(0.5, 0.5), ke = c(1, 1), lambda0 = c(1, 1), lambda1 = c(70, 70), psi = c(20, 20), Vd = c(5, 5), nameparset = c("k1 = 0.1", "k1 = 10"))
-# #
-# # parameters_df <- ind_param %>%
-# #   rownames_to_column("id") %>%
-# #   group_by(id, nameparset) %>%
-# #   nest(.key = "parameter")
-# #
-# # times <- seq(0L, 20L, by = 0.1)
-# #
-# # events_df <- tibble(Proto = "1", cmt = "Central", time = "0", amt = "50", method = "add", ADM = "1", Perf = structure(1L, .Label = c("None", "rate", "time"), class = c("ordered", "factor")), evid = 1) %>%
-# #   mutate(time = map(time, ~eval(parse_expr(.x)))) %>%
-# #   unnest(time) %>%
-# #   mutate(Proto = "") %>%
-# #   bind_rows(crossing(time = seq(0L, 20L, by = 0.1), evid = 0, cmt = c("Central", "X1", "X2", "X3", "X4", "Conc", "tumVol", "growth"), Proto = "")) %>%
-# #   arrange(time) %>%
-# #   mutate(amt = as.double(amt), time = as.double(time)) %>%
-# #
-# #   group_by(Proto) %>%
-# #   nest(.key = "events")
-# #
-# # states <- c(Central = 0, X1 = 50, X2 = 0, X3 = 0, X4 = 0)
-# #
-# # model <- RxODE({
-# #   d/dt(Central) <- -ke * Central
-# #   Conc <- Central/Vd
-# #   tumVol <- X1 + X2 + X3 + X4
-# #   growth <- lambda0 * X1/((1 + (lambda0 * tumVol/lambda1)^psi)^(1/psi))
-# #   pctProlif <- X1 / tumVol
-# #   d/dt(X1) <- growth - X1 * Conc * k2
-# #   d/dt(X2) <- X1 * Conc * k2 - k1 * X2
-# #   d/dt(X3) <- k1 * (X2 - X3)
-# #   d/dt(X4) <- k1 * (X3 - X4)
-# # })
-# #
-# #
-# # simulations <- crossing(parameters_df, events_df) %>%
-# #   mutate(simul = map2(parameter, events, function(parameter, events) {
-# #     as_tibble(model$solve(parameter, events, states))
-# #   })) %>%
-# #   select(-parameter, -events) %>%
-# #   unnest
-# #
-# #
-# # breaks2 <- map(-40:40, ~1:9 * 10^.x) %>%
-# #   reduce(c)
-# #
-# # labels2 <- as.character(breaks2)
-# #
-# # labels2[-seq(1, length(labels2), 9)] <- ""
-# #
-# # simulations %>%
-# #   gather(-id, -nameparset, -Proto, -time, key = "key", value = "value") %>%
-# #   mutate(color = paste0(nameparset, "\n", Proto, "\n") %>%
-# #            gsub(pattern = "\n\n\n?", replacement = "\n")) %>%
-# #   filter(key %in% c("tumVol")) %>%
-# #   ggplot + geom_line(aes(time, value, col = fct_reorder(color, as.double(id))), size = 1.5) +
-# #   labs(x = "Time", y = "", col = "") +
-# #   theme_bw() +
-# #   facet_wrap(~key, scales = "free") +
-# #   scale_y_log10()+
-# #   geom_hline(data = tibble(key = "tumVol", value = 70), aes(yintercept = value, lty = "threshold"))+
-# #   scale_linetype_manual(values = 2)
-# #   # # geom_vline(xintercept = 1.7, col = "red")+
-# #   # geom_vline(xintercept = 5.4, col = "blue")
-# #
-# # simulations %>%
-# #  filter(tumVol >= 68) %>%
-# #   group_by(nameparset) %>%
-# #   slice(1)
+
+# helper to create --------------------------------------------------------
+
+#' Title
+#'
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#'
+tribblecreator <- function(model_RxODE, rm_default_param = T){
+
+  # take all the paramters of the model as detected by RxODE
+
+  params <- model_RxODE$params
+
+
+  # if the user wan's to remove the default values as put into the parameters_default_values vector
+  if(rm_default_param == T) params <- params[!params %in% names(parameters_default_values)]
+
+
+  # then we need to remove what RxODE detected as parameter even if
+  # the value is actually computed inside the code
+
+
+  str_split(deparse(model_RxODE$model), ";")[[1]] %>%
+    gsub(pattern = "\\\\n", replacement = "") %>%
+    gsub(pattern = "structure\\(\"", replacement = "") %>%
+    gsub(pattern = "=.+", replacement =  "") ->torem
+
+  params <- params[! params %in% torem]
+
+  # Finally print the code to help the users
+
+  paste0("domain <- tribble(~param, ~min, ~ref,  ~max,\n",
+         paste0("\"", params, "\",") %>% paste0(collapse = " ,\n"), " )\n\n",
+         "find_relative(your_output_without_quotes, protocol = \"protocol_to_use\", model = model_RxODE, values = domain)") %>%
+    cat
+
+}
+
