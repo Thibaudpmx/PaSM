@@ -539,12 +539,13 @@ source("D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_con
 
 
 source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
-self <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner.r")
+lindner <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner.r")
 
-self$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+lindner$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
                                   "unique",740,"Pore", 20, 23
 ))
 
+lindner$test()
 
 VP_df <- crossing(Bcl20 = seq(100,1000,100),
                   Bclxl0 = seq(100,1000,100),
@@ -561,7 +562,7 @@ VP_df <- crossing(Bcl20 = seq(100,1000,100),
 
   } )
 
-self$add_VP(VP_df, fillatend = F, reducefilteratend = F)
+lindner$add_VP(VP_df, fillatend = F, reducefilteratend = F)
 
 
 

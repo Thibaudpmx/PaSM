@@ -530,9 +530,9 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
         select(!!!parse_exprs(all_param), "cmt","cellid")
 
       if(nrow(filters_neg_below) > 0){
+
       filters_neg_below_up_reduc <- filter_reduc(filters_neg_below ,obj = self, direction = "below")
-      #%>%
-      # arrange(k2, desc(lambda0))
+
 
       }else{
 
@@ -1453,7 +1453,7 @@ if(!is.null(obj)){
   filters_per_cmt <- list()
 
   ## look first for cmt with ni ==o impacting parameters
-cmt_w_indp <- self$param_no_impact[map_lgl(obj$param_no_impact, ~length(.x) > 0) ]
+cmt_w_indp <- obj$param_no_impact[map_lgl(obj$param_no_impact, ~length(.x) > 0) ]
 cmt_w_indp <- cmt_w_indp[names(cmt_w_indp) %in% cmts]
 
 for(a in  names(cmt_w_indp)){
@@ -1722,7 +1722,6 @@ sum(timetoanaloop$remneg_above_fil)
 
 
 })
-
 
 
 
