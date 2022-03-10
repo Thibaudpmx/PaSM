@@ -275,7 +275,7 @@ base %>%
   cat(red("Code generator - use carefully"))
 
   paste0("\n\n", func_temp("inc", "param_increase" ),
-         func_temp("dec", "param_decrease" ),
+         func_temp("dec", "param_reduce" ),
          func_temp("same", "param_no_impact" ), "\n"
   ) %>%
     cat

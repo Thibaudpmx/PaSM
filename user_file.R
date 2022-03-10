@@ -62,8 +62,8 @@ source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
 
 self <- VP_proj_creator$new()
 
-
-
+self$param_increase
+self$make_filters()
 # self$set_targets(filter = cmt == "tumVol", ntime = 6)
 self$set_targets(filter = Dose ==50  & cmt == "tumVol",timeforce = c(12,19, 30,45))
 
@@ -604,3 +604,39 @@ demo3 %>%
   unnest() %>%
   filter(time == 740) %>%
   pull(Pore)
+
+
+# Test IF -----------------------------------------------------------------
+
+
+
+source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+self <- VP_proj_creator$new(sourcefile = "file:///D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_deux_elim.r")
+
+self$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                                  "dose50",20,"Conc", 0.1, 23
+))
+
+
+self$param_reduce
+
+self$make_filters(cmt = "Conc")
+
+VP_df <- crossing(  k21  = seq(0,1,0.1),
+                    k12  = seq(0,1,0.1),
+                    ke = seq(0,1,0.1),
+                    ke2 = seq(0,1,0.1),
+                    V1 = seq(1,10,1)
+) %>%
+  map_df(function(x){
+
+    if(is.character(x)) return(x)
+    round(x,3)
+
+  } )
+
+self$add_VP(VP_df, fillatend = F, reducefilteratend = F)
+
+
+
+self$plot_VP(nmax = 1000)
