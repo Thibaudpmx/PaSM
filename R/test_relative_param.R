@@ -10,7 +10,7 @@ find_relative <- function(..., model = model_RxODE, time_simul = times, states =
                           printPlot = T, deepAnalysis = F, printCode = T){
 
   # output  = exprs(tumVol, Conc)
-  output = exprs(Pore)
+  # output = exprs(Pore)
   output <- enexprs(...)
   model_RxODE <- model
 
@@ -309,7 +309,7 @@ base %>%
 }
 
 
-find_relative(Pore, protocol = "unique", model = model_RxODE, values = domain, sensitivity = 0.1, deepAnalysis = T)
+# find_relative(Pore, protocol = "unique", model = model_RxODE, values = domain, sensitivity = 0.1, deepAnalysis = T)
 
 
 # helper to create --------------------------------------------------------

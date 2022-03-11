@@ -4,6 +4,8 @@ library(RxODE)
 library(progress)
 library(R6)
 library(crayon)
+library(profvis)
+library(microbenchmark)
 # Step 1 create or load project ---------------------------------------------------
 create_VT_Project("D:/these/Second_project/QSP/modeling_work/VT_simeoni")
 
@@ -112,7 +114,7 @@ self <- VP_proj_creator$new()
 
 
 # self$set_targets(filter = Dose == 50 & cmt == "tumVol", ntime = 8)
-self$set_targets(filter = Dose==50 & cmt == "tumVol",timeforce = c(12,19, 30,45))
+self$set_targets(filter = cmt == "tumVol" & Dose == 50 ,timeforce = c(12,19, 30,45))
 
 VP_df <- crossing(k1 = c(0.5),
                   k2 = seq(0,8,0.0025),
@@ -129,10 +131,13 @@ VP_df <- crossing(k1 = c(0.5),
 
 
 
-self$add_VP(VP_df, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F)
+self$add_VP(VP_df, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F, methodFilter = 1)
+
+self$add_VP(VP_df, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F, methodFilter = 2)
+
 
 self$n_filter_reduc()
-self$plot_VP(nmax = 200)
+self$plot_VP(nmax = 2000)
 
 self$targets
 
@@ -273,7 +278,7 @@ tar <- self$targets ; tar$min[[5]] <- 0.005; tar$max[[2]] <-100; tar$max[[3]] <-
 self$targets  <- tar
 
 VP_df <- crossing(k1 = c(0.5),
-                  k2 = seq(0,8,0.2),
+                  k2 = seq(0,8,0.1),
                   ke = seq(0,3,0.2) ,#*  seq(0.6,1.4,0.2),
                   lambda0 = c(0.025),
                   lambda1 = c(12),
@@ -539,13 +544,12 @@ source("D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_con
 
 
 source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
-lindner <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner.r")
+self <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner.r")
 
-lindner$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+self$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
                                   "unique",740,"Pore", 20, 23
 ))
 
-lindner$test()
 
 VP_df <- crossing(Bcl20 = seq(100,1000,100),
                   Bclxl0 = seq(100,1000,100),

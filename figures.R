@@ -937,7 +937,7 @@ base$targets
 
 
 tbase <- Sys.time()
-base$add_VP(VP_df, fillatend = F, reducefilteratend = F,  npersalve = 2000,  time_compteur = F)
+base$add_VP(VP_df, fillatend = F, reducefilteratend = F,  npersalve = 2000,  time_compteur = F,methodFilter = 2)
 tbase <- difftime(Sys.time(), tbase, units = "s")
 
 
@@ -960,7 +960,7 @@ base3$targets
 
 
 tbase3 <- Sys.time()
-base3$add_VP(VP_df, fillatend = F, reducefilteratend = F,  npersalve = 2000,  time_compteur = F)
+base3$add_VP(VP_df, fillatend = F, reducefilteratend = F,  npersalve = 2000,  time_compteur = F,methodFilter = 2)
 tbase3 <- difftime(Sys.time(), tbase3, units = "s")
 
 
