@@ -33,6 +33,7 @@ VP_proj_creator <- R6Class("VT",
   param_no_impact = NULL,
   targets = NULL,
   timesaver = NULL,
+  action_programmed = list(),
 
   initialize = function(sourcefile= "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config.r"){
     myEnv <- new.env()
@@ -145,14 +146,30 @@ print( as.data.frame(targets))
 
 
 # VP_production -----------------------------------------------------------
-VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F, pctActivGreen = 0.75,
+VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F, pctActivGreen = 0.75,
                                                  keepRedFiltaftDis = F, methodFilter = 2){
+
+
+
+  ### Handle the plannification if there are fixed parameter
+   if(!is.null(fix_df)){
+
+     self$action_programmed$VP_df <- VP_df
+     self$action_programmed$fix_df <- fix_df
+
+     self$launch_programmed()
+
+return(cat(red("Done")))
+   }
+
 
   # Create the pool of virtual patient
   # each VP should have a unique id and one row per protocol
   # Two possibilities: use crossing or map protocole followed by bind_rows
   # See test microbrenchmark 1 -> second option clear winner
   # (crossing is a powerfull yet slow function)
+
+
 
   poolVP_id <-     VP_df %>%
     rowid_to_column("id") # add row equal to id
@@ -1085,6 +1102,34 @@ VP_proj_creator$set("public", "add_VP", function(VP_df,  saven = 50, drug = NULL
 })
 
 
+# launched programmed -----------------------------------------------------
+
+
+VP_proj_creator$set("public", "launch_programmed", function(){
+
+while(nrow( self$action_programmed$fix_df) != 0){
+
+  cat(blue(paste0("\n\n",nrow( self$action_programmed$fix_df), " remaining VP generations\n")))
+
+  line <-  self$action_programmed$fix_df %>%
+    slice(1)
+
+
+  VP_df_temp <- self$action_programmed$VP_df %>%
+    mutate(dummyforjoin = 1) %>%
+    left_join(line %>% mutate(dummyforjoin = 1), by = "dummyforjoin" )
+
+  self$add_VP(VP_df_temp, fillatend = F, reducefilteratend = F,use_green_filter = F, npersalve = 2000, time_compteur = F, pctActivGreen = 0.75)
+
+  print(self)
+
+  self$action_programmed$fix_df <- self$action_programmed$fix_df %>% slice(-1)
+
+
+
+}
+
+})
 # Complete VP simul -------------------------------------------------------
 
 VP_proj_creator$set("public", "fill_simul", function(){

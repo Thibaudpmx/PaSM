@@ -1143,11 +1143,39 @@ rm(noimpact1)
 
 # 2 param
 
+
+
+
 noimpact2 <- VP_proj_creator$new()
 noimpact2$set_targets(manual = protohere)
 noimpact2$param_increase$tumVol <- noimpact2$param_increase$tumVol[-c(1,2)]
 tnoimpact2 <- Sys.time()
 noimpact2$add_VP(npersalve = 2000,VP_df, reducefilteratend = F)
+tnoimpact2 <- difftime(Sys.time(), tnoimpact2, units = "s")
+rm(noimpact2)
+
+
+# 2 param with new methods (without  "lambda0" "lambda1" )
+
+VP_df_short <- crossing(k1 = c(0.5),
+                  k2 = seq(0,8,0.7),
+                  ke = seq(0,8,0.7) ,#*  seq(0.6,1.4,0.2),
+                  Vd =  31:42) %>% #c(0.8,1,1.2)) %>%
+  map_df(function(x){
+
+    if(is.character(x)) return(x)
+    round(x,3)
+
+  } );VP_df
+
+
+
+noimpact2 <- VP_proj_creator$new()
+noimpact2$set_targets(manual = protohere)
+noimpact2$param_increase$tumVol <- noimpact2$param_increase$tumVol[-c(1,2)]
+tnoimpact2 <- Sys.time()
+noimpact2$add_VP(npersalve = 2000,VP_df_short,fix_df = crossing(lambda0 =seq(0,0.16,0.014),
+                                                                lambda1 = seq(9,14.5,0.5)),  reducefilteratend = F)
 tnoimpact2 <- difftime(Sys.time(), tnoimpact2, units = "s")
 rm(noimpact2)
 

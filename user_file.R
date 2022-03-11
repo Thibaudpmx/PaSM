@@ -114,7 +114,7 @@ self <- VP_proj_creator$new()
 
 
 # self$set_targets(filter = Dose == 50 & cmt == "tumVol", ntime = 8)
-self$set_targets(filter = cmt == "tumVol" & Dose == 50 ,timeforce = c(12,19, 30,45))
+self$set_targets(filter = cmt == "tumVol"  ,timeforce = c(12,19, 30,45))
 
 VP_df <- crossing(k1 = c(0.5),
                   k2 = seq(0,8,0.0025),
@@ -131,7 +131,7 @@ VP_df <- crossing(k1 = c(0.5),
 
 
 
-self$add_VP(VP_df, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F, methodFilter = 1)
+# self$add_VP(VP_df, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F, methodFilter = 1)
 
 self$add_VP(VP_df, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F, methodFilter = 2)
 
@@ -248,7 +248,7 @@ t0 <- Sys.time()
 self$add_VP(VP_df, fillatend = F, reducefilteratend = F,use_green_filter = F, npersalve = 2000, time_compteur = F, pctActivGreen = 0.75)
 Sys.time() - t0
 
-self$plot_VP()
+self$plot_VP(nmax = 2000)
 self$n_filter_reduc()
 
 self$filters_neg_above
@@ -645,3 +645,38 @@ self$add_VP(VP_df, fillatend = F, reducefilteratend = F)
 
 
 self$plot_VP(nmax = 1000)
+
+
+
+# Non usable param Handle -------------------------------------------------
+
+source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+self <- VP_proj_creator$new()
+#
+# saveRDS(self, "D:/these/Second_project/QSP/modeling_work/VT_simeoni/longrun.RDS")
+
+# self$set_targets(filter = Dose == 50 & cmt == "tumVol", ntime = 8)
+self$set_targets(filter =  cmt == "tumVol",timeforce = c(12,19, 30,45))
+
+self$targets$min <- map2_dbl(self$targets$min, self$targets$max, ~ mean(c(.x, .y))) %>% round
+
+VP_df <- crossing(k2 = seq(0,8,0.1),
+                  ke = 1 ,#*  seq(0.6,1.4,0.2),
+                  lambda0 =seq(0,0.16,0.01),
+                  lambda1 = c(10,12,14,33),
+                  Vd =  c(0:40)) %>% #c(0.8,1,1.2)) %>%
+  map_df(function(x){
+
+    if(is.character(x)) return(x)
+    round(x,3)
+
+  } )
+
+fix_df <- tibble(k1 = seq(0,2,0.5))
+
+t0 <- Sys.time()
+self$add_VP(VP_df,fix_df =  fix_df, fillatend = F, reducefilteratend = F,use_green_filter = F, npersalve = 2000, time_compteur = F, pctActivGreen = 0.75)
+Sys.time() - t0
+
+self$plot_VP(nmax = 2000)
+
