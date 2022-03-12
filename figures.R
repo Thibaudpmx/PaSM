@@ -1184,6 +1184,7 @@ rm(noimpact2)
 noimpact3 <- VP_proj_creator$new()
 noimpact3$set_targets(manual = protohere)
 noimpact3$param_increase$tumVol <- noimpact3$param_increase$tumVol[-c(1,2,3)]
+self <- noimpact3
 tnoimpact3 <- Sys.time()
 noimpact3$add_VP(npersalve = 2000,VP_df, reducefilteratend = F)
 tnoimpact3 <- difftime(Sys.time(), tnoimpact3, units = "s")
