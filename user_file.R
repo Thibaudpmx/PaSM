@@ -255,10 +255,7 @@ self$compute_zone_maybe()
 self$compute_zone_sure()
 
 self$zone_maybe
-self$filters_neg_above
-self$filters_neg_below
-self$filters_pos_above
-self$filters_pos_below
+self$zone_sure
 
 
 # verif

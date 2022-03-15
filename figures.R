@@ -37,7 +37,7 @@ VP_df_in_dec <- crossing(k1 = c(0.5),
 
 in_dec$add_VP(VP_df_in_dec, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F)
 
-
+in_dec$plot_2D(k2, lambda0, add_point = T)
 ## Two increases
 
 in_in <- VP_proj_creator$new()
@@ -1228,6 +1228,474 @@ tibble(time = c(22,30,65.8,97.85,110,109, 21, 26, 66, 101,120,122), paramnoinflu
 
 
 
+# Rej extr -----------------------------------------------------------------
+
+
+
+source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+
+
+## One increase one decrease (k2 and lambda0)
+
+self <- VP_proj_creator$new()
+
+
+self$set_targets(filter = Dose==50 & cmt == "tumVol",timeforce = c(12,45))
+
+
+self$targets$max <- c(62,200)
+
+param <- crossing(k1 = 0.5, k2 = seq(2,6,2), ke = 1, lambda0 = seq(0.02,0.06,0.01), lambda1 = 12, Vd = 40, psi = 20) %>%
+  rowid_to_column("id")
+
+param %>% arrange(k2, desc(lambda0)) %>% slice(1) %>% pull(id) -> idlowest
+
+events <- self$protocols$dose50 %>% mutate(evid = 1) %>%
+  bind_rows( self$protocols$dose50 %>% mutate(evid = 0) %>% select(-time) %>% crossing(time = 0:50)) %>%
+  arrange(time) %>%
+  crossing(id = 1:nrow(param))
+
+simul <- self$model$solve(param, events, c(X1 = 50) ) %>%
+  as_tibble() %>%
+  left_join(param) %>%
+  mutate(l0 = if_else(lambda0 == 0.06 , " 0.06", "< 0.06"))
+
+
+# plot1 <- self$data %>%
+#   filter(cmt %in%  unique( self$targets$cmt) & protocol %in% unique( self$targets$protocol)) %>%
+#   ggplot()+
+#   # geom_line(aes(time, OBS, group = ID)) +
+#   geom_segment(data =  self$targets,
+#                aes(x = time, xend = time, y = min, yend = max), col ="black", size = 2)+
+#   scale_y_log10()+
+#   theme_bw()+
+#   geom_text(data = simul%>% filter(time == 50), aes(x = 53, y = tumVol, label = lambda0, col = factor(k2)))+
+#   # geom_text(aes(x = 52, y = 170, label = "lambda0\nvalue: "))+
+#   geom_line(data=simul, aes(time, tumVol, group = id, size = l0, alpha = l0, col = factor(k2)))+
+#   # geom_line(data=simul %>% filter(id != idlowest), aes(time, tumVol, group = id, col = factor(k2)), size = 1,  alpha = 0.3)+
+#   labs(col = "k2", alpha = "lambda0", size= "lambda0")+
+#   scale_size_manual(values = c(2,1))+
+#   scale_alpha_manual(values = c(1,0.3)) +
+#   geom_segment(aes(x = 56, xend = 56, y = 0.05, yend = 60))+
+#   geom_segment(aes(x = 51, xend = 56, y = 0.05, yend = 0.05))+
+#   geom_segment(aes(x = 51, xend = 56, y = 60, yend = 60))+
+#   geom_segment(aes(x = 56, xend = 58, y = 2, yend = 2))+
+#
+#   geom_segment(aes(x = 56, xend = 56, y = 64, yend = 100))+
+#   geom_segment(aes(x = 51, xend = 56, y = 64, yend = 64))+
+#   geom_segment(aes(x = 51, xend = 56, y = 100, yend = 100))+
+#   geom_segment(aes(x = 56, xend = 58, y = 80, yend = 80))+
+#   coord_cartesian(xlim = c(0,70))+
+#   geom_text(aes(x = 65, y = 80, label = "Rejected by\nRxODE"))+
+#   geom_text(aes(x = 65, y = 2, label = "Rejected by\nextrapolation"))+
+#   geom_segment(aes(x = 65, xend = 65, y = 40, yend = 5), arrow = arrow(length=unit(0.30,"cm"), ends="last", type = "closed")); plot1
+#
+#
+# plot1 <- self$data %>%
+#   filter(cmt %in%  unique( self$targets$cmt) & protocol %in% unique( self$targets$protocol)) %>%
+#   ggplot()+
+#   # geom_line(aes(time, OBS, group = ID)) +
+#   geom_segment(data =  self$targets,
+#                aes(x = time, xend = time, y = min, yend = max), col ="black", size = 2)+
+#   scale_y_log10()+
+#   theme_bw()+
+#   geom_text(data = simul%>% filter(time == 50), aes(x = 53, y = tumVol, label = lambda0, col = factor(k2)))+
+#   # geom_text(aes(x = 52, y = 170, label = "lambda0\nvalue: "))+
+#   geom_line(data=simul, aes(time, tumVol, group = id, size = l0, alpha = l0, col = factor(k2)))+
+#   # geom_line(data=simul %>% filter(id != idlowest), aes(time, tumVol, group = id, col = factor(k2)), size = 1,  alpha = 0.3)+
+#   labs(col = "k2", alpha = "lambda0", size= "lambda0")+
+#   scale_size_manual(values = c(2,1))+
+#   scale_alpha_manual(values = c(1,0.3)) +
+#   geom_segment(aes(x = 56, xend = 56, y = 9, yend = 60))+
+#   geom_segment(aes(x = 51, xend = 56, y = 9, yend = 9))+
+#   geom_segment(aes(x = 51, xend = 56, y = 60, yend = 60))+
+#   geom_segment(aes(x = 56, xend = 58, y = 20, yend = 20))+
+#   geom_text(aes(x = 65, y = 20, label = "lower lambda0"))+
+#   geom_text(aes(x = 63, y = 7.3, label = "higher k2", col = "4"))+
+#   geom_text(aes(x = 63, y = 0.6, label = "higher k2", col = "6"))+
+#   geom_segment(aes(x = 56, xend = 56, y = 0.7, yend = 5))+
+#   geom_segment(aes(x = 51, xend = 56, y = 5, yend = 5))+
+#   geom_segment(aes(x = 51, xend = 56, y = 0.7, yend = 0.7))+
+#   geom_segment(aes(x = 56, xend = 58, y = 2, yend = 2))+
+#   geom_text(aes(x = 65, y = c(2), label = "lower lambda0\nand higher k2"))+
+#
+#   # geom_segment(aes(x = 56, xend = 56, y = 0.05, yend = 60))+
+#   # geom_segment(aes(x = 51, xend = 56, y = 0.05, yend = 0.05))+
+#   # geom_segment(aes(x = 51, xend = 56, y = 60, yend = 60))+
+#   # geom_segment(aes(x = 56, xend = 58, y = 2, yend = 2))+
+#   # geom_text(aes(x = 65, y = 2, label = "Rejected by\nextrapolation"))+
+#   geom_segment(aes(x = 56, xend = 56, y = 0.04, yend = 0.4))+
+#   geom_segment(aes(x = 51, xend = 56, y = 0.04, yend = 0.04))+
+#   geom_segment(aes(x = 51, xend = 56, y = 0.4, yend = 0.4))+
+#   geom_segment(aes(x = 56, xend = 58, y = 0.15, yend = 0.15))+
+#   geom_text(aes(x = 65, y = c(0.15), label = "lower lambda0\nand higher k2"))+
+#
+#   geom_segment(aes(x = 56, xend = 56, y = 64, yend = 100))+
+#   geom_segment(aes(x = 51, xend = 56, y = 64, yend = 64))+
+#   geom_segment(aes(x = 51, xend = 56, y = 100, yend = 100))+
+#   geom_segment(aes(x = 56, xend = 58, y = 80, yend = 80))+
+#   coord_cartesian(xlim = c(0,70))+
+#   geom_text(aes(x = 65, y = 80, label = "Rejected by\nRxODE"))+
+#   geom_segment(aes(x = 65, xend = 65, y = 50, yend = 25), arrow = arrow(length=unit(0.30,"cm"), ends="last", type = "closed")); plot1
+#
+#
+#
+
+
+
+param3 <- crossing(k1 = 0.5, k2 = c(0.8), ke = 1, lambda0 = c(0.05), lambda1 = 12, Vd = 40, psi = 20) %>%
+  rowid_to_column("id")
+
+param3 %>% arrange(k2, desc(lambda0)) %>% slice(1) %>% pull(id) -> idlowest2
+
+events3 <- self$protocols$dose50 %>% mutate(evid = 1) %>%
+  bind_rows( self$protocols$dose50 %>% mutate(evid = 0) %>% select(-time) %>% crossing(time = 0:50)) %>%
+  arrange(time) %>%
+  crossing(id = 1:nrow(param3))
+
+simul3 <- self$model$solve(param3, events3, c(X1 = 50) ) %>%
+  as_tibble()
+
+plot1 <- self$data %>%
+  filter(cmt %in%  unique( self$targets$cmt) & protocol %in% unique( self$targets$protocol)) %>%
+  ggplot()+
+
+  # geom_line(aes(time, OBS, group = ID)) +
+  geom_segment(data =  self$targets,
+               aes(x = time, xend = time, y = min, yend = max), col ="black", size = 2)+
+  scale_y_log10()+
+  theme_bw()+
+  geom_text(data = simul%>% filter(time == 50), aes(x = 53, y = tumVol, label = lambda0, col = factor(k2)))+
+  # geom_text(aes(x = 52, y = 170, label = "lambda0\nvalue: "))+
+  geom_line(data=simul, aes(time, tumVol, group = id, size = l0, alpha = l0, col = factor(k2)))+
+  # geom_line(data=simul %>% filter(id != idlowest), aes(time, tumVol, group = id, col = factor(k2)), size = 1,  alpha = 0.3)+
+  labs(col = "k2", alpha = "lambda0", size= "lambda0")+
+  scale_size_manual(values = c(2,1))+
+  scale_alpha_manual(values = c(1,0.3)) +
+  geom_segment(aes(x = 56, xend = 56, y = 9, yend = 60))+
+  geom_segment(aes(x = 51, xend = 56, y = 9, yend = 9))+
+  geom_segment(aes(x = 51, xend = 56, y = 60, yend = 60))+
+  geom_segment(aes(x = 56, xend = 58, y = 20, yend = 20))+
+  geom_text(aes(x = 70, y = 20, label = "lower lambda0"))+
+  geom_text(aes(x = 70, y = 7.3, label = "higher k2", col = "4"))+
+  geom_text(aes(x = 70, y = 0.6, label = "higher k2", col = "6"))+
+  geom_segment(aes(x = 56, xend = 56, y = 0.7, yend = 5))+
+  geom_segment(aes(x = 51, xend = 56, y = 5, yend = 5))+
+  geom_segment(aes(x = 51, xend = 56, y = 0.7, yend = 0.7))+
+  geom_segment(aes(x = 56, xend = 58, y = 2, yend = 2))+
+  geom_text(aes(x = 70, y = c(2), label = "lower lambda0\nand higher k2"))+
+
+  # geom_segment(aes(x = 56, xend = 56, y = 0.05, yend = 60))+
+  # geom_segment(aes(x = 51, xend = 56, y = 0.05, yend = 0.05))+
+  # geom_segment(aes(x = 51, xend = 56, y = 60, yend = 60))+
+  # geom_segment(aes(x = 56, xend = 58, y = 2, yend = 2))+
+  # geom_text(aes(x = 65, y = 2, label = "Rejected by\nextrapolation"))+
+  geom_segment(aes(x = 56, xend = 56, y = 0.04, yend = 0.4))+
+  geom_segment(aes(x = 51, xend = 56, y = 0.04, yend = 0.04))+
+  geom_segment(aes(x = 51, xend = 56, y = 0.4, yend = 0.4))+
+  geom_segment(aes(x = 56, xend = 58, y = 0.15, yend = 0.15))+
+  geom_text(aes(x = 70, y = c(0.15), label = "lower lambda0\nand higher k2"))+
+
+#
+#   geom_segment(aes(x = 82, xend = 82, y = 0.025, yend = 68))+
+#   geom_segment(aes(x = 60, xend = 82, y = 0.025, yend = 0.025))+
+#   geom_segment(aes(x = 60, xend = 82, y = 68, yend = 68))+
+#   geom_segment(aes(x = 82, xend = 85, y = 2, yend = 2))+
+
+  # geom_segment(aes(x = 82, xend = 82, y = 64, yend = 100))+
+  # geom_segment(aes(x = 51, xend = 82, y = 64, yend = 64))+
+  # geom_segment(aes(x = 51, xend = 82, y = 100, yend = 100))+
+  # geom_segment(aes(x = 82, xend = 85, y = 80, yend = 80))+
+  coord_cartesian(xlim = c(0,80))+
+  geom_segment(aes(x =  6, xend = 8, y =  45 , yend = 70), arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"), col = "darkgrey", size = 0.5)+
+  geom_line(data = simul3, aes(time, tumVol), col = "darkgrey",)+
+  geom_text(aes(7.5, 90, label = "(VP accepted)"), col = "darkgrey", size = 3.5)+
+
+  # geom_segment(aes(x =  12, xend = 14, y =  10 , yend = 12), arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"), col = "red", size = 0.5)+
+  # geom_text(aes(15, 20, label = "(too low)"), col = "red", size = 3)+
+
+  geom_segment(aes(x =  12, xend = 25, y = 40, yend = 120), arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"))+
+  geom_segment(aes(x = 30, xend = 45, y = 120, yend = 100), arrow = arrow(length=unit(0.30,"cm"), ends="last", type = "closed"))+
+
+  geom_label(aes(x = 25, y = 120, label = "Targets"))+
+  geom_label(aes(x = 70, y = 80, label = "Step II: Rejection by\nextrapolation"))+
+  geom_segment(aes(x = 52, xend = 70, y = 100, yend = 300), arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"), col = "red", size = 1.5)+
+  geom_label(aes(x = 67, y = 300, label = "Step I: Rejection after RxODE"), col = "red")+
+
+  geom_text(aes(x = 70, y = c(0.07), label = "(all other parameters strictly equal)"), size = 3)+
+
+  # geom_text(aes(x = 100, y = 2, label = "Rejected by\nextrapolation"))+
+  geom_segment(aes(x = 70, xend = 70, y = 50, yend = 30), arrow = arrow(length=unit(0.30,"cm"), ends="last", type = "closed"));plot1
+
+
+
+#
+#
+#
+# param2 <- crossing(k1 = 0.5, k2 = seq(0,0.6,0.3), ke = 1, lambda0 = c(0.05,0.15), lambda1 = 12, Vd = 40, psi = 20) %>%
+#   rowid_to_column("id")
+#
+# param2 %>% arrange(k2, desc(lambda0)) %>% slice(1) %>% pull(id) -> idlowest2
+#
+# events2 <- self$protocols$dose50 %>% mutate(evid = 1) %>%
+#   bind_rows( self$protocols$dose50 %>% mutate(evid = 0) %>% select(-time) %>% crossing(time = 0:50)) %>%
+#   arrange(time) %>%
+#   crossing(id = 1:nrow(param2))
+#
+#
+# simul2 <- self$model$solve(param2, events2, c(X1 = 50) ) %>%
+#   as_tibble() %>%
+#   left_join(param2) %>%
+#   mutate(l0 = if_else(lambda0 == 0.05 , "0.05", "0.15"))
+#
+# # simul2 %>%
+# #   ggplot()+
+# #   geom_line(aes(time, tumVol, col = factor(id)))
+#
+#
+# plot2 <- self$data %>%
+#   filter(cmt %in%  unique( self$targets$cmt) & protocol %in% unique( self$targets$protocol)) %>%
+#   ggplot()+
+#   # geom_line(aes(time, OBS, group = ID)) +
+#   geom_segment(data =  self$targets,
+#                aes(x = time, xend = time, y = min, yend = max), col ="black", size = 2)+
+#   scale_y_log10()+
+#   theme_bw()+
+#   geom_text(data = simul2%>% filter(time == 50), aes(x = 53, y = tumVol, label = lambda0, col = factor(k2)))+
+#   # geom_text(aes(x = 52, y = 170, label = "lambda0\nvalue: "))+
+#   geom_line(data=simul2, aes(time, tumVol, group = id, size = l0, alpha = l0, col = factor(k2)))+
+#   # geom_line(data=simul %>% filter(id != idlowest), aes(time, tumVol, group = id, col = factor(k2)), size = 1,  alpha = 0.3)+
+#   labs(col = "k2", alpha = "lambda0", size= "lambda0")+
+#   scale_size_manual(values = c(2,1))+
+#   scale_alpha_manual(values = c(1,0.6)) +
+#   geom_segment(aes(x = 56, xend = 56, y = 310, yend = 700))+
+#   geom_segment(aes(x = 51, xend = 56, y = 310, yend = 310))+
+#   geom_segment(aes(x = 51, xend = 56, y = 700, yend = 700))+
+#   geom_segment(aes(x = 56, xend = 58, y = 500, yend = 500))+
+#   geom_text(aes(x = 65, y = 550, label = "Rejected by\nextrapolation"))+
+#   coord_cartesian(xlim = c(0,70))+
+#   # geom_label(aes(x = 65, y = 200, label = "Rejected by"))+
+#   geom_segment(aes(x = 56, xend = 56, y = 250, yend = 305))+
+#   geom_segment(aes(x = 51, xend = 56, y = 305, yend = 305))+
+#   geom_segment(aes(x = 51, xend = 56, y = 250, yend = 250))+
+#   geom_segment(aes(x = 56, xend = 58, y = 275, yend = 275))+
+#   geom_text(aes(x = 65, y = 250, label = "Rejected by\nRxODE")) +
+#   coord_cartesian(xlim = c(0,70))+
+#   geom_segment(aes(x = 65, xend = 65, y = 300, yend = 400), arrow = arrow(length=unit(0.30,"cm"), ends="last", type = "closed")); plot2
+#   # geom_text(aes(x = 65, y = 80, label = "Rejected by\nRxODE"))+
+#   # geom_text(aes(x = 65, y = 2, label = "Rejected by\nextrapolation"))+
+#   # geom_segment(aes(x = 65, xend = 65, y = 40, yend = 5), arrow = arrow(length=unit(0.30,"cm"), ends="last", type = "closed")); plot1
+#
+#
+#
+#
+# plot2 <- self$data2 %>%
+#   # filter(cmt %in%  unique( self$targets$cmt) & protocol %in% unique( self$targets$protocol)) %>%
+#   ggplot()+
+#   # geom_line(aes(time, OBS, group = ID)) +
+#   geom_segment(data =  self$targets,
+#                aes(x = time, xend = time, y = min, yend = max), col ="black", size = 2)+
+#   scale_y_log10()+
+#   theme_bw()+
+#   geom_text(data = simul2%>% filter(time == 50 & lambda0 == 0.05) %>% mutate(k2 = if_else(k2 == 0,"0   ", as.character(k2))),
+#             aes(x = 53, y = tumVol, label = k2, col = factor(lambda0)))+
+#   geom_text(aes(x = 53, y = 600, label = "same", col = "0.15"), size = 3) +
+#   # geom_text(aes(x = 52, y = 170, label = "lambda0\nvalue: "))+
+#   geom_line(data=simul2, aes(time, tumVol, group = id, size = l0, alpha = l0, col = factor(lambda0)))+
+#   # geom_line(data=simul %>% filter(id != idlowest), aes(time, tumVol, group = id, col = factor(k2)), size = 1,  alpha = 0.3)+
+#   labs(col = "lambda0", alpha = "k2", size= "k2")+
+#   scale_size_manual(values = c(1,2))+
+#   scale_alpha_manual(values = c(0.3, 1))+
+#   geom_segment(aes(x = 56, xend = 56, y = 310, yend = 700))+
+#   geom_segment(aes(x = 51, xend = 56, y = 310, yend = 310))+
+#   geom_segment(aes(x = 51, xend = 56, y = 700, yend = 700))+
+#   geom_segment(aes(x = 56, xend = 58, y = 500, yend = 500))+
+#   geom_text(aes(x = 65, y = 550, label = "Rejected by\nextrapolation"))+
+#   coord_cartesian(xlim = c(0,70))+
+#   # geom_label(aes(x = 65, y = 200, label = "Rejected by"))+
+#   geom_segment(aes(x = 56, xend = 56, y = 250, yend = 305))+
+#   geom_segment(aes(x = 51, xend = 56, y = 305, yend = 305))+
+#   geom_segment(aes(x = 51, xend = 56, y = 250, yend = 250))+
+#   geom_segment(aes(x = 56, xend = 58, y = 275, yend = 275))+
+#   geom_text(aes(x = 65, y = 250, label = "Rejected by\nRxODE")) +
+#   geom_segment(aes(x = 65, xend = 65, y = 300, yend = 400), arrow = arrow(length=unit(0.30,"cm"), ends="last", type = "closed")); plot2
+#
+#
+#
+#
+#
+# param3 <- crossing(k1 = 0.5, k2 = seq(0.8,1,0.1), ke = 1, lambda0 = c(0.05), lambda1 = 12, Vd = 40, psi = 20) %>%
+#   rowid_to_column("id")
+#
+# param3 %>% arrange(k2, desc(lambda0)) %>% slice(1) %>% pull(id) -> idlowest2
+#
+# events3 <- self$protocols$dose50 %>% mutate(evid = 1) %>%
+#   bind_rows( self$protocols$dose50 %>% mutate(evid = 0) %>% select(-time) %>% crossing(time = 0:50)) %>%
+#   arrange(time) %>%
+#   crossing(id = 1:nrow(param3))
+#
+#
+# simul3 <- self$model$solve(param3, events3, c(X1 = 50) ) %>%
+#   as_tibble() %>%
+#   left_join(param3) %>%
+#   mutate(l0 = if_else(k2 == 0.6 , "0.6", "< 0.6"))
+#
+#
+# self$data %>%
+#   filter(cmt %in%  unique( self$targets$cmt) & protocol %in% unique( self$targets$protocol)) %>%
+#   ggplot()+
+#   # geom_line(aes(time, OBS, group = ID)) +
+#   geom_segment(data =  self$targets,
+#                aes(x = time, xend = time, y = min, yend = max), col ="black", size = 2)+
+#   scale_y_log10()+
+#   theme_bw()+
+#   labs(col = "k2", alpha = "lambda0", size= "lambda0")+
+#   # geom_text(aes(x = 52, y = 170, label = "lambda0\nvalue: "))+
+#   geom_line(data= simul3, aes(time, tumVol, group = id, col = factor(k2), size = factor(lambda0), alpha = factor(lambda0)))+
+#   scale_alpha_manual(values = 1)-> plot3; plot3
+#
+#
+# plot_grid(plot2, plot3, plot1, ncol = 1)
+#
+# plot_grid(plot2 + facet_wrap(~"Rejected above"), plot1 + facet_wrap(~"Rejected below"),  ncol = 1)
+#
+#
+#
+
+
+# Acc extr ----------------------------------------------------------------
+
+
+# Simul les deux bords
+paramaccext <- crossing(k1 = 0.5, k2 = c(0.8,0.9), ke = 1, lambda0 = c(0.05,0.03), lambda1 = 12, Vd = 40, psi = 20) %>%
+  rowid_to_column("id")
+
+paramaccext %>% arrange(k2, desc(lambda0)) %>% slice(1) %>% pull(id) -> idlowest2
+
+eventsaccext <- self$protocols$dose50 %>% mutate(evid = 1) %>%
+  bind_rows( self$protocols$dose50 %>% mutate(evid = 0) %>% select(-time) %>% crossing(time = 0:50)) %>%
+  arrange(time) %>%
+  crossing(id = 1:nrow(paramaccext))
+
+simulaccext <- self$model$solve(paramaccext, eventsaccext, c(X1 = 50) ) %>%
+  as_tibble()%>%
+  left_join(paramaccext) %>%
+  mutate(name = paste0("\nlambda0 = ", lambda0,"\nk2 = ", k2))
+
+
+# Simul patients sures
+paramaSure<- crossing(k1 = 0.5, k2 = seq(0.8,0.9,0.02), ke = 1, lambda0 = seq(0.03,0.05,0.005), lambda1 = 12, Vd = 40, psi = 20) %>%
+  rowid_to_column("id")
+
+eventsSure<- self$protocols$dose50 %>% mutate(evid = 1) %>%
+  bind_rows( self$protocols$dose50 %>% mutate(evid = 0) %>% select(-time) %>% crossing(time = 0:50)) %>%
+  arrange(time) %>%
+  crossing(id = 1:nrow(paramaSure))
+
+simulSure<- self$model$solve(paramaSure, eventsSure, c(X1 = 50)) %>%
+  as_tibble() %>%
+  left_join(paramaSure) %>%
+  mutate(name = paste0("\nlambda0 = ", lambda0,"\nk2 = ", k2))
+
+# Simul pas bon
+paramapasbon <- crossing(k1 = 0.5, k2 = c(0.7), ke = 1, lambda0 = c(0.06), lambda1 = 12, Vd = 40, psi = 20) %>%
+  rowid_to_column("id")
+
+eventspasBon<- self$protocols$dose50 %>% mutate(evid = 1) %>%
+  bind_rows( self$protocols$dose50 %>% mutate(evid = 0) %>% select(-time) %>% crossing(time = 0:50)) %>%
+  arrange(time) %>%
+  crossing(id = 1:nrow(paramapasbon))
+
+simulPasBon<- self$model$solve(paramapasbon, eventspasBon, c(X1 = 50)) %>%
+  as_tibble()
+  # left_join(paramapasbon) %>%
+  # mutate(name = paste0("\nlambda0 = ", lambda0,"\nk2 = ", k2))
+
+plot2 <-  self$data %>%
+  # filter(cmt %in%  unique( self$targets$cmt) & protocol %in% unique( self$targets$protocol)) %>%
+  ggplot()+
+   geom_segment(data =  self$targets,
+               aes(x = time, xend = time, y = min, yend = max), col ="black", size = 2)+
+  scale_y_log10()+
+  theme_bw()+
+   geom_ribbon(data = simulaccext %>% select(time, id, tumVol) %>% spread(id, tumVol), aes(x = time, ymin = `2`, ymax = `3`),
+               alpha = 0.2, fill = "darkgreen")+
+
+   # geom_ribbon(data = simulaccext %>% filter(id == 3) %>% select(time, tumVol) %>%
+                 # left_join(simulPasBon %>% select(time, tumVol) %>% rename(nop = tumVol)), aes(x = time, ymin = tumVol, ymax = nop),
+               # alpha = 0.2, fill = "grey")+
+   # geom_ribbon(data = simulPasBon, aes(x = time, ymin = tumVol, ymax = Inf),
+               # alpha = 0.2, fill = "red")+
+   # geom_line(data = simulPasBon, aes(time, tumVol))+
+   geom_line(data = simulaccext %>% filter(id %in% 2:3),aes(time, tumVol, group = id, col = name), size = 2 )+
+   geom_line(data = simulSure ,aes(time, tumVol, group = id), col = "darkgreen" )+
+
+   # arrow upper limits
+   geom_segment(aes(x = 45, xend = 45, y = 120, yend  =  175), col = "#00BFC4", size = 2, arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"))+
+    geom_segment(aes(x = 12, xend = 12, y = 31, yend  =   36.4), size = 2, col = "#00BFC4", arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"))+
+
+ # arrow upper lower limits
+   geom_segment(aes(x = 45, xend = 45, y = 62.6, yend  =  90), size = 2, col = "#F8766D", arrow = arrow(length=unit(0.30,"cm"), ends="last", type = "closed"))+
+   geom_segment(aes(x = 12, xend = 12, y =  26.2 , yend  =  30), size = 2, col = "#F8766D", arrow = arrow(length=unit(0.30,"cm"), ends="last", type = "closed"))+
+   geom_text(aes(x = 67, y = 200, label ="VPs with lambda0 < 0.05 and\n k2 > 0.8 below upper limits" ), col = "#00BFC4")+
+   geom_text(aes(x = 67, y = 75, label ="VPs with lambda0 > 0.03 and\n k2 < 0.9 above lower limits" ), col = "#F8766D")+
+   geom_label(aes(65, y = 120, label = "All VPs with\n0.03 < lambda0 < 0.05\n and 0.8 < k2 < 0.9\nwill be accepted\nin this green zone"))+
+   coord_cartesian(xlim = c(0,80))+
+   labs(col = "VP parameters")+
+   geom_text(aes(x = 65, y = 50, label = "(all other parameters strictly equal)"), size = 3.5); plot2
+
+
+plot_grid(plot1 + labs(x = "Time (days)", y = "Tumor Volume (mm3)"), plot2+ labs(x = "Time (days)", y = "Tumor Volume (mm3)"), labels = c("A", "B"))
+
+ simulaccext %>% filter(id %in% 2:3) %>% filter(time == 45)
+   geom_line(simulaccext %>% filter(id %in% 2:3) %>% filter(time == 45) )
+
+   self$targets
+## One increase one decrease (k2 and lambda0)
+
+# Figure1.2 ---------------------------------------------------------------
+
+
+self <- VP_proj_creator$new()
+
+
+in_dec <- VP_proj_creator$new()
+
+
+in_dec$set_targets(filter = Dose==50 & cmt == "tumVol",timeforce = c(30))
+
+
+
+VP_df_in_dec <- crossing(k1 = c(0.5),
+                         k2 = seq(0,8,0.2),
+                         ke = 1 ,#*  seq(0.6,1.4,0.2),
+                         lambda0 =seq(0,0.16,0.025),
+                         lambda1 = c(12),
+                         Vd =  40) %>% #c(0.8,1,1.2)) %>%
+  map_df(function(x){
+
+    if(is.character(x)) return(x)
+    round(x,3)
+
+  } )
+
+#
+#
+# in_dec$add_VP(VP_df_in_dec, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F)
+#
+param <- tibble(k1 = 0.5, k2 = 0.5, ke = 1, lambda0 = 0.05, lambda1 = 12, Vd = 40, psi = 20)
+events <- self$protocols$dose50 %>% mutate(evid = 1) %>%
+  bind_rows( self$protocols$dose50 %>% mutate(evid = 0) %>% select(-time) %>% crossing(time = 0:50)) %>%
+  arrange(time)
+
+simul <- self$model$solve(param, events, c(X1 = 50) ) %>%
+  as_tibble()
+
+ggplot(simul)+
+  geom_line(aes(time, tumVol))+
+  scale_y_log10()+
+  geom_segment(aes(x = 30, xend = 30, y = 50, yend = 100, col = "target"), size = 2)+
+  theme_bw()
 
 # pie chart ---------------------------------------------------------------
 
