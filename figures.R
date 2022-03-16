@@ -893,30 +893,138 @@ VP_df <- crossing(k1 = c(0.5),
 source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
 
 
-
-
-
+# Compute with all accepation
 
 
 protoinf <- tibble(protocol = "dose50", cmt = "tumVol", time = c(45), min = 0, max = Inf)
 infi <- VP_proj_creator$new()
 infi$set_targets(manual = protoinf)
+tinf <- Sys.time()
+# infi$add_VP(VP_df, fillatend = F, reducefilteratend = F,  npersalve = 2000,  time_compteur = F)
+infi$add_VP(VP_df, fillatend = F, reducefilteratend = F,  npersalve = 2000,  time_compteur = F,
+            use_green_filter = T, use_red_filter = T)
+# infi$fill_simul()
+tinf <- difftime(Sys.time(), tinf, units = "s")
+
+##### Compute once all patients to use for percentiles
+#
+# infi$fill_simul()
+#
+# inf_DF <- infi$poolVP %>%
+#   unnest()
+#
+# inf_DF %>%
+#   filter(time == 45) %>%
+#   pull(tumVol) ->alltumVol
+
+# saveRDS(alltumVol, file = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/tumVol_time_vs_pct.RDS")
+# rm(infi)
+alltumVol <- readRDS("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/tumVol_time_vs_pct.RDS")
+##### Compute once all patients to use for percentiles
+
+res <- tibble(pct = 0, time = tinf)
+
+
+# Determine targets
+targets <- c(0.75,0.5,0.25,0.125,0.01,0)
+
+
+
+prototemp <- protoinf
+for(a in targets){
+print(a)
+ quant <- ( 1-a)/2
+
+ prototemp$min <- quantile(alltumVol, probs = quant)
+ prototemp$max <- quantile(alltumVol, probs = 1 - quant)
+
+
+ tempobj <- VP_proj_creator$new()
+ tempobj$set_targets(manual = prototemp)
+
+ t0 <- Sys.time()
+ tempobj$add_VP(VP_df, fillatend = F, reducefilteratend = F,  npersalve = 2000,  time_compteur = F,
+                use_green_filter = F, use_red_filter = T)
+tt <-  difftime(Sys.time(), t0, units = "s")
+
+res <- res %>%
+  add_row(pct = 1 - nrow(tempobj$poolVP)/nrow(VP_df), time = tt)
+
+}
+
+restime <-  tibble(pct = c(0,0.242,0.492,0.744,0.870,0.985,1), time = c(86.6,66,42,24.6,12.8,5.57,4.06)) %>%
+  mutate(filtre = " red") %>%
+  bind_rows( tibble(pct = c(0,0.242,0.492,0.744,0.870,0.985,1), time = c(12,13.3,14.5,11.65,10.46,6.19,4.34)) %>%
+            mutate(filtre = "red + green")) %>%
+  bind_rows( tibble(pct = c(0,0.242,0.492,0.744,0.870,0.985,1), time = c(9.4,36,74,70,64,61,59)) %>%
+               mutate(filtre = " green"))
+
+
+restime %>%
+  # bind_rows(res %>% mutate(time = as.double(time) , filtre = "red + green")) %>%
+  ggplot()+
+  geom_point(aes(pct, time, col = filtre))+
+  geom_line(aes(pct, time, col = filtre))+
+  theme_bw()+
+#
+# ggscatter( x = "pct", y = "time",color = "filtre",
+#            add = "reg.line",                                 # Add regression line
+#            conf.int = F)+
+#   stat_cor(method = "pearson", label.x = 0.1, label.y = 30)  +
+  labs(x = "Fraction VP rejection", y = "Time to perform the analysis (sec)")+ # Add correlation coefficient
+  geom_hline(aes(yintercept = 70, lty = "Time Ref\n(64-70 sec)"))+
+  geom_hline(aes(yintercept = 64, lty = "Time Ref\n(64-70 sec)"))+
+  # geom_text(aes(x = 0.75, y = 100, label =  ))+
+  labs(col = "Filter used", lty = "")+
+  scale_color_manual(values = c("darkgreen", "red", "blue"))+
+  scale_y_continuous(breaks = c(seq(0,90,10)))+
+  # scale_y_log10()+
+  scale_linetype_manual(values = 2)
+
+
+
+
+# Add confidence interval
+# add.params = list(color = "chocolate",
+                  # fill = "chocolate"
+#
+infi$set_targets(manual = protoinf)
 infi$targets
 self <- infi
 tinf <- Sys.time()
-infi$add_VP(VP_df, fillatend = F, reducefilteratend = F,  npersalve = 2000,  time_compteur = F)
+# infi$add_VP(VP_df, fillatend = F, reducefilteratend = F,  npersalve = 2000,  time_compteur = F)
+infi$add_VP(VP_df, fillatend = F, reducefilteratend = F,  npersalve = 2000,  time_compteur = F, use_green_filter = T)
 tinf <- difftime(Sys.time(), tinf, units = "s")
 
+
+source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
 protobase00 <- tibble(protocol = "dose50", cmt = "tumVol", time = c(45), min = 0.1, max = 1500)
 base00 <- VP_proj_creator$new()
 base00$set_targets(manual = protobase00)
 base00$targets
-
+# self <- base00
 
 tbase00 <- Sys.time()
-base00$add_VP(VP_df, fillatend = F, reducefilteratend = F,  npersalve = 2000,  time_compteur = F)
+base00$add_VP(VP_df, fillatend = F, reducefilteratend = F,  npersalve = 2000,  time_compteur = F, use_green_filter = T)
 tbase00 <- difftime(Sys.time(), tbase00, units = "s")
 
+base00$plot_VP(nmax = 2000)
+base00$fill_simul()
+
+base00$poolVP
+base00$plot_VP(ids = c(65,132735))
+
+base00$poolVP %>%
+  unnest(simul) %>%
+  filter(time == 45 & tumVol < 0.1)
+base00$poolVP %>% pull(id) ->idref
+
+base00$poolVP %>%
+  mutate(test = map_chr(simul,~ class(.x)[[1]])) %>%
+  group_by(test) %>%
+  tally()
+
+base00$plot_VP(nmax = 20000)
 
 protobase0 <- tibble(protocol = "dose50", cmt = "tumVol", time = c(45), min = 25, max = 700)
 base0 <- VP_proj_creator$new()
@@ -1226,6 +1334,9 @@ tibble(time = c(22,30,65.8,97.85,110,109, 21, 26, 66, 101,120,122), paramnoinflu
   theme_bw()+
   labs(col= "nsim", x = "Number of parameter involved area",y = "Time to perform all VPs (in seconds) ", lty = "")
 
+
+
+# Figure1 -----------------------------------------------------------------
 
 
 # Rej extr -----------------------------------------------------------------
@@ -1642,7 +1753,7 @@ plot2 <-  self$data %>%
    geom_label(aes(65, y = 120, label = "All VPs with\n0.03 < lambda0 < 0.05\n and 0.8 < k2 < 0.9\nwill be accepted\nin this green zone"))+
    coord_cartesian(xlim = c(0,80))+
    labs(col = "VP parameters")+
-   geom_text(aes(x = 65, y = 50, label = "(all other parameters strictly equal)"), size = 3.5); plot2
+   geom_text(aes(x = 65, y = 50, label = "(all other parameters strictly equal)"), size = 3.5)
 
 
 plot_grid(plot1 + labs(x = "Time (days)", y = "Tumor Volume (mm3)"), plot2+ labs(x = "Time (days)", y = "Tumor Volume (mm3)"), labels = c("A", "B"))
@@ -1652,6 +1763,686 @@ plot_grid(plot1 + labs(x = "Time (days)", y = "Tumor Volume (mm3)"), plot2+ labs
 
    self$targets
 ## One increase one decrease (k2 and lambda0)
+
+
+# Figure 2 ----------------------------------------------------------------
+
+# Use the same target as in Figure 1
+
+   source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+
+
+   ## One increase one decrease (k2 and lambda0)
+
+   self <- VP_proj_creator$new()
+
+
+   self$set_targets(filter = Dose==50 & cmt == "tumVol",timeforce = c(12,45))
+
+
+   param <- crossing(k1 = 0.5, k2 = seq(0,6,0.2), ke = 1, lambda0 = seq(0,0.7,0.02), lambda1 = 12, Vd = 40, psi = 20)
+   param$k2 <- round(param$k2, 1)
+     # bind_rows(crossing(k1 = 0.5, k2 = c(0.8,0.9), ke = 1, lambda0 = c(0.05,0.03), lambda1 = 12, Vd = 40, psi = 20)) %>%
+
+   # param <- crossing(k1 = 0.5, k2 = seq(2,6,2), ke = 1, lambda0 = seq(0.02,0.06,0.01), lambda1 = 12, Vd = 40, psi = 20) %>%
+   #   bind_rows(crossing(k1 = 0.5, k2 = c(0.8,0.9), ke = 1, lambda0 = c(0.05,0.03), lambda1 = 12, Vd = 40, psi = 20)) %>%
+   #   rowid_to_column("id")
+
+   # param %>%
+   # ggplot()+
+   #   geom_point(aes(x = k2, y = lambda0))
+
+   self$add_VP(param, use_green_filter = T)
+
+   self$n_filter_reduc()
+   self$plot_2D(k2, lambda0, plotMain = T, plotoreturn = 3)
+   self$fill_simul()
+   self$plot_VP()
+
+   set.seed(1653)
+   param20 <-   param %>%
+     sample_n(20) %>%
+     filter(!(k2 == 0.2 & lambda0 == 0.46)) %>%
+     bind_rows(
+
+       param %>% filter(k2 == 3.6 & lambda0 == 0.44)
+
+     )
+
+   plot1 <-  param20 %>%
+     ggplot()+
+       geom_point(aes(x = k2, y = lambda0))+
+     theme_bw(); plot1
+
+ ids <-   param20 %>%
+     rowid_to_column("id")
+
+ events <- self$protocols$dose50 %>% mutate(evid = 1) %>%
+       bind_rows(tibble(time = self$times, evid = 0, amt = 0, cmt = "Conc")) %>%
+   crossing(id = 1:20) %>%
+   arrange(id, time)
+
+simulations <- self$model$solve(ids, events, c(X1 = 50)) %>% as_tibble()
+
+analysis <- simulations %>%
+  filter(time %in% self$targets$time) %>%
+  mutate(cmt = "tumVol") %>%
+  left_join( self$targets) %>%
+  mutate(below = tumVol > min, above = tumVol < max) %>%
+  mutate(type = case_when(below & above ~ "Accepted",
+                          below & !above ~ "Above",
+                          !below & above ~ "Below"))
+
+analysis <- analysis %>% distinct(id, type) %>%
+  group_by(id) %>%
+  nest() %>%
+  mutate(label = map_chr(data, function(x){
+
+    if(nrow(x) == 2 & "Accepted" %in% x$type ) x <- x %>% filter(x != "Accepted")
+
+    paste0(x$type, collapse = "&")
+  } ))
+
+
+plot2 <- simulations %>%
+  left_join(analysis %>%  select(id, label)) %>%
+  ggplot()+
+  geom_line(aes(time, tumVol, group = id))+
+  geom_segment(data = self$targets, aes(x = time, xend = time, y = min, yend = max), col = "red", size = 2)+
+  scale_y_log10()+
+  facet_wrap(~label) +
+  labs(x = "Time (days)", y = "Tumor volume (mm3)")+
+  theme_bw(); plot2
+
+
+param20 <- param20 %>%
+  rowid_to_column("id") %>%
+  left_join(analysis %>%  select(id, label))
+
+forsquare <- param20 %>%
+  # filter(label) %>%
+  mutate(k2min = if_else(label == "Above", 0, k2),
+         k2max = if_else(label == "Above", k2, Inf),
+         lambda0min = if_else(label == "Below", 0, lambda0),
+         lambda0max = if_else(label == "Below", lambda0, Inf))
+
+plot3 <-
+  param20 %>%
+  ggplot()+
+  geom_point(aes(x = k2, y = lambda0, col = label))+
+  geom_rect(data = forsquare %>% filter(label != "Accepted"),
+            aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax = lambda0max, fill = label ),
+            alpha = 0.2, col = "black")+
+  theme_bw()+
+  scale_color_manual(values = c("red", "darkgreen", "chocolate"))+
+  scale_fill_manual(values = c("red", "chocolate"))+
+  labs(col = "VPs", fill = "Filters"); plot3
+
+filter_reduc(forsquare %>% filter(label == "Above"), filtre = self$make_filters()[1]) %>%
+  bind_rows(
+
+    filter_reduc(forsquare %>% filter(label == "Below"), filtre = self$make_filters()[2])
+
+  ) ->filtersreduc
+
+plot4 <-
+  param20 %>%
+  ggplot()+
+  geom_point(aes(x = k2, y = lambda0, col = label))+
+  geom_rect(data = filtersreduc %>% filter(label != "Accepted"),
+            aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax = lambda0max, fill = label ),
+            alpha = 0.2, col = "black")+
+  theme_bw()+
+  scale_color_manual(values = c("red", "darkgreen", "chocolate"))+
+  scale_fill_manual(values = c("red", "chocolate"))+
+  labs(col = "VPs", fill = "Filters"); plot4
+
+filtersreduc %>%
+  filter(k2max < Inf) %>%
+  mutate(filter = paste0("k2 <=", k2, " & lambda0 >= ", lambda0 )) %>%
+  pull(filter) -> pointsabove
+
+pointsabove <- paste0("(", pointsabove, ")") %>% paste0(collapse = "|")
+
+filtersreduc %>%
+  filter(k2max == Inf) %>%
+  mutate(filter = paste0("k2 >=", k2, " & lambda0 <= ", lambda0 )) %>%
+  pull(filter)  -> pointsbelow
+
+pointsbelow <- paste0("(", pointsbelow, ")") %>% paste0(collapse = "|")
+
+
+plot5 <-
+  param20 %>%
+  ggplot()+
+  geom_point(data = param %>% filter(!!parse_expr(pointsabove)), aes(k2, lambda0,  col = "Above"))+
+  geom_point(data = param %>% filter(!!parse_expr(pointsbelow)), aes(k2, lambda0,  col = "Below"))+
+  geom_point(aes(x = k2, y = lambda0, col = label))+
+  geom_rect(data = filtersreduc %>% filter(label != "Accepted"),
+            aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax = lambda0max, fill = label ),
+            alpha = 0.2)+
+  theme_bw()+
+  scale_color_manual(values = c("red", "darkgreen", "chocolate"))+
+  scale_fill_manual(values = c("red", "chocolate"))+
+  labs(col = "VPs", fill = "Filters"); plot5
+
+
+
+
+forsquaregreen <-
+
+  param20 %>%
+  filter(label == "Accepted") %>%
+  mutate(label = "Above") %>%
+  bind_rows(
+    param20 %>%
+      filter(label == "Accepted") %>%
+      mutate(label = "Below")
+  ) %>%
+  # filter(label) %>%
+  mutate(k2min = if_else(label == "Above", 0, k2),
+         k2max = if_else(label == "Above", k2, Inf),
+         lambda0min = if_else(label == "Below", 0, lambda0),
+         lambda0max = if_else(label == "Below", lambda0, Inf)) %>%
+  mutate(label2 = if_else(label == "Above", "Above\nLower Limit", "Below\nUpper Limit"))
+
+
+forsquaregreen
+
+plot6 <- plot5 +
+  geom_rect(data = forsquaregreen %>% slice(-5, -8), aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax = lambda0max, fill = "Green"), alpha = 0.2)+
+  geom_rect(data = forsquaregreen %>% slice(10), aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax = lambda0max, fill = "Green"), alpha = 0, col = "darkgreen",  lty= 3)+
+  geom_rect(data = forsquaregreen %>% slice(3), aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax = lambda0max, fill = "Green"), alpha = 0, col = "darkgreen",  lty= 2)+
+  # forsquaregreen %>% slice(-5, -8)+
+  scale_fill_manual(values = c("red", "chocolate", "darkgreen"))+
+  # geom_rect(aes(xmin = 3.6, xmax = 3.8, ymin = 0.4, ymax = 0.44, fill = "Green"); )+
+  geom_segment(aes(x = 3.6, xend = 3.6, y= 0.44, yend = 0.4 ), col = "darkgreen")+
+  geom_segment(aes(x = 3.8 , xend = 3.8 , y= 0.44, yend = 0.4 ), col = "darkgreen")+
+  geom_segment(aes(x = 3.6, xend = 3.8 , y= 0.44, yend = 0.44 ), col = "darkgreen")+
+  geom_segment(aes(x = 3.6, xend = 3.8, y= 0.4, yend = 0.4 ), col = "darkgreen")+
+  geom_point(data = param %>% filter( k2>= 3.6 & k2<=3.8 & lambda0>= 0.4 &lambda0<=0.44), aes(k2, lambda0), col = "darkgreen", alpha = 0.2); plot6
+
+param %>%
+  left_join( param %>% filter(!!parse_expr(pointsabove)) %>% mutate(nop = T)) %>%
+  filter(is.na(nop)) %>%
+  select(-nop) %>%
+  left_join( param %>% filter(!!parse_expr(pointsbelow)) %>% mutate(nop = T)) %>%
+  filter(is.na(nop)) %>%
+  select(-nop) %>%
+  filter(!( k2>= 3.6 & k2<=3.8 & lambda0>= 0.4 &lambda0<=0.44)) %>%
+  sample_n(20) -> news
+
+plot7 <- param20 %>%
+  ggplot()+
+  # geom_point(aes(x = k2, y = lambda0, col = label))+
+  geom_point(data = param %>% filter(!!parse_expr(pointsabove)), aes(k2, lambda0,  col = "Extrap. Above"))+
+  geom_point(data = param %>% filter(!!parse_expr(pointsbelow)), aes(k2, lambda0,  col = "Extrap. Below"))+
+  geom_point(data = param %>% filter( k2>= 3.6 & k2<=3.8 & lambda0>= 0.4 &lambda0<=0.44), aes(k2, lambda0, col = "Extrap. Accepted"))+
+  geom_point(data = param20, aes(x = k2, y = lambda0, col = "From RxODE"))+
+  scale_color_manual(values = c("red", "darkgreen", "chocolate", "black"))+
+  labs(col = "   VPs")+
+  theme_bw() ; plot7
+
+
+
+plot8 <- param20 %>%
+  ggplot()+
+  geom_point(aes(x = k2, y = lambda0, col = label))+
+  geom_point(data = param %>% filter(!!parse_expr(pointsabove)) , aes(k2, lambda0,  col = "Above"))+
+  geom_point(data = param %>% filter(!!parse_expr(pointsbelow)), aes(k2, lambda0,  col = "Below"))+
+  geom_point(data = param %>% filter( k2>= 3.6 & k2<=3.8 & lambda0>= 0.4 &lambda0<=0.44), aes(k2, lambda0, col = "Accepted"))+
+  # geom_point(data = param20, aes(x = k2, y = lambda0))+
+  scale_color_manual(values = c("red", "darkgreen", "chocolate"))+
+  labs(col = "VPs")+
+  theme_bw()+
+  geom_point(data = news, aes(k2, lambda0))
+
+# plot7 <-
+#   plot5 +
+#   geom_point(data = param %>% filter( k2>= 3.6 & k2<=3.8 & lambda0>= 0.4 &lambda0<=0.44), aes(k2, lambda0), col = "darkgreen")
+#              aes(xmin = 3.6, xmax = 3.8, ymin = 0.4, ymax = 0.44, fill = "Green"), alpha = 0.05)+
+#     scale_fill_manual(values = c("red", "chocolate", "darkgreen")))
+#   geom_
+  # filtersreduc
+
+
+plot_grid(plot1, plot2, plot3, plot4, plot5, plot6,plot7, plot8, nrow = 2, labels = LETTERS[1:8])
+
+
+
+
+# Figure 3 ----------------------------------------------------------------
+
+library(ggforce)
+source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+
+# prototiny <- tibble(protocol = "dose50", cmt = "tumVol", time = c(12,40), min = c(100.184, 431.005),
+                    # max = c(100.185, 431.006))
+
+prototiny <- tibble(protocol = "dose50", cmt = "tumVol", time = c(12,40), min = c(100, 431),
+                    max = c(100.5, 431.5))
+
+self <- VP_proj_creator$new()
+
+self$set_targets(manual = prototiny)
+self$targets <- prototiny
+
+
+
+
+k2_1 <- seq(0,3,0.4)
+lambda0_1 <- seq(0,1.4,0.2)
+points <- crossing(k2_1, lambda0_1)
+
+plot1 <- ggplot()+
+  geom_point(data = points, aes(k2_1, lambda0_1))+
+  geom_segment(data = tibble(k2_1), aes(x = k2_1, xend = k2_1, y = min(lambda0_1), yend = max(lambda0_1)), lty = 2)+
+  geom_segment(data = tibble(lambda0_1), aes(x = min(k2_1), xend = max(k2_1), y = lambda0_1, yend = lambda0_1), lty = 2)+
+  theme_bw()+
+  theme(line = element_blank())+
+  scale_x_continuous(breaks = k2_1)+
+  scale_y_continuous(breaks = lambda0_1)+
+  labs(x = "K2", y = "lambda0"); plot1
+
+
+VP_df <- crossing(k1 = c(0.5),
+                  k2 = k2_1,
+                  ke = 1 ,#*  seq(0.6,1.4,0.2),
+                  lambda0 =lambda0_1,
+                  lambda1 = c(12),
+                  Vd =  40) %>% #c(0.8,1,1.2)) %>%
+  map_df(function(x){
+
+    if(is.character(x)) return(x)
+    round(x,3)
+
+  } ) %>% mutate(psi = 20)
+
+
+ids <-   VP_df %>%
+  rowid_to_column("id")
+
+events <- self$protocols$dose50 %>% mutate(evid = 1) %>%
+  bind_rows(tibble(time = self$times, evid = 0, amt = 0, cmt = "Conc")) %>%
+  crossing(id = 1:nrow(VP_df)) %>%
+  arrange(id, time)
+
+simulations <- self$model$solve(ids, events, c(X1 = 50)) %>% as_tibble()
+
+simulations %>%
+  filter(time %in% prototiny$time) %>%
+  left_join(prototiny) %>%
+  mutate(test = case_when(tumVol > max  ~ "Above",
+                          tumVol < max ~ "Below",
+                          T ~ "yes")) %>%
+  distinct(id, test) -> idoutput
+
+
+self$add_VP(VP_df)
+self$compute_zone_maybe()
+maybe <- self$zone_maybe
+
+
+plot2 <-
+  mtcars %>%
+  ggplot()+
+  geom_segment(data = tibble(k2_1), aes(x = k2_1, xend = k2_1, y = min(lambda0_1), yend = max(lambda0_1)), lty = 2, alpha  = 0.3)+
+  geom_segment(data = tibble(lambda0_1), aes(x = min(k2_1), xend = max(k2_1), y = lambda0_1, yend = lambda0_1), lty = 2, alpha  = 0.3)+
+  # geom_point(data = ids %>% left_join(idoutput), aes(k2, lambda0))+
+  geom_point(data= self$filters_neg_above, aes(k2, lambda0, col = "Above"))+
+  geom_rect(data= self$filters_neg_above, aes(xmin = 0, xmax = k2, ymin = lambda0, ymax = Inf, fill = "Above", col = "Above"), alpha = 0.2)+
+  geom_rect(data= self$filters_neg_below, aes(xmin = k2, xmax = Inf, ymin = 0, ymax = lambda0, fill = "Below", col = "Below"), alpha = 0.2)+
+  geom_rect(data = maybe,aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax = lambda0max, fill = "To explore" ), alpha = 0.6)+
+  scale_x_continuous(breaks = k2_1)+
+  scale_y_continuous(breaks = lambda0_1)+
+  geom_segment(aes(x = 1.2, xend = 1.6, y = 0.8, yend = 0.8))+
+  geom_segment(aes(x = 1.2, xend = 1.6, y = 1, yend = 1))+
+  geom_segment(aes(x = 1.6, xend = 1.6, y = 0.8, yend = 1))+
+  geom_segment(aes(x = 1.2, xend = 1.2, y = 0.8, yend = 1))+
+  geom_segment(data = tibble(k2_2), aes(x = k2_2, xend = k2_2, y = min(lambda0_2), yend = max(lambda0_2)), lty = 3)+
+  geom_segment(data = tibble(lambda0_2), aes(x = min(k2_2), xend = max(k2_2), y = lambda0_2, yend = lambda0_2), lty = 3)+
+
+
+  geom_segment(aes(x = 0, y = 0, xend = Inf, yend = 0, col = "Below"))+
+  geom_point(data= self$filters_neg_below, aes(k2, lambda0, col = "Below"))+
+  scale_color_manual(values = c("red", "chocolate"))+
+  scale_fill_manual(values = c("red", "chocolate", "grey"))+
+  labs(col = "", fill = "", x = "K2", y = "lambda0")+
+  theme_bw()+
+  guides(col = F)+
+  theme(line = element_blank()); plot2
+
+
+
+self2 <- VP_proj_creator$new()
+
+#
+# prototiny <- tibble(protocol = "dose50", cmt = "tumVol", time = c(12,40), min = c(100, 431),
+#                     max = c(100.5, 431.5))
+
+self2$set_targets(manual = prototiny)
+
+k2_2 <- seq(1.2,1.6,0.002)
+lambda0_2 <- seq(0.8,1,0.005)
+
+# k2_2 <- seq(1.2,1.6,0.00001)
+# lambda0_2 <-  1
+# k2_2 <- seq(0.8,1.2,0.04)
+# lambda0_2 <- seq(0.2,0.4,0.05)
+
+VP_df2 <- crossing(k1 = c(0.5),
+                  k2 = k2_2,
+                  ke = 1 ,#*  seq(0.6,1.4,0.2),
+                  lambda0 =lambda0_2,
+                  lambda1 = c(12),
+                  Vd =  40) %>% #c(0.8,1,1.2)) %>%
+  map_df(function(x){
+
+    if(is.character(x)) return(x)
+    round(x,3)
+
+  } ) %>% mutate(psi = 20); nrow(VP_df2)
+
+self2$add_VP(VP_df2)
+#
+# ids2 <-   VP_df2 %>%
+#   rowid_to_column("id")
+#
+# events2 <- self2$protocols$dose50 %>% mutate(evid = 1) %>%
+#   bind_rows(tibble(time = self$times, evid = 0, amt = 0, cmt = "Conc")) %>%
+#   crossing(id = 1:nrow(VP_df2)) %>%
+#   arrange(id, time)
+#
+# simulations2 <- self2$model$solve(ids2, events2, c(X1 = 50)) %>% as_tibble()
+#
+# simulations2 %>%
+#   filter(time %in% prototiny$time) %>%
+#   left_join(prototiny) %>%
+#   mutate(test = case_when(tumVol > max  ~ "Above",
+#                           tumVol < max ~ "Below",
+#                           T ~ "yes")) %>%
+#   distinct(id, test) -> idoutput2
+
+
+# self2$add_VP(VP_df2)
+self2$plot_2D(k2, lambda0)
+self2$compute_zone_maybe()
+self2$compute_zone_sure()
+self2$n_filter_reduc()
+maybe2 <- self2$zone_maybe
+self2$zone_sure
+
+
+
+
+plot3 <- plot2+
+  geom_segment(aes(x = 1.2, xend = 1.6, y = 0.8, yend = 0.8))+
+  geom_segment(aes(x = 1.2, xend = 1.6, y = 1, yend = 1))+
+  geom_segment(aes(x = 1.6, xend = 1.6, y = 0.8, yend = 1))+
+  geom_segment(aes(x = 1.2, xend = 1.2, y = 0.8, yend = 1))+
+  # geom_point(data = self2$poolVP, aes(k2, lambda0), col  = "darkgreen")+
+  geom_rect(data= self2$zone_sure, aes(xmin =k2min, xmax = k2max, ymin = lambda0min, ymax = lambda0max, fill = "VPs"), alpha = 0.4)+
+  # geom_segment(data = tibble(k2_2), aes(x = k2_2, xend = k2_2, y = min(lambda0_2), yend = max(lambda0_2)), lty = 3)+
+  # geom_segment(data = tibble(lambda0_2), aes(x = min(k2_2), xend = max(k2_2), y = lambda0_2, yend = lambda0_2), lty = 3)+
+  geom_rect(data= self2$filters_neg_above, aes(xmin = min(k2_2), xmax = k2, ymin = lambda0, ymax = max(lambda0_2), fill = "Above"), alpha = 0.4)+
+  geom_rect(data= self2$filters_neg_below, aes(xmin = k2, xmax = max(k2_2), ymin = min(lambda0_2), ymax = lambda0, fill = "Below"), alpha = 0.4)+
+  facet_zoom(xlim = c(1.2,1.6), ylim = c(0.8,1), zoom.size = 1, show.area = T)+
+scale_fill_manual(values = c("red", "chocolate", "grey", "darkgreen"))
+
+# plot3 <- maybe %>%
+#   rowid_to_column("bloc") %>%
+#   ggplot()+
+#   geom_segment(data = tibble(k2_1), aes(x = k2_1, xend = k2_1, y = min(lambda0_1), yend = max(lambda0_1)), lty = 2, alpha  = 0.3)+
+#   geom_segment(data = tibble(lambda0_1), aes(x = min(k2_1), xend = max(k2_1), y = lambda0_1, yend = lambda0_1), lty = 2, alpha  = 0.3)+
+#   geom_rect(aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax = lambda0max, fill = factor(bloc) ), alpha = 0.6, col = "black")+
+#   theme_bw()+
+#   # geom_segment(aes(x = k2min, xend = k2min, y =lambda0min, yend = lambda0max))+
+#   # geom_segment(aes(x = k2min, xend = k2min, y =lambda0min, yend = lambda0max))+
+#   scale_x_continuous(breaks = k2_1)+
+#   scale_y_continuous(breaks = lambda0_1)+
+#   labs(col = "", fill = "Blocs", x = "K2", y = "lambda0")+
+#   guides(fill= F)+
+#   theme(line = element_blank()); plot3
+
+plot_grid(plot_grid(plot1, plot2), plot3,ncol = 1 )
+
+  geom_segment(data = tibble(k2_1), aes(x = k2_1, xend = k2_1, y = min(lambda0_1), yend = max(lambda0_1)))+
+  geom_segment(data = tibble(lambda0_1), aes(x = min(k2_1), xend = max(k2_1), y = lambda0_1, yend = lambda0_1))+
+  geom_
+  theme_bw()
+
+
+
+self$plot_2D()
+# crossing( k2 = seq(0,3,0.4),  lambda0 =seq(0,1.4,0.2)) %>%
+#   ggplot()+
+#   geom_vline(aes(xintercept = k2))+
+#   geom_hline(aes(yintercept = lambda0))+
+#   geom_point(aes(k2, lambda0))+
+#   geom_point(data = crossing( k2 = seq(2,2.4,0.05),  lambda0 =seq(0.6,0.8,0.01)),aes(k2, lambda0) )+
+#   geom_segment(data = tibble(k2 =  seq(2,2.4,0.05)), aes(x = k2, xend = k2, y = 0.6, yend = 0.8))+
+#   geom_segment(data = tibble(lambda0 =seq(0.6,0.8,0.01)), aes(x = 2, xend = 2.4, y = lambda0, yend = lambda0))+
+#   theme_bw()+
+#   facet_zoom(xlim = c(2,2.4), ylim = c(0.6,0.8), zoom.size = 1, split = F,show.area =  )
+
+
+
+
+# VP_df <- crossing(k1 = c(0.5),
+#                           k2 = seq(0,3,0.005),
+#                           ke = 1 ,#*  seq(0.6,1.4,0.2),
+#                           lambda0 =seq(0,1,0.005),
+#                           lambda1 = c(12),
+#                           Vd =  40) %>% #c(0.8,1,1.2)) %>%
+#   map_df(function(x){
+#
+#     if(is.character(x)) return(x)
+#     round(x,3)
+#
+#   } )
+
+VP_df <- crossing(k1 = c(0.5),
+                  k2 = seq(0,3,0.005),
+                  ke = 1 ,#*  seq(0.6,1.4,0.2),
+                  lambda0 =seq(0,1,0.005),
+                  lambda1 = c(12),
+                  Vd =  40) %>% #c(0.8,1,1.2)) %>%
+  map_df(function(x){
+
+    if(is.character(x)) return(x)
+    round(x,3)
+
+  } )
+
+self$add_VP(VP_df, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F,keepRefFiltaftDis = T)
+
+self$poolVP
+self$plot_2D(k2, lambda0, plotoreturn = 1)
+
+
+# analyse above
+lamda0unique<-  c(self$filters_neg_above$lambda0, self$filters_neg_below$lambda0 )  %>% unique
+
+lambda0seg <-  tibble(lambda0max = lamda0unique) %>%
+  add_row(lambda0max = 0) %>%
+  add_row(lambda0max = 1) %>%
+  arrange(lambda0max) %>%
+  mutate(lambda0min = lag(lambda0max)) %>%
+  slice(-1)
+
+# lambda0seg %>%
+#   rowid_to_column() %>%
+#   ggplot()+
+#   geom_rect(aes(xmin = 0, xmax = 1.3, ymin = lambda0min, ymax =lambda0max, fill = factor(rowid)), col = "black")+
+#   guides(fill = F)
+
+k2unique<-  c(self$filters_neg_above$k2, self$filters_neg_below$k2 )  %>% unique
+
+k2seg <- tibble(k2max = k2unique) %>%
+  add_row(k2max = 0) %>%
+  add_row(k2max = 1.2) %>%
+  arrange(k2max) %>%
+  mutate(k2min = lag(k2max)) %>%
+  slice(-1)
+
+# k2seg %>%
+#  rowid_to_column() %>%
+#  ggplot()+
+#  geom_rect(aes(xmin = k2min, xmax = k2max, ymin = 0, ymax =1, fill = factor(rowid)), col = "black")+
+#  guides(fill = F)
+
+allsquares <- crossing(lambda0seg, k2seg) %>%
+  filter(k2min != k2max) %>%
+  filter(lambda0min != lambda0max)
+
+
+allsquares0 <- allsquares
+
+# allsquares0 %>%
+#  rowid_to_column() %>%
+#  ggplot()+
+#  geom_rect(aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax =lambda0max, fill = factor(rowid)),col = "black")+
+#  guides(fill = F)
+
+filters <- self$make_filters() %>%
+  map_chr(~ gsub("line\\$", "", .x))
+
+filter_above <- "!(lambda0min >= ref$lambda0 &  k2max <= ref$k2)"
+for(a in 1:nrow(self$filters_neg_above)){
+
+  ref <- self$filters_neg_above %>% slice(a)
+
+  allsquares <- allsquares %>%
+    filter(!!parse_expr(filter_above))
+
+}
+
+
+filter_below<- "!(lambda0max <= ref$lambda0 &  k2min >= ref$k2)"
+for(a in 1:nrow(self$filters_neg_below)){
+
+  ref <- self$filters_neg_below %>% slice(a)
+
+  allsquares <- allsquares %>%
+    filter(!!parse_expr(filter_below))
+
+}
+
+
+allsquares %>%
+  rowid_to_column() %>%
+  ggplot()+
+  geom_rect(aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax =lambda0max, fill = factor(rowid)),col = "black")+
+  labs(fill = "bloc")
+
+# Now lets use those square
+
+VP_df2 <- c %>%
+  mutate(data = pmap(list(lambda0max, lambda0min, k2max, k2min), function(lambda0max, lambda0min, k2max, k2min){
+
+    crossing(k2 = seq(k2min, k2max, 0.0002), lambda0 = seq(lambda0min, lambda0max, 0.0002) )
+
+  })) %>%
+  unnest()%>%
+  select(lambda0, k2) %>%
+  mutate(k1 = 0.5, ke = 1, lambda1 = 12, Vd = 40)
+
+
+
+
+self$add_VP(VP_df2, fillatend = F, reducefilteratend = F,  npersalve = 2000,  time_compteur = F,keepRefFiltaftDis = T)
+
+self$plot_VP(nmax = 20)+
+  geom_point(aes(x = 12, y = 100.1846), col = "red")+
+  geom_point(aes(x = 40, y = 431.0057), col = "red")
+
+self$plot_VP(nmax = 10)
+self$n_filter_reduc()
+
+length(seq(0,3,0.0002)) * length(seq(seq(0,1,0.0002))) * 0.6 / 2000/3600 # temps en heure
+
+self$plot_2D(k2, lambda0, plotoreturn = 1)
+
+
+# analyse above
+lamda0unique<-  c(self$filters_neg_above$lambda0, self$filters_neg_below$lambda0 )  %>% unique
+
+lambda0seg <-  tibble(lambda0max = lamda0unique) %>%
+  add_row(lambda0max = 0) %>%
+  add_row(lambda0max = 1) %>%
+  arrange(lambda0max) %>%
+  mutate(lambda0min = lag(lambda0max)) %>%
+  slice(-1)
+
+# lambda0seg %>%
+#   rowid_to_column() %>%
+#   ggplot()+
+#   geom_rect(aes(xmin = 0, xmax = 1.3, ymin = lambda0min, ymax =lambda0max, fill = factor(rowid)), col = "black")+
+#   guides(fill = F)
+
+k2unique<-  c(self$filters_neg_above$k2, self$filters_neg_below$k2 )  %>% unique
+
+k2seg <- tibble(k2max = k2unique) %>%
+  add_row(k2max = 0) %>%
+  add_row(k2max = 1.2) %>%
+  arrange(k2max) %>%
+  mutate(k2min = lag(k2max)) %>%
+  slice(-1)
+
+# k2seg %>%
+#  rowid_to_column() %>%
+#  ggplot()+
+#  geom_rect(aes(xmin = k2min, xmax = k2max, ymin = 0, ymax =1, fill = factor(rowid)), col = "black")+
+#  guides(fill = F)
+
+allsquares <- crossing(lambda0seg, k2seg) %>%
+  filter(k2min != k2max) %>%
+  filter(lambda0min != lambda0max)
+
+
+allsquares0 <- allsquares
+
+# allsquares0 %>%
+#  rowid_to_column() %>%
+#  ggplot()+
+#  geom_rect(aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax =lambda0max, fill = factor(rowid)),col = "black")+
+#  guides(fill = F)
+
+filters <- self$make_filters() %>%
+  map_chr(~ gsub("line\\$", "", .x))
+
+filter_above <- "!(lambda0min >= ref$lambda0 &  k2max <= ref$k2)"
+for(a in 1:nrow(self$filters_neg_above)){
+
+  ref <- self$filters_neg_above %>% slice(a)
+
+  allsquares <- allsquares %>%
+    filter(!!parse_expr(filter_above))
+
+}
+
+
+filter_below<- "!(lambda0max <= ref$lambda0 &  k2min >= ref$k2)"
+for(a in 1:nrow(self$filters_neg_below)){
+
+  ref <- self$filters_neg_below %>% slice(a)
+
+  allsquares <- allsquares %>%
+    filter(!!parse_expr(filter_below))
+
+}
+
+
+allsquares %>%
+  rowid_to_column() %>%
+  ggplot()+
+  geom_rect(aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax =lambda0max, fill = factor(rowid)),col = "black")+
+  labs(fill = "bloc")+ guides(fill = F)+
+  geom_point(data = self$poolVP, aes(k2, lambda0), col="red")
+
+length(seq(0,3,0.0002)) * length(seq(seq(0,1,0.0002))) * 0.35 / 2000/3600 # temps en heure
+
+
 
 # Figure1.2 ---------------------------------------------------------------
 

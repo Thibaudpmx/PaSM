@@ -151,7 +151,7 @@ print( as.data.frame(targets))
 
 # VP_production -----------------------------------------------------------
 VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F, pctActivGreen = 0.75,
-                                                 keepRedFiltaftDis = F, methodFilter = 2){
+                                                 keepRedFiltaftDis = F, methodFilter = 2, use_red_filter = T){
 
 
 
@@ -383,8 +383,6 @@ return(cat(red("Done")))
     format = "  VP creation [:bar] :current/:total (:percent) in :elapsed",
     total = maxinfo, clear = FALSE, width= 60)
 
-  # pb <- progress_bar$new(total = )
-
 
 
   # Preparing some object to store elements (filters etc)
@@ -401,8 +399,7 @@ return(cat(red("Done")))
 
   }
 
-  # At start, use red filter
-  use_red_filter <- T
+
 
 
   message(green("Start main loop"))
@@ -826,7 +823,7 @@ return(cat(red("Done")))
 
         # line %>% filter(id %in% idsgood) %>% pull(id) -> idsgood
 
-        poolVP[poolVP$id %in% idsgood & poolVP$protocol == unique(line$protocol), col_to_add     ] <- T
+        poolVP[poolVP$id %in% idsgood & poolVP$protocol == unique(line$protocol), col_to_add     ] <- 0
 
 
         if(time_compteur == T)  poolVP_compteur_new$time_addgreennofil <- difftime(Sys.time(), t02, units = "s")
@@ -859,6 +856,11 @@ return(cat(red("Done")))
 
       }else {
 
+
+        t0greenfilter <- Sys.time()
+
+      donebeforegreen <- is.na(poolVP[, col_to_add]) %>% sum
+
     for(cmtt in unique(self$targets$cmt)){
       if(time_compteur == T){
 
@@ -877,24 +879,24 @@ return(cat(red("Done")))
 
         res2 %>%
           filter(be_up == 1 & ab_low == 1) %>%
-          group_by(id) %>%
-          tally -> nabove
+          group_by(id_origin) %>%
+          tally -> naccepted
 
         res2 %>%
-          left_join(nabove, by = "id") %>%
+          left_join(naccepted, by = "id_origin") %>%
           filter(n == nmax) %>%
-          group_by(id) %>%
-          slice(1) %>% pull(id) -> idsbelowpos
+          group_by(id_origin) %>%
+          slice(1) %>% pull(id_origin) -> idsaccepted
 
-        line %>% filter(id %in% idsbelowpos) -> filters_pos_below_up
+
+        line %>% filter(id_origin %in% idsaccepted) -> filters_pos_below_up ->  filters_ps_above_lo
         filters_pos_below_up$cmt = cmtt
-        filters_pos_below_up_reduc <- filter_reduc(filters_pos_below_up , filtre =  "below")
-
-        # %>%
-        #   arrange(k2, desc(lambda0))
+        filters_ps_above_lo$cmt = cmtt
+        filters_pos_below_up_reduc <- filter_reduc(filters_pos_below_up,obj = self , direction  =  "below")
+        filters_ps_above_lo_reduc <- filter_reduc(filters_ps_above_lo,obj = self, direction = "above")
 
         pos_below[[cmtt]] <- bind_rows(pos_below[[cmtt]], filters_pos_below_up_reduc[names(pos_below[[1]])])
-
+        pos_above[[cmtt]] <- bind_rows(pos_above[[cmtt]], filters_ps_above_lo_reduc[names(pos_above[[1]])])
 
         if(time_compteur == T){
           poolVP_compteur_new$filter_pos_above <- difftime(Sys.time(), t02, units = "s")
@@ -903,35 +905,17 @@ return(cat(red("Done")))
         }
 
         # lines output bpostif above lo
-        if(time_compteur == T) t02 <- Sys.time()
-
-        res2 %>%
-          filter(be_up == 1 & ab_low == 1) %>%
-          group_by(id) %>%
-          tally -> nbelow
-
-        res2 %>%
-          left_join(nbelow, by = "id") %>%
-          filter(n == nmax) %>%
-          group_by(id) %>%
-          slice(1) %>% pull(id) -> idsabovepos
-
-
-        line %>% filter(id %in% idsabovepos) -> filters_ps_above_lo
-
-        filters_ps_above_lo$cmt = cmtt
-
-        filters_ps_above_lo_reduc <- filter_reduc(filters_ps_above_lo, filtre = "above")
-        # %>%
-        #   arrange(desc(k2), lambda0)
-
-        pos_above[[cmtt]] <- bind_rows(pos_above[[cmtt]], filters_ps_above_lo_reduc[names(pos_above[[1]])])
-
-        if(time_compteur == T){
-          poolVP_compteur_new$filter_pos_above <- difftime(Sys.time(), t02, units = "s")
-          poolVP_compteur_new$nfilter_posab_bef <- nrow(filters_ps_above_lo)
-          poolVP_compteur_new$nfilters_posab_af <- nrow(filters_ps_above_lo_reduc)
-        }
+        # if(time_compteur == T) t02 <- Sys.time()
+        #
+        #
+        #
+        #
+        #
+        # if(time_compteur == T){
+        #   poolVP_compteur_new$filter_pos_above <- difftime(Sys.time(), t02, units = "s")
+        #   poolVP_compteur_new$nfilter_posab_bef <- nrow(filters_ps_above_lo)
+        #   poolVP_compteur_new$nfilters_posab_af <- nrow(filters_ps_above_lo_reduc)
+        # }
 
         ###### Use the filters
 
@@ -944,13 +928,14 @@ return(cat(red("Done")))
 
           for(a in 1:nrow(filters_ps_above_lo_reduc)){
 
-            ref <- filters_ps_above_lo_reduc %>% slice(a)
+            ref <- filters_ps_above_lo %>% slice(a)
 
             poolVP %>%
               mutate(test = !!parse_expr(filters[[ref$cmt]][["above"]])) %>%
               filter(test == T) %>% pull(id) -> id_temp
 
-            poolVP$tumVol_AL[poolVP$id %in% id_temp & poolVP$protocol == unique(line$protocol)] <- T
+
+            poolVP[[paste0(cmtt,"_AL")]][poolVP$id %in% id_temp & poolVP$protocol == unique(line$protocol)] <- ref$rowid
           }
 
         }
@@ -965,7 +950,7 @@ return(cat(red("Done")))
           reff <- sum(is.na(poolVP$tumVol_BU))
 
         }
-        if(nrow(filters_ps_above_lo_reduc) >0){
+        if(nrow(filters_pos_below_up_reduc) >0){
           for(a in 1:nrow(filters_pos_below_up_reduc)){
 
             ref <- filters_pos_below_up_reduc %>% slice(a)
@@ -974,7 +959,7 @@ return(cat(red("Done")))
               mutate(test = !!parse_expr(filters[[ref$cmt]][["below"]])) %>%
               filter(test == T) %>% pull(id) -> id_temp
 
-            poolVP$tumVol_BU[poolVP$id %in% id_temp & poolVP$protocol == unique(line$protocol)] <- T
+            poolVP[[paste0(cmtt,"_BU")]][poolVP$id %in% id_temp & poolVP$protocol == unique(line$protocol)] <-  ref$rowid
           }
 
           if(time_compteur == T){
@@ -1007,9 +992,10 @@ return(cat(red("Done")))
         if(time_compteur == T) t02 <- Sys.time()
 
         res %>%
-          left_join(line %>% distinct(id, id), by = "id") %>%
-          filter(id %in% unique(poolVP$id)) %>%
+          left_join(line %>% distinct(id, id_origin), by = "id") %>%
+          filter(id_origin %in% unique(poolVP$id) & !id_origin %in% siml$id) %>%
           mutate(protocol = unique(line$protocol)) %>%
+          select(-id) %>% rename(id = id_origin) %>%
           group_by(id,protocol) %>%
 
           nest() -> forjoin
@@ -1021,11 +1007,27 @@ return(cat(red("Done")))
 
         if(time_compteur == T) poolVP_compteur_new$timesimlandjoin <- difftime(Sys.time(), t02, units = "s")
 
+        # end for each compartment
+  }
 
-  } # end use green filter
 
 
-    }# end for each compartment
+      timegreen <- difftime(Sys.time(), t0greenfilter, units = "s")
+
+      doneaftergreen <-   is.na(poolVP[, col_to_add]) %>% sum
+
+     equivVPdon <-  (donebeforegreen  - doneaftergreen)/ length(col_to_add)
+
+      totalsaveGreen <-  equivVPdon * time_simulations /  n_simulations
+
+      if(totalsaveGreen < timegreen){
+
+        message(green("\nGreen filter system disabled."))
+        use_green_filter <- F
+      }
+
+
+    }# end use green filter
 
 
 
@@ -1035,7 +1037,7 @@ return(cat(red("Done")))
 
    # Compute newratio for knowing when to stop
     newratio <- is.na(poolVP[, col_to_add]) %>% sum
-
+ print(newratio)
   }# fin while 1
 
 
@@ -1136,21 +1138,43 @@ while(nrow( self$action_programmed$fix_df) != 0){
 })
 # Complete VP simul -------------------------------------------------------
 
-VP_proj_creator$set("public", "fill_simul", function(){
+VP_proj_creator$set("public", "fill_simul", function(nsalve = 2000){
+
+  self$poolVP %>%
+    mutate(type = map_chr(simul, ~ class(.x)[[1]]))
+
+  self$poolVP %>%
+    mutate(type = map_chr(simul, ~ class(.x)[[1]])) %>%
+    filter(type == "NULL") %>%
+    select(-type, -simul) -> todo
+
+  if("id" %in% names(todo)) todo <- todo %>% select(-id)
+
+  ntodo <- nrow(todo)
+
+  pb <- progress_bar$new(
+    format = "  VP creation [:bar] :current/:total (:percent) in :elapsed",
+    total = ntodo, clear = FALSE, width= 60)
 
 
 
-self$poolVP %>%
-    mutate(missing = map_lgl(simul, ~if_else(is.null(.x), TRUE, FALSE ))) %>%
-    filter(missing) %>%
-    rowid_to_column("id")-> line
+  while(nrow(todo) > 0){
 
-  if(nrow(line) == 0) return(message("All VP's have simulations already available"))
+    pb$update(ratio = (ntodo-nrow(todo))/ntodo)
+
+  line <- todo %>%
+    slice(1:(min(nsalve, nrow(todo)))) %>%
+    rowid_to_column("id")
+
 
   protocol <-  line %>%
     mutate(protocol2 = map(protocol, ~ self$protocols[[.x]])) %>%
     select(id, protocol2) %>%
-    unnest()
+    unnest() %>%
+    mutate(evid = 1) %>%
+    bind_rows( crossing(id = unique(line$id), time = self$times, amt = 0, evid = 0,  cmt = self$protocols[[1]]$cmt[[1]] ))%>%
+    arrange(id, time)
+
   # add_events_line$amt[is.na(add_events_line$amt )] <- 0
 
   # And now we can make the simulation and extract the result !
@@ -1158,47 +1182,76 @@ self$poolVP %>%
   b <- Sys.time()
   res <- simulations2(ind_param = line, add_events = protocol, returnSim = T,
                       icmt = self$initial_cmt_values, time_vec =self$times,
-                      pardf = self$parameters_default_values, model = self$model);res
-
-
-  res <- as.data.frame(res)
+                      pardf = self$parameters_default_values, model = self$model) %>%
+    as.data.frame()
 
   res %>%
-    left_join(line %>% distinct(id, id,protocol)) %>%
-    group_by(id, protocol) %>%
-    nest() -> newsimuls
+
+    left_join(line %>% distinct(id,rowid), by = "id") %>%
+    select(-id) %>%
+    group_by(rowid) %>%
+    nest() %>%
+    rename(simul = data)-> newsimuls
 
 
-  temp <- self$poolVP %>%
-    mutate(test= map_lgl(simul, ~ is.null(.x)))
 
   bind_rows(
 
-    temp %>% filter(test == F),
+    self$poolVP %>% filter(! rowid %in% newsimuls$rowid),
 
-    temp %>% filter(test == T) %>%
+    self$poolVP %>%
+      filter(rowid %in% newsimuls$rowid) %>%
       select(-simul) %>%
-      left_join(newsimuls %>% rename(simul = data))
+      left_join(newsimuls, by = "rowid")
 
   ) %>%
-    arrange(id) %>%
-    select(-test) -> output
+    arrange(rowid) -> output
 
   self$poolVP <- output
+
+  todo <-  todo %>%
+    slice(-(1:(min(nsalve, nrow(todo)))))
+
+  }
 
 })
 
 
 # VP plot -----------------------------------------------------------------
 
-VP_proj_creator$set("public", "plot_VP", function(nmax = Inf){
+VP_proj_creator$set("public", "plot_VP", function(nmax = Inf , rowids = NULL){
 
-nmax <- min(nrow(self$poolVP), nmax )
 
-  self$poolVP %>%
-    sample_n(nmax) %>%
+
+
+self$poolVP %>%
+  mutate(type = map_chr(simul, ~ typeof(.x)[[1]])) %>%
+  filter(type != "NULL")
+
+if(is.null(rowids)){
+
+ temp <-  self$poolVP %>%
+   mutate(type = map_chr(simul, ~ typeof(.x)[[1]])) %>%
+   filter(type != "NULL")
+
+ temp <- temp %>%
+   sample_n( min(nrow(temp), nmax ))
+
+
+}else{
+
+  temp <-  self$poolVP %>%
+    filter(rowid %in%rowids)
+
+
+}
+
+
+
+
+
     # slice() %>%
-    # slice(1:100) %>%
+   temp %>%
     unnest(simul) %>%
     gather("cmt", "value", !!!parse_exprs(unique(self$targets$cmt))) %>%
     filter( ! (cmt == "Conc" & value == 0)) %>%
