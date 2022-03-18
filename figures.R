@@ -2282,7 +2282,7 @@ plothm <- ggplot()+
   facet_wrap(~"Possible zone of VPs kept in memory")
 
 
-plot_grid(plot_grid(plot1, plot2, plot3, plot4, labels = c("A", "B", "C", "D")), plot5, plot_grid(VTplot, ggplot(), labels = c("F", "G")), ncol = 1, rel_heights = c(2,1,1), labels = c("", "E") )
+plot_grid(plot_grid(plot1, plot2, plot3, plot4, labels = c("A", "B", "C", "D")), plot5, plot_grid(VTplot, ggplot()+geom_text(aes(x = 1, y=1, label = "?")), labels = c("F", "G")), ncol = 1, rel_heights = c(2,1,1), labels = c("", "E") )
 
 
 

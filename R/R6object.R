@@ -524,7 +524,7 @@ return(cat(red("Done")))
             distinct(!!!parse_exprs(all_param), cmt,id)
 
 
-          self$filters_neg_above <- bind_rows(self$filters_neg_above %>% mutate(PrimFilter = T) ,
+          self$filters_neg_above <- bind_rows(self$filters_neg_above,
                                               newfilters )
 
           newfilters <- res2 %>%
@@ -533,7 +533,7 @@ return(cat(red("Done")))
             # filter( id %in% idstorem) %>%
             distinct(!!!parse_exprs(all_param), cmt,id)
 
-          self$filters_neg_below <- bind_rows(self$filters_neg_below %>% mutate(PrimFilter = T), newfilters )
+          self$filters_neg_below <- bind_rows(self$filters_neg_below, newfilters )
 
         }
 
@@ -780,8 +780,8 @@ return(cat(red("Done")))
 
 ### Update filters
 
-      self$filters_neg_above <- bind_rows(self$filters_neg_above %>% mutate(PrimFilter = T) , filters_neg_above_reduc )
-      self$filters_neg_below <- bind_rows(self$filters_neg_below %>% mutate(PrimFilter = T) , filters_neg_below_up_reduc )
+      self$filters_neg_above <- bind_rows(self$filters_neg_above, filters_neg_above_reduc )
+      self$filters_neg_below <- bind_rows(self$filters_neg_below, filters_neg_below_up_reduc )
 
 ##### Compute the rendement of red filter and disable if negative
 
@@ -1765,8 +1765,9 @@ return(filters_per_cmt %>% reduce(bind_rows))
 
   }
   ## end bloc to reorder
+  if(!"PrimFilter" %in% names(df2)) df2$PrimFilter <- NA
 
-  for(a in df2$iddummy){
+  for(a in df2$iddummy[is.na(df2$PrimFilter)]){
     # print(a)
 
     if(a %in% df2$iddummy){
@@ -1788,6 +1789,8 @@ return(filters_per_cmt %>% reduce(bind_rows))
 VP_proj_creator$set("public", "n_filter_reduc", function(){
 
 
+
+
   filters <- self$make_filters() %>%
     gsub(pattern = "line\\$", replacement = "" )
 
@@ -1795,6 +1798,7 @@ VP_proj_creator$set("public", "n_filter_reduc", function(){
 
   # Handle negative above
 
+  filter_reduc(self$filters_neg_above, obj = self, direction = "above")
 
   self$filters_neg_above %>%
     select(-starts_with("rowid")) %>%
@@ -1803,132 +1807,139 @@ VP_proj_creator$set("public", "n_filter_reduc", function(){
 
   message("Reducing negative above filters")
 
-  if(nrow(temp) > 0 ){
-  for(a in 1:nrow(temp)){
-    # print(a)
+  self$filters_neg_above <-  filter_reduc(self$filters_neg_above, obj = self, direction = "above")%>%
+    mutate(PrimFilter = T)
 
-    if(a %in% temp$rowid){
-      ref <- temp %>%
-        filter(rowid == a)
-
-      temp %>%
-        mutate(test = !!parse_expr(filters[[1]]))  -> temp
-
-      temp$test[temp$rowid == a] <- F
-      temp <- temp %>%
-        filter(test == F)
-    }
-    self$filters_neg_above <- temp %>% mutate(PrimFilter = T) %>% select(-test)
-  }
-  }
+  # if(nrow(temp) > 0 ){
+  # for(a in 1:nrow(temp)){
+  #   # print(a)
+  #
+  #   if(a %in% temp$rowid){
+  #     ref <- temp %>%
+  #       filter(rowid == a)
+  #
+  #     temp %>%
+  #       mutate(test = !!parse_expr(filters[[1]]))  -> temp
+  #
+  #     temp$test[temp$rowid == a] <- F
+  #     temp <- temp %>%
+  #       filter(test == F)
+  #   }
+  #   self$filters_neg_above <- temp %>% mutate(PrimFilter = T) %>% select(-test)
+  # }
+  # }
 
 
 
 
   # Handle negative below
 
-  self$filters_neg_below %>%
-    select(-starts_with("rowid")) %>%
-    # arrange(desc(k2), k2, lambda0, lambda1, Vd) %>%
-    rowid_to_column() -> temp
+  # self$filters_neg_below %>%
+  #   select(-starts_with("rowid")) %>%
+  #   # arrange(desc(k2), k2, lambda0, lambda1, Vd) %>%
+  #   rowid_to_column() -> temp
 
   message("Reducing negative below filters")
 
-  if(nrow(temp) > 0 ){
-  for(a in 1:nrow(temp)){
-    # print(a)
+self$filters_neg_below <-  filter_reduc(self$filters_neg_below, obj = self, direction = "below") %>%
+  mutate(PrimFilter = T)
 
-    if(a %in% temp$rowid){
-      ref <- temp %>%
-        filter(rowid == a)
-
-      temp %>%
-        mutate(test = !!parse_expr(filters[[2]]))  -> temp
-
-      temp$test[temp$rowid == a] <- F
-      temp <- temp %>%
-        filter(test == F)
-    }
-
-    self$filters_neg_below <- temp %>% mutate(PrimFilter = T) %>% select(-test)
-  }
-}
-
-
-
-
-
-  # for each cmtt
-for(cmtt in unique((self$targets$cmt))){
-
-# filter pos above <low
+message("Done")
+#   if(nrow(temp) > 0 ){
+#   for(a in 1:nrow(temp)){
+#     # print(a)
+#
+#     if(a %in% temp$rowid){
+#       ref <- temp %>%
+#         filter(rowid == a)
+#
+#       temp %>%
+#         mutate(test = !!parse_expr(filters[[2]]))  -> temp
+#
+#       temp$test[temp$rowid == a] <- F
+#       temp <- temp %>%
+#         filter(test == F)
+#     }
+#
+#     self$filters_neg_below <- temp %>% mutate(PrimFilter = T) %>% select(-test)
+#   }
+# }
+#
 
 
 
-self$filters_pos_above[[cmtt]] %>%
-  select(-starts_with("rowid")) %>%
-  # arrange(desc(k2), k2, lambda0, lambda1, Vd) %>%
-  rowid_to_column() -> temp
-
-
-if(nrow(temp) > 0){
-
-  message("Reducing positive above filters")
-for(a in 1:nrow(temp)){
-  # print(a)
-
-  if(a %in% temp$rowid){
-    ref <- temp %>%
-      filter(rowid == a)
-
-    temp %>%
-      mutate(test = !!parse_expr(filters[[1]]))  -> temp
-
-    temp$test[temp$rowid == a] <- F
-    temp <- temp %>%
-      filter(test == F)
-  }
-}
-
-  self$filters_pos_above[[cmtt]] <- temp %>% mutate(PrimFilter = T) %>% select(-test)
-
-}
-
-
-# handle pos belw
-
-self$filters_pos_below[[cmtt]] %>%
-  select(-starts_with("rowid")) %>%
-  # arrange(desc(k2), k2, lambda0, lambda1, Vd) %>%
-  rowid_to_column() -> temp
-
-message("Reducing positive above filters")
-
-if(nrow(temp) > 0){
-  message("Reducing positive above filters")
-
-for(a in 1:nrow(temp)){
-  # print(a)
-
-  if(a %in% temp$rowid){
-    ref <- temp %>%
-      filter(rowid == a)
-
-    temp %>%
-      mutate(test = !!parse_expr(filters[[2]]))  -> temp
-
-    temp$test[temp$rowid == a] <- F
-    temp <- temp %>%
-      filter(test == F)
-  }
-}
-  self$filters_pos_below[[cmtt]] <- temp %>% mutate(PrimFilter = T) %>% select(-test)
-}
-
-
-
-}
-
+#
+#   # for each cmtt
+# for(cmtt in unique((self$targets$cmt))){
+#
+# # filter pos above <low
+#
+#
+#
+# self$filters_pos_above[[cmtt]] %>%
+#   select(-starts_with("rowid")) %>%
+#   # arrange(desc(k2), k2, lambda0, lambda1, Vd) %>%
+#   rowid_to_column() -> temp
+#
+#
+# if(nrow(temp) > 0){
+#
+#   message("Reducing positive above filters")
+# for(a in 1:nrow(temp)){
+#   # print(a)
+#
+#   if(a %in% temp$rowid){
+#     ref <- temp %>%
+#       filter(rowid == a)
+#
+#     temp %>%
+#       mutate(test = !!parse_expr(filters[[1]]))  -> temp
+#
+#     temp$test[temp$rowid == a] <- F
+#     temp <- temp %>%
+#       filter(test == F)
+#   }
+# }
+#
+#   self$filters_pos_above[[cmtt]] <- temp %>% mutate(PrimFilter = T) %>% select(-test)
+#
+# }
+#
+#
+# # handle pos belw
+#
+# self$filters_pos_below[[cmtt]] %>%
+#   select(-starts_with("rowid")) %>%
+#   # arrange(desc(k2), k2, lambda0, lambda1, Vd) %>%
+#   rowid_to_column() -> temp
+#
+# message("Reducing positive above filters")
+#
+# if(nrow(temp) > 0){
+#   message("Reducing positive above filters")
+#
+# for(a in 1:nrow(temp)){
+#   # print(a)
+#
+#   if(a %in% temp$rowid){
+#     ref <- temp %>%
+#       filter(rowid == a)
+#
+#     temp %>%
+#       mutate(test = !!parse_expr(filters[[2]]))  -> temp
+#
+#     temp$test[temp$rowid == a] <- F
+#     temp <- temp %>%
+#       filter(test == F)
+#   }
+# }
+#   self$filters_pos_below[[cmtt]] <- temp %>% mutate(PrimFilter = T) %>% select(-test)
+# }
+#
+#
+#
+# }
+#
 
 })
 
@@ -2156,7 +2167,17 @@ param_unique <- map(self$param, function(x){
   df_temp
 })
 
+testnsquare <- map_dbl(param_unique, ~ nrow(.x)) %>% reduce(`*`)
+
+if(testnsquare > 200000) stop("Too many square")
+
 allsquares <- invoke(.fn = crossing, .args = param_unique )
+
+# if(direction == "below"){
+  # if(!is.null(param_increase)) list_arrange <- map(param_increase,~ expr(desc(!!parse_expr(.x))))
+  # if(!is.null(param_reduce)) list_arrange <- c(list_arrange, map(param_reduce,~ expr(!!parse_expr(.x))))
+# }else{
+
 
 
 for(x in names(self$param_increase)){
@@ -2188,19 +2209,40 @@ filter_above <- filters[1]
 
 filters_neg_above <- self$filters_neg_above %>% filter(cmt == x)
 
+# list_arrange <- list()
+# if(!is.null(self$param_increase)) list_arrange <- map(self$param_increase[[1]],~ expr(!!parse_expr(.x)))
+# if(!is.null(self$param_reduce))  list_arrange <- c(list_arrange, map(self$param_reduce[[1]],~ expr(desc(!!parse_expr(.x)))))
+
+# if(!is.null(self$param_increase)) list_arrange <- map(self$param_increase[[1]],~ expr(desc(!!parse_expr(.x))))
+# if(!is.null(self$param_reduce)) list_arrange <- c(list_arrange, map(self$param_reduce[[1]],~ expr(!!parse_expr(.x))))
+
+
+# filters_neg_above <- filters_neg_above %>%
+  # arrange(!!!list_arrange)
+
+# filters_neg_above %>%
+#   arrange()
+
 if(nrow(filters_neg_above) > 0){
 for(a in 1:nrow(filters_neg_above)){
 
+  # print(a)
   ref <- filters_neg_above %>% slice(a)
 
   allsquares <- allsquares %>%
     filter(!!parse_expr(filter_above))
 
+  # print(a)
+  # print(nrow(allsquares))
 }
 }
 
 filter_below<- filters[2]
 filters_neg_below <- self$filters_neg_below %>% filter(cmt == x)
+
+
+
+
 if(nrow(filters_neg_below) > 0){
 for(a in 1:nrow(filters_neg_below)){
 
@@ -2216,6 +2258,160 @@ for(a in 1:nrow(filters_neg_below)){
 # can we reduce those square now?
 
 self$zone_maybe <- allsquares
+})
+
+
+# Algorithm 2 -------------------------------------------------------------
+
+# seq(0,3,0.0015) %>% length() *
+  # + seq(0,1.4,0.000820) %>% length()
+# source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+#
+prototiny <- tibble(protocol = "dose50", cmt = "tumVol", time = c(12,40), min = c(100, 431),
+                    max = c(100.05, 431.05))
+
+self <- VP_proj_creator$new()
+
+self$set_targets(manual = prototiny)
+
+#
+domain <- tribble(~param, ~from, ~to, ~digits,
+                  "k2", 0, 3, 3 ,
+                  "lambda0", 0, 1.4, 4
+                  )
+fix <-c(k1 = 0.5, ke = 1, Vd = 40, lambda1 = c(12))
+
+
+domain <- tribble(~param, ~from, ~to, ~digits,
+                  "k2", 0, 3, 2 ,
+                  "lambda0", 0, 1.4, 2,
+                  "ke", 0, 2,1,
+                   "Vd", 0,40,0,
+                    "lambda1", 0,24,1
+)
+
+fix <-c(k1 = 0.5)
+
+ndomain <- function(domain){
+
+
+  domain %>%
+    mutate(how = pmap_dbl(list(from, to, digits), function(from, to , digits){
+
+      length(seq(from, to, 10^(-digits)))
+    })) %>%
+    pull(how) %>%
+    reduce(`*`)
+}
+
+ndomain(domain) / 2000 * 0.5 / 3600 / 24
+
+
+blocs %>%
+  mutate(how = pmap_dbl(list(from, to, digits), function(from, to , digits){
+
+    length(seq(from, to, 10^(-digits)))
+  })) %>%
+  group_split(id) -> temp
+
+
+temp2 <- temp %>%
+  map_dbl(~  .x %>% pull(how) %>%
+        reduce(`*`))
+
+(ndomain(domain)- sum(temp2)) / 2000 * 0.5 / 3600 / 24
+
+sum(temp2)/ 2000 * 0.5 / 3600 / 24
+
+VP_proj_creator$set("public", "algo2", function(domain, fix = NULL){
+
+
+
+nperparam <- floor(200000^(1/nrow(domain)))
+
+namesparam <- c(paste0(domain$param,  "max"),paste0(domain$param,  "min") )
+
+DFfix <- as.data.frame(fix) %>%
+  rownames_to_column() %>%
+  spread(rowname , fix)
+
+blocs <- domain %>%
+  mutate(id = "")
+firstbloc <- T
+# Compute equidistant VP's
+while( T){
+
+
+
+if(firstbloc != T) blocs <- maybe[namesparam] %>%
+  rowid_to_column("id") %>%
+  gather("key", "value", -id) %>%
+  mutate(param = gsub("(min$)|(max$)", "", key)) %>%
+  mutate(a = map2_chr(param, key, ~ gsub(.x, "", .y))) %>%
+  select(-key) %>%
+  spread(a, value) %>%
+  rename(from = min, to = max) %>%
+  left_join(domain %>% distinct(param, digits), by = "param")
+
+if(firstbloc != T)  nperparam <- floor((200000/length(unique(blocs$id)))^(1/nrow(domain)))
+
+
+blocs %>%
+  mutate(sampl = pmap(list(from, to, digits), function(from, to, digits){
+
+# from = 0; to = 3; digits = 4
+    seq(from, to, (to-from)/(nperparam-1)) %>% round(digits) %>% unique()
+
+
+  })) -> VPsparam
+
+# Cross parameter (per bloc) and add fixed values
+newVPs <- VPsparam %>%
+  group_split(id) %>%
+  map( function(x){
+   temp <- invoke(.fn = crossing, x$sampl )
+   names(temp) <- x$param
+   temp
+    }) %>%
+  bind_rows() %>%
+  add_column(DFfix)
+
+
+if(nrow(self$poolVP)>0 ){
+
+newVPs <- newVPs %>%
+  left_join(self$poolVP %>% select(!!!parse_exprs(names(newVPs)),  id)) %>%
+  filter(is.na(id)) %>%
+  select(-id)
+}
+
+if(! firstbloc) newVPs <- newVPs %>%
+  left_join(prevVPs %>% mutate(test = 1)) %>%
+  filter(is.na(test)) %>%
+  select(-test)
+
+prevVPs <-newVPs
+
+firstbloc <- F
+
+# newVPs <- invoke(.fn = crossing, .args = VPsparam)%>%
+#   add_column(DFfix)
+
+# Compute the new VPs
+self$add_VP(newVPs, keepRedFiltaftDis = T, reducefilteratend = T)
+
+
+# self$n_filter_reduc()
+# Compute zone_maybe
+self$compute_zone_maybe()
+
+# Which become the new blocs
+maybe <- self$zone_maybe
+
+# self$plot_2D(k2, lambda0)
+# print("a")
+}
+
 })
 
 # Massive screening -------------------------------------------------------
