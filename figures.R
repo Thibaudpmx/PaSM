@@ -2748,3 +2748,131 @@ tibble(group=c("Trial and error files\nNever published", "Reported\nafter QC"),
   geom_text(aes(label = group), position = position_stack(vjust = 0.5))+
   theme_void()+
   scale_alpha_manual(values = c(0.3,1))
+
+
+
+# Playing with algo2 ------------------------------------------------------
+
+
+self <- readRDS( "D:/these/Second_project/QSP/modeling_work/VT_simeoni/algo2.RDS")
+
+
+self$algo2list
+self
+
+
+
+temp <- self
+temp <- self$algo2list$first
+
+plotextreme <- function(temp, pool =1){
+
+ids <-
+
+  temp %>%
+    filter(blocsPool %in% pool) %>%
+  rowid_to_column() %>%
+    group_split(rowid) %>%
+    map(~  tibble(k2 = c(.x$k2min,.x$k2max), lambda0 = c(.x$lambda0max,.x$lambda0min),
+              ke = c(.x$kemax,.x$kemin), Vd = c(.x$Vdmax,.x$Vdmin), lambda1 = c(.x$lambda1max,.x$lambda1min)) %>%
+  mutate(psi = 20, k1 = 0.5) %>%
+  mutate(rowid = .x$rowid)
+    ) %>%
+    bind_rows() %>%
+  rowid_to_column("id")
+
+proto <- self$protocols$dose50 %>%
+  mutate(evid = 1) %>%
+  bind_rows(
+
+    self$protocols$dose50 %>%
+      mutate(evid = 0) %>%
+      select(-time) %>%
+      crossing(time = self$times) %>%
+      mutate(amt = 0)
+
+    ) %>%
+  crossing(id = 1:nrow(ids)) %>%
+  arrange(id, time)
+
+self$model$solve(ids, proto, c(X1 = 50)) %>%
+  as.tibble() %>%
+  left_join(ids %>% distinct(id, rowid))
+
+
+}
+
+ref<- plotextreme( tibble(k2min = 0, k2max = 3, lambda0min = 0, lambda0max = 1.4, kemin = 0, kemax = 2,
+                          Vdmin = 0, Vdmax = 40, lambda1min = 0, lambda1max = 24) %>% mutate(blocsPool = 1)
+                   , pool = 1)
+
+plot
+plotextreme(temp, pool = 1) %>%
+  filter(rowid <20) %>%
+  ggplot()+
+  geom_line(aes(time, tumVol, group = id))+
+  scale_y_log10()+
+  geom_point(data = self$targets, aes(time, min), col = "red")+
+  # geom_line(data=ref %>% select(-rowid), aes(time, tumVol, group = id), col = "red")+
+  facet_wrap(~rowid)
+
+plot <- plotextreme(temp = maybe)
+
+plot %>%
+  filter(rowid %in% 40:80) %>%
+  ggplot()+
+  geom_line(aes(time, tumVol, group = id))+
+  scale_y_log10()+
+  geom_point(data = self$targets, aes(time, min), col = "red")+
+  # geom_line(data=ref %>% select(-rowid), aes(time, tumVol, group = id), col = "red")+
+  facet_wrap(~rowid)
+
+
+
+
+# Combien d'espace on creer -----------------------------------------------
+
+
+
+
+A <- B <- C <- D <- E <-  G <- 1:3
+
+A <- B <- C <- D <- E <-  G <- 1:6
+
+test <- function(x){
+
+  name <- enexpr(x)
+
+ temp <- tibble(x, lag(x)) %>%
+    slice(-1)
+
+ names(temp) <-c(name, paste0(name,"_0"))
+
+ temp
+}
+
+
+
+
+
+# (n-1) ^ Ndim with n  number of value per param  , and Ndim =number of param
+# Une dimension (2): (n-1) ^ Ndim         espace (2 if 3 values)
+test(A)
+
+
+# Deux dimension (4): 2*n-1 espace (4 if 3values per param)
+
+crossing(test(A), test(B))
+crossing(A, B) # 36 (6^2) VPs for 25 (6-1)^2 domains
+
+
+
+25^(1/2) + 1
+# Trois dimension (8): 3*n-1 espace (8 if 3values per param)
+
+crossing(test(A), test(B), test(C))
+crossing(A, B, C)
+# Quatre dimension (16): 3*n-1 espace (8 if 3values per param)
+
+crossing(test(A), test(B), test(C), test(D))
+
