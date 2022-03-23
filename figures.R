@@ -890,13 +890,29 @@ VP_df <- crossing(k1 = c(0.5),
 
   } )
 
+
+
+VP_df <- crossing(k1 = c(0.5),
+                  k2 = seq(0,8,1),
+                  ke = seq(0.6,1.3,0.1),#*  seq(0.6,1.4,0.2),
+                  lambda0 =seq(0,0.14,0.02),
+                  lambda1 = c(8:15),
+                  Vd =  seq(26,40,2),
+                  w0 = seq(20,160,20)) %>% #c(0.8,1,1.2)) %>%
+  map_df(function(x){
+
+    if(is.character(x)) return(x)
+    round(x,3)
+
+  } );nrow(VP_df)
+
 source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
 
 
 # Compute with all accepation
 
 
-protoinf <- tibble(protocol = "dose50", cmt = "tumVol", time = c(45), min = 0, max = Inf)
+protoinf <- tibble(protocol = "dose50", cmt = "tumVol", time = c(45), min = 50, max = 50.5)
 infi <- VP_proj_creator$new()
 infi$set_targets(manual = protoinf)
 tinf <- Sys.time()
@@ -1356,7 +1372,7 @@ self$set_targets(filter = Dose==50 & cmt == "tumVol",timeforce = c(12,45))
 
 self$targets$max <- c(62,200)
 
-param <- crossing(k1 = 0.5, k2 = seq(2,6,2), ke = 1, lambda0 = seq(0.02,0.06,0.01), lambda1 = 12, Vd = 40, psi = 20) %>%
+param <- crossing(k1 = 0.5, w0 = 50, k2 = seq(2,6,2), ke = 1, lambda0 = seq(0.02,0.06,0.01), lambda1 = 12, Vd = 40, psi = 20) %>%
   rowid_to_column("id")
 
 param %>% arrange(k2, desc(lambda0)) %>% slice(1) %>% pull(id) -> idlowest
@@ -1454,7 +1470,7 @@ simul <- self$model$solve(param, events, c(X1 = 50) ) %>%
 
 
 
-param3 <- crossing(k1 = 0.5, k2 = c(0.8), ke = 1, lambda0 = c(0.05), lambda1 = 12, Vd = 40, psi = 20) %>%
+param3 <- crossing(k1 = 0.5,w0 = 50, k2 = c(0.8), ke = 1, lambda0 = c(0.05), lambda1 = 12, Vd = 40, psi = 20) %>%
   rowid_to_column("id")
 
 param3 %>% arrange(k2, desc(lambda0)) %>% slice(1) %>% pull(id) -> idlowest2
@@ -1496,30 +1512,15 @@ plot1 <- self$data %>%
   geom_segment(aes(x = 56, xend = 58, y = 2, yend = 2))+
   geom_text(aes(x = 70, y = c(2), label = "lower lambda0\nand higher k2"))+
 
-  # geom_segment(aes(x = 56, xend = 56, y = 0.05, yend = 60))+
-  # geom_segment(aes(x = 51, xend = 56, y = 0.05, yend = 0.05))+
-  # geom_segment(aes(x = 51, xend = 56, y = 60, yend = 60))+
-  # geom_segment(aes(x = 56, xend = 58, y = 2, yend = 2))+
-  # geom_text(aes(x = 65, y = 2, label = "Rejected by\nextrapolation"))+
   geom_segment(aes(x = 56, xend = 56, y = 0.04, yend = 0.4))+
   geom_segment(aes(x = 51, xend = 56, y = 0.04, yend = 0.04))+
   geom_segment(aes(x = 51, xend = 56, y = 0.4, yend = 0.4))+
   geom_segment(aes(x = 56, xend = 58, y = 0.15, yend = 0.15))+
   geom_text(aes(x = 70, y = c(0.15), label = "lower lambda0\nand higher k2"))+
 
-#
-#   geom_segment(aes(x = 82, xend = 82, y = 0.025, yend = 68))+
-#   geom_segment(aes(x = 60, xend = 82, y = 0.025, yend = 0.025))+
-#   geom_segment(aes(x = 60, xend = 82, y = 68, yend = 68))+
-#   geom_segment(aes(x = 82, xend = 85, y = 2, yend = 2))+
-
-  # geom_segment(aes(x = 82, xend = 82, y = 64, yend = 100))+
-  # geom_segment(aes(x = 51, xend = 82, y = 64, yend = 64))+
-  # geom_segment(aes(x = 51, xend = 82, y = 100, yend = 100))+
-  # geom_segment(aes(x = 82, xend = 85, y = 80, yend = 80))+
   coord_cartesian(xlim = c(0,80))+
   geom_segment(aes(x =  6, xend = 8, y =  45 , yend = 70), arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"), col = "darkgrey", size = 0.5)+
-  geom_line(data = simul3, aes(time, tumVol), col = "darkgrey",)+
+  geom_line(data = simul3, aes(time, tumVol), col = "darkgrey")+
   geom_text(aes(7.5, 90, label = "(VP accepted)"), col = "darkgrey", size = 3.5)+
 
   # geom_segment(aes(x =  12, xend = 14, y =  10 , yend = 12), arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"), col = "red", size = 0.5)+
@@ -1539,7 +1540,31 @@ plot1 <- self$data %>%
   geom_segment(aes(x = 70, xend = 70, y = 50, yend = 30), arrow = arrow(length=unit(0.30,"cm"), ends="last", type = "closed"));plot1
 
 
+# same step by step
+self$data %>%
+  filter(cmt %in%  unique( self$targets$cmt) & protocol %in% unique( self$targets$protocol)) %>%
+  ggplot()+
+  geom_segment(data =  self$targets,
+               aes(x = time, xend = time, y = min, yend = max), col ="black", size = 2)+
+  scale_y_log10()+
+  theme_bw()+
 
+  labs(x = "Time (days)", y = "Tumor Volume (mm3)" , col = "k2", alpha = "lambda0", size = "lambda0") +
+  #Patient inside targets
+  geom_line(data = simul3, aes(time, tumVol), col = "darkgrey")+
+  geom_segment(aes(x =  12, xend = 25, y = 40, yend = 120), arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"))+
+  geom_segment(aes(x = 25, xend = 45, y = 120, yend = 100), arrow = arrow(length=unit(0.30,"cm"), ends="last", type = "closed"))+
+  geom_label(aes(x = 25, y = 120, label = "Targets"))+
+  # just the ref, maybe to remove after
+  # geom_line(data=simul %>% filter(l0 == " 0.06" & k2 ==2), aes(time, tumVol, group = id), col = "red")+
+  # # geom_line(data=simul %>% filter(l0 == " 0.06"), aes(time, tumVol, group = id, col = factor(k2)), size = 2)+
+  geom_line(data=simul, aes(time, tumVol, group = id, size = l0, alpha = l0, col = factor(k2)))+
+  scale_alpha_manual(values = c(1,0.3))+
+  scale_size_manual(values = c(2,1))
+
+
+
+  # geom_text(data = simul%>% filter(time == 50), aes(x = 53, y = tumVol, label = lambda0, col = factor(k2)))
 #
 #
 #

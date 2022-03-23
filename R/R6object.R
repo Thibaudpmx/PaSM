@@ -2309,7 +2309,7 @@ ndomain <- function(domain){
 
 # ndomain(domain) / 2000 * 0.5 / 3600 / 24
 
-blocs <- zone_maybe
+# blocs <- zone_maybe
 ndomain2 <- function(blocs){
 
 
@@ -2721,12 +2721,12 @@ saveRDS(self, "D:/these/Second_project/QSP/modeling_work/VT_simeoni/algo2.RDS")
 
 })
 
-self$algo2list$tree  <- self$algo2list$tree %>%
-  mutate(todo = if_else(todo >1,1, todo)) %>%
-  mutate(what = if_else(Name != "first", "all", "zoom"))
-  filter(what == "zoom" & todo != 0)
-  mutate(what = if_else())
-# saveRDS(self, "D:/these/Second_project/QSP/modeling_work/VT_simeoni/algo2.RDS")
+# self$algo2list$tree  <- self$algo2list$tree %>%
+#   mutate(todo = if_else(todo >1,1, todo)) %>%
+#   mutate(what = if_else(Name != "first", "all", "zoom"))
+#   filter(what == "zoom" & todo != 0)
+#   mutate(what = if_else())
+# # saveRDS(self, "D:/these/Second_project/QSP/modeling_work/VT_simeoni/algo2.RDS")
 
 
 # Reduce maybe ------------------------------------------------------------
