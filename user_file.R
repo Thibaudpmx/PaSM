@@ -121,6 +121,7 @@ VP_df <- crossing(k1 = c(0.5),
                   ke = 1 ,#*  seq(0.6,1.4,0.2),
                   lambda0 =seq(0,0.16,0.0025),
                   lambda1 = c(12),
+                  w0 = 50,
                   Vd =  40) %>% #c(0.8,1,1.2)) %>%
   map_df(function(x){
 
@@ -133,7 +134,7 @@ VP_df <- crossing(k1 = c(0.5),
 
 # self$add_VP(VP_df, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F, methodFilter = 1)
 
-self$add_VP(VP_df, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F, methodFilter = 2)
+self$add_VP(VP_df, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F, methodFilter = 2, use_green_filter = F)
 
 
 self$n_filter_reduc()
@@ -704,4 +705,232 @@ self$add_VP(VP_df,fix_df =  fix_df, fillatend = F, reducefilteratend = F,use_gre
 Sys.time() - t0
 
 self$plot_VP(nmax = 2000)
+
+
+
+# Test Lindner normal -----------------------------------------------------
+
+
+
+source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+
+
+self <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
+
+self$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                                  "unique",300,"TimeAbove", 1E-1, Inf
+))
+
+below <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
+
+
+below$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                                  "unique",300,"TimeAbove", -Inf, 1E-1
+))
+
+VP_df <- crossing(Bcl20 = seq(100,1000,200),
+                  Bclxl0 = seq(100,1000,200),
+                  Mcl10 = c(0,50,100,150) ,#*  seq(0.6,1.4,0.2),
+                  BIM0 = seq(100,1000,200),
+                  PUMA0 =seq(100,1000,200),
+                  NOXA0 =  seq(100,1000,200),
+                  BAXc0 = 1000,
+                  BAK0 = 1000) %>% #c(0.8,1,1.2)) %>%
+  map_df(function(x){
+
+    if(is.character(x)) return(x)
+    round(x,3)
+
+  } )
+
+
+# VP_df <- crossing(Bcl20 = 500,
+#                   Bclxl0 =500,
+#                   Mcl10 = 50 ,#*  seq(0.6,1.4,0.2),
+#                   BIM0 = 500,
+#                   PUMA0 = 500,
+#                   NOXA0 =  seq(100,1000,100),
+#                   BAXc0 = 1000,
+#                   BAK0 = 1000) %>% #c(0.8,1,1.2)) %>%
+#   map_df(function(x){
+#
+#     if(is.character(x)) return(x)
+#     round(x,3)
+#
+#   } )
+
+self$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore")
+saveRDS(self, "D:/these/Second_project/QSP/modeling_work/VT_simeoni/death.RDS")
+
+self$poolVP
+
+below$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore")
+
+
+self$p
+
+self$poolVP %>%
+  filter(TimeAbove_BU !=0) %>%
+  slice(1:500) %>%
+    unnest() %>%
+  ggplot()+
+  geom_line(aes(time, Pore, group =  factor(id)))+
+  geom_hline(yintercept = 10, col = "red")
+
+# Test Lindner normal vs 1 drug -----------------------------------------------------
+
+
+
+  source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+
+protocols <- list( unique = tibble(cmt = "Bcl2", time = 0, amt = 0),
+                   apog = tibble(cmt = "ApoG2", time = 50, amt = 50))
+
+
+self <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
+
+self$protocols <- protocols
+
+
+
+self$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                                  "unique",300,"TimeAbove", -Inf, 1E-1,
+                                  "apog",300,"TimeAbove", 1E-1, Inf
+))
+
+
+VP_df <- crossing(Bcl20 = seq(100,1000,200),
+                  Bclxl0 = seq(100,1000,200),
+                  Mcl10 = c(0,50,100,150) ,#*  seq(0.6,1.4,0.2),
+                  BIM0 = seq(100,1000,200),
+                  PUMA0 =seq(100,1000,200),
+                  NOXA0 =  seq(100,1000,200),
+                  BAXc0 = 1000,
+                  BAK0 = 1000) %>% #c(0.8,1,1.2)) %>%
+  map_df(function(x){
+
+    if(is.character(x)) return(x)
+    round(x,3)
+
+  } )
+
+
+self$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore")
+
+self$poolVP %>%
+  arrange(id) %>%
+  unnest(simul) %>%
+  ggplot()+
+  geom_line(aes(time, Pore, group = id))+
+  facet_wrap(~protocol)+
+  geom_hline(yintercept = 10, col = "red")+
+  coord_cartesian(xlim = c(62,72))
+
+
+self$poolVP %>%
+  unnest(simul)
+
+# Test Lindner normal vs 1 drug -----------------------------------------------------
+
+
+
+source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+
+protocols <- list( unique = tibble(cmt = "Bcl2", time = 0, amt = 0),
+                   apog = tibble(cmt = "ApoG2", time = 50, amt = 50),
+                   ABT737 = tibble(cmt = "ABT737", time = 50, amt = 25))
+
+
+self <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
+
+self$protocols <- protocols
+
+
+
+self$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                                  "unique",300,"TimeAbove", -Inf, 1E-1,
+                                  "apog",300,"TimeAbove", 1E-1, Inf,
+                                  "ABT737",300,"TimeAbove", -Inf, 1E-1
+))
+
+
+VP_df <- crossing(Bcl20 = seq(100,1000,200),
+                  Bclxl0 = seq(100,1000,200),
+                  Mcl10 = c(0,50,100,150) ,#*  seq(0.6,1.4,0.2),
+                  BIM0 = seq(100,1000,200),
+                  PUMA0 =seq(100,1000,200),
+                  NOXA0 =  seq(100,1000,200),
+                  BAXc0 = 1000,
+                  BAK0 = 1000) %>% #c(0.8,1,1.2)) %>%
+  map_df(function(x){
+
+    if(is.character(x)) return(x)
+    round(x,3)
+
+  } )
+
+
+self$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore")
+
+self$poolVP %>%
+  arrange(id) %>%
+  unnest(simul) %>%
+  ggplot()+
+  geom_line(aes(time, Pore, group = id))+
+  facet_wrap(~protocol)+
+  geom_hline(yintercept = 10, col = "red")+
+  coord_cartesian(xlim = c(62,72))
+
+
+# Test Lindner normal vs 1 drug -----------------------------------------------------
+
+
+
+source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+
+protocols <- list( unique = tibble(cmt = "Bcl2", time = 0, amt = 0),
+                   apog = tibble(cmt = "ApoG2", time = 50, amt = 50),
+                   ABT737 = tibble(cmt = "ABT737", time = 50, amt = 25))
+
+
+self <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
+
+self$protocols <- protocols
+
+
+
+self$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                                  "unique",300,"TimeAbove", -Inf, 1E-1,
+                                  "apog",300,"TimeAbove", -Inf, 1E-1,
+                                  "ABT737",300,"TimeAbove", 1E-1, Inf
+))
+
+
+VP_df <- crossing(Bcl20 = seq(100,1000,200),
+                  Bclxl0 = seq(100,1000,200),
+                  Mcl10 = c(0,50,100,150) ,#*  seq(0.6,1.4,0.2),
+                  BIM0 = seq(100,1000,200),
+                  PUMA0 =seq(100,1000,200),
+                  NOXA0 =  seq(100,1000,200),
+                  BAXc0 = 1000,
+                  BAK0 = 1000) %>% #c(0.8,1,1.2)) %>%
+  map_df(function(x){
+
+    if(is.character(x)) return(x)
+    round(x,3)
+
+  } )
+
+
+self$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore")
+
+self$poolVP %>%
+  arrange(id) %>%
+  unnest(simul) %>%
+  ggplot()+
+  geom_line(aes(time, Pore, group = id))+
+  facet_wrap(~protocol)+
+  geom_hline(yintercept = 10, col = "red")+
+  coord_cartesian(xlim = c(62,72))
+
 

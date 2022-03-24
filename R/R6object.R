@@ -64,12 +64,20 @@ VP_proj_creator <- R6Class("VT",
     param  <-  param[!param%in%  names(myEnv$parameters_default_values)]
 
     lines_model <- str_split(deparse(myEnv$model_RxODE$model), pattern = "\\\\n")[[1]] %>%
-      gsub(pattern = "==", replacement = "nop")
+      gsub(pattern = "==", replacement = "nop") %>%
+      gsub(pattern = "^structure\\(\"",replacement =  "")
+
+
 
     already_computed <- lines_model[grepl("=", lines_model)] %>%
       gsub(pattern = "=.+", replacement = "")
+
     param <- param[!param %in% already_computed]
+    # param <- param[!param %in% gsub("^d", "", already_computed)]
+
     self$param <- param
+
+
   },
   print = function(...) {
     cat(green(paste0("Number of VP found: ", nrow(self$poolVP))))
@@ -114,8 +122,7 @@ if(!is.null(manual)){
     geom_point(data = targets %>%
                  gather("key", "value", min, max),
                aes(x = time, y = value), col = "red")+
-      theme_bw()+
-      geom_point(aes(x=0,y=0), alpha = 0)
+      theme_bw()
   )
 
 
@@ -149,10 +156,10 @@ print( as.data.frame(targets))
 
 })
 
-
+# methodFilter = 2; npersalve = 1000; time_compteur = F
 # VP_production -----------------------------------------------------------
-VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F, pctActivGreen = 0.75,
-                                                 keepRedFiltaftDis = F, methodFilter = 2, use_red_filter = T){
+VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F,
+                                                 pctActivGreen = 0.75, keepRedFiltaftDis = F, methodFilter = 2, use_red_filter = T, cmtalwaysbelow = NULL, keep = NULL){
 
 
 
@@ -400,6 +407,45 @@ return(cat(red("Done")))
 
   }
 
+# Add Inf handling
+  nrowcolInf <- 0
+
+  maxinf <- self$targets %>% filter(max == Inf)
+  if(nrow(maxinf)>0){
+
+    for(a in 1:nrow(maxinf)){
+
+      line <- maxinf %>%
+        slice(a)
+
+      idsInf <- which(poolVP$protocol == line$protocol)
+      poolVP[[paste0(line$cmt, "_BU")]][idsInf] <- Inf
+
+      nrowcolInf <- nrowcolInf + length(idsInf)
+
+    }
+
+
+  }
+
+  maxminf <- self$targets %>% filter(min == -Inf)
+  if(nrow(maxminf)>0){
+
+    for(a in 1:nrow(maxminf)){
+
+      line <- maxminf %>%
+        slice(a)
+
+      idsInf <- which(poolVP$protocol == line$protocol)
+      poolVP[[paste0(line$cmt, "_AL")]][idsInf] <- -Inf
+
+      nrowcolInf <- nrowcolInf + length(idsInf)
+
+    }
+
+
+  }
+
 
 
 
@@ -472,9 +518,14 @@ return(cat(red("Done")))
       # left_join(line %>% distinct(id, id_origin), by = "id") %>%
       # select(-id) %>%
       # rename(id = id_origin)
+  if(!is.null(keep)){
+
+    tokeep <- c(self$targets$cmt, keep) %>% unique()
+    res <- res %>%
+      select(id, time,!!!parse_exprs(tokeep) , Pore)
+  }
 
     time_simulations <-  difftime(Sys.time(), b, units = "s")
-
 
 
     n_simulations <-  nrow(line)
@@ -495,6 +546,7 @@ return(cat(red("Done")))
 
     # # Compute the tests
       res2 <- res %>%
+        select(id, time,  unique(targets_temp$cmt)) %>%
         gather("cmt", "value", unique(targets_temp$cmt)) %>%
         filter(time %in% targets_temp$time) %>%
         left_join( targets_temp, by = c("time", "cmt")) %>%
@@ -505,6 +557,8 @@ return(cat(red("Done")))
 
 # Red filter --------------------------------------------------------------
       # If no red filter
+
+
       if(use_red_filter == F){
 
 
@@ -623,12 +677,12 @@ return(cat(red("Done")))
       if(time_compteur == T) t02 <- Sys.time()
       ## We remove all the one not accepted
       poolVP <- poolVP %>%
-        filter(! id %in% c(unique(filters_neg_above$id_origin, unique(filters_neg_below$id_origin))))
+        filter(! id %in% c(unique(filters_neg_above$id_origin), unique(filters_neg_below$id_origin)))
 
       # which(c(unique(filters_neg_above$id_origin, unique(filters_neg_below$id_origin))) %in% poolVP$id[!is.na(poolVP$tumVol_BU)])
 
       poolVP_id <- poolVP_id %>%
-        filter(! id %in% c(unique(filters_neg_above$id_origin, unique(filters_neg_below$id_origin))))
+        filter(! id %in% c(unique(filters_neg_above$id_origin), unique(filters_neg_below$id_origin)))
       #### Apply red filter if activated
 
       t02 <- Sys.time()
@@ -872,6 +926,7 @@ return(cat(red("Done")))
       }
         # lines output below_up
 
+
         if(time_compteur == T) t02 <- Sys.time()
         self$targets %>%
           filter(protocol == unique(line$protocol), cmt == cmtt) %>%
@@ -893,11 +948,88 @@ return(cat(red("Done")))
         line %>% filter(id_origin %in% idsaccepted) -> filters_pos_below_up ->  filters_ps_above_lo
         filters_pos_below_up$cmt = cmtt
         filters_ps_above_lo$cmt = cmtt
-        filters_pos_below_up_reduc <- filter_reduc(filters_pos_below_up,obj = self , direction  =  "below")
-        filters_ps_above_lo_reduc <- filter_reduc(filters_ps_above_lo,obj = self, direction = "above")
 
-        pos_below[[cmtt]] <- bind_rows(pos_below[[cmtt]], filters_pos_below_up_reduc[names(pos_below[[1]])])
-        pos_above[[cmtt]] <- bind_rows(pos_above[[cmtt]], filters_ps_above_lo_reduc[names(pos_above[[1]])])
+
+        # automatic desactivation if Inf or - Inf
+        below_green <- T
+        above_green <- T
+        if( nrow(self$targets %>%
+                 filter(!(protocol == unique(res2$protocol) & cmt == cmtt & max == Inf))) == 0) below_green <- F
+        if( nrow(self$targets %>%filter(!(protocol == unique(res2$protocol) & cmt == cmtt & min == -Inf))) == 0 )  above_green <- F
+
+
+       if(below_green == T){
+
+         filters_pos_below_up_reduc <- filter_reduc(filters_pos_below_up,obj = self , direction  =  "below")
+         pos_below[[cmtt]] <- bind_rows(pos_below[[cmtt]], filters_pos_below_up_reduc[names(pos_below[[1]])])
+
+         if(time_compteur == T){
+           t02 <- Sys.time()
+           reff <- sum(is.na(poolVP$tumVol_BU))
+
+         }
+         if(nrow(filters_pos_below_up_reduc) >0){
+           for(a in 1:nrow(filters_pos_below_up_reduc)){
+
+             ref <- filters_pos_below_up_reduc %>% slice(a)
+
+             poolVP %>%
+               mutate(test = !!parse_expr(filters[[ref$cmt]][["below"]])) %>%
+               filter(test == T) %>% pull(id) -> id_temp
+
+             poolVP[[paste0(cmtt,"_BU")]][poolVP$id %in% id_temp & poolVP$protocol == unique(line$protocol)] <-  ref$rowid
+           }
+
+           if(time_compteur == T){
+             poolVP_compteur_new$time_add_below_fil <- difftime(Sys.time(), t02, units = "s")
+             poolVP_compteur_new$n_add_below_fil <-   sum(is.na(poolVP$tumVol_BU)) - reff
+           }
+         }
+
+
+
+       } # end if below green
+
+       if(above_green == T){
+
+
+         filters_ps_above_lo_reduc <- filter_reduc(filters_ps_above_lo,obj = self, direction = "above")
+         pos_above[[cmtt]] <- bind_rows(pos_above[[cmtt]], filters_ps_above_lo_reduc[names(pos_above[[1]])])
+
+
+         if(time_compteur == T){
+           t02 <- Sys.time()
+           reff <- sum(is.na(poolVP$tumVol_AL))
+
+
+         }
+
+
+         if(nrow(filters_ps_above_lo_reduc) >0){
+
+           for(a in 1:nrow(filters_ps_above_lo_reduc)){
+
+             ref <- filters_ps_above_lo_reduc %>% slice(a)
+
+             poolVP %>%
+               mutate(test = !!parse_expr(filters[[ref$cmt]][["above"]])) %>%
+               filter(test == T) %>% pull(id) -> id_temp
+
+
+             poolVP[[paste0(cmtt,"_AL")]][poolVP$id %in% id_temp & poolVP$protocol == unique(line$protocol)] <- ref$rowid
+           }
+
+         }
+         if(time_compteur == T){
+           poolVP_compteur_new$time_add_above_fil <- difftime(Sys.time(), t02, units = "s")
+           poolVP_compteur_new$n_add_above_fil <-   sum(is.na(poolVP$tumVol_AL)) - reff
+         }
+
+
+
+       } # end if above green
+
+
 
         if(time_compteur == T){
           poolVP_compteur_new$filter_pos_above <- difftime(Sys.time(), t02, units = "s")
@@ -919,56 +1051,6 @@ return(cat(red("Done")))
         # }
 
         ###### Use the filters
-
-        if(time_compteur == T){
-          t02 <- Sys.time()
-          reff <- sum(is.na(poolVP$tumVol_AL))
-
-        }
-        if(nrow(filters_ps_above_lo_reduc) >0){
-
-          for(a in 1:nrow(filters_ps_above_lo_reduc)){
-
-            ref <- filters_ps_above_lo %>% slice(a)
-
-            poolVP %>%
-              mutate(test = !!parse_expr(filters[[ref$cmt]][["above"]])) %>%
-              filter(test == T) %>% pull(id) -> id_temp
-
-
-            poolVP[[paste0(cmtt,"_AL")]][poolVP$id %in% id_temp & poolVP$protocol == unique(line$protocol)] <- ref$rowid
-          }
-
-        }
-        if(time_compteur == T){
-          poolVP_compteur_new$time_add_above_fil <- difftime(Sys.time(), t02, units = "s")
-          poolVP_compteur_new$n_add_above_fil <-   sum(is.na(poolVP$tumVol_AL)) - reff
-        }
-
-
-        if(time_compteur == T){
-          t02 <- Sys.time()
-          reff <- sum(is.na(poolVP$tumVol_BU))
-
-        }
-        if(nrow(filters_pos_below_up_reduc) >0){
-          for(a in 1:nrow(filters_pos_below_up_reduc)){
-
-            ref <- filters_pos_below_up_reduc %>% slice(a)
-
-            poolVP %>%
-              mutate(test = !!parse_expr(filters[[ref$cmt]][["below"]])) %>%
-              filter(test == T) %>% pull(id) -> id_temp
-
-            poolVP[[paste0(cmtt,"_BU")]][poolVP$id %in% id_temp & poolVP$protocol == unique(line$protocol)] <-  ref$rowid
-          }
-
-          if(time_compteur == T){
-            poolVP_compteur_new$time_add_below_fil <- difftime(Sys.time(), t02, units = "s")
-            poolVP_compteur_new$n_add_below_fil <-   sum(is.na(poolVP$tumVol_BU)) - reff
-          }
-      }
-
 
 
         if(time_compteur == T){
@@ -1139,7 +1221,7 @@ while(nrow( self$action_programmed$fix_df) != 0){
 })
 # Complete VP simul -------------------------------------------------------
 
-VP_proj_creator$set("public", "fill_simul", function(nsalve = 2000){
+VP_proj_creator$set("public", "fill_simul", function(nsalve = 500){
 
   self$poolVP %>%
     mutate(type = map_chr(simul, ~ class(.x)[[1]]))
