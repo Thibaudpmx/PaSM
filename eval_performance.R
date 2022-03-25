@@ -126,12 +126,12 @@ manual <- function(target, cohort){
       rowid_to_column("id")
 
      events <- eventsadmin %>%
-       left_join(x , by = c("id", "proto")) %>%
+       left_join(x %>% select(id, ids, group, proto), by = c("id", "proto")) %>%
        filter(!is.na(ids))
 
 
 
-    res <- self$model$solve(x %>% select(-proto), events, c(X2 = 0)) %>%
+    res <- self$model$solve(x %>% select(-proto), events , c(X2 = 0)) %>%
       as_tibble
 
     res %>%
@@ -195,12 +195,12 @@ manual <- function(target, cohort){
       rowid_to_column("id")
 
     events <- eventsadmin %>%
-      left_join(x , by = c("id", "proto")) %>%
+      left_join(x%>% select(id, ids, group, proto) , by = c("id", "proto")) %>%
       filter(!is.na(ids))
 
 
 
-    res <- self$model$solve(x %>% select(-proto), events, c(X2 = 0)) %>%
+    res <- self$model$solve(x %>% select(-proto), events , c(X2 = 0)) %>%
       as_tibble
 
     if(max(x$id) == 1) res <- res %>% mutate(id = 1)
@@ -262,7 +262,7 @@ source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
 
 setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/")
 
-pcttargets <- c(0.75,0.5,0.25,0.125,0.01,0)
+pcttargets <- c(1, 0.75,0.5,0.25,0.125,0.01,0)
 
 for(a in 1:6){
 print(a)
@@ -304,7 +304,7 @@ self2$set_targets(manual = prototemp)
 
 test <- function(){
   self3 <- self2$clone(deep = T)
-  self3$add_VP(cohort, use_green_filter = T, npersalve = 2000, pctActivGreen = 0.1)
+  self3$add_VP(cohort, use_green_filter = T, npersalve = 2000, pctActivGreen = 0.75)
 }
 
 mbref <- microbenchmark(test(), times = 5)
@@ -319,6 +319,10 @@ saveRDS(mbref, newnames)
 
 
 # Exploring the results ---------------------------------------------------
+
+
+
+
 
 files <- list.files("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data")
 
@@ -355,4 +359,373 @@ map(times, function(x) x %>% as.data.frame) %>%
   cohort_creator(nmodif = 6) %>%
     distinct(k1)
     distinct(w0 )
+
+
+
+# Impact of the time of QSP ------------------------------------------
+
+
+setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/time_impact")
+
+    target <- Targets(proto = 1,cmt =  1,time =  c(48))
+target$min <- 200
+target$max <- 2794
+
+times_to_try <- list(seq(0,48,48), seq(0,48,4),seq(0,48,2),seq(0,48,1),seq(0,48,0.5),seq(0,48,0.1))
+x <- times_to_try[[1]]
+cohort <- cohort_creator(nmodif = 4)
+
+allTimes <- map(times_to_try, function(x){
+
+  self <- VP_proj_creator$new()
+  self$set_targets(manual = target)
+  self$times <- x
+
+  self$add_VP(cohort, use_green_filter = T)
+  self$timeTrack$ttotal
+
+})
+
+names(allTimes) <- map(times_to_try, ~ length(.x) %>% as.character)
+
+
+time_Impact <- function(times = 1:40){
+
+    cohort <- cohort_creator(nmodif = 2)
+
+
+    self$protocols[] %>%
+      bind_rows() %>%
+      mutate(proto = names( self$protocols)) -> protocols
+
+    eventsadmin  <- crossing(id = 1:2000, proto  = unique(target$protocol)) %>%
+      left_join(protocols, by = "proto" ) %>%
+      mutate(evid = 1)
+
+    eventsadmin  <-   eventsadmin %>%
+      bind_rows(
+
+        eventsadmin  %>%
+          mutate(evid = 0, amt = 0) %>%
+          select(-time) %>%
+          crossing(time = times)
+      ) %>%
+      arrange(id, time)
+
+
+    demo <- cohort %>%
+      rowid_to_column("ids") %>%
+      mutate(group = floor(ids/2000)+1)
+
+
+    idtorems <- double()
+
+    resultsap <- list()
+
+
+    # for(a in unique(demo$group)){
+      a <- 1
+
+      x <- demo %>% filter(group == a) %>%
+        rowid_to_column("id")
+
+      events <- eventsadmin%>% filter(id <2000)
+
+      t0 <- Sys.time()
+      res <- self$model$solve(x, events  , c(X2 = 0)) %>%
+        as_tibble
+
+      difftime(Sys.time(), t0)
+
+}
+
+
+
+allTimesRxODE <-  map(times_to_try, function(x){
+
+  time_Impact(x) * 100
+
+})
+
+
+
+names(allTimesRxODE) <- map(times_to_try, ~ length(.x) %>% as.character)
+
+temp <- tibble(n = map_dbl(times_to_try, ~ length(.x)), brut = allTimesRxODE %>% reduce(c),
+       new  = allTimes %>% reduce(c)  ) %>%
+       mutate(n2 = n , n = as.double(brut) / 2000 ) %>%
+  mutate(brut = brut + 7.1) %>%
+  mutate(brut= as.double(brut), new = as.double(new))
+
+
+readRDS("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/tRef_proto_1_cmt_1_time1.RDS") %>%
+  as.data.frame() %>%
+  mutate(time = time * 10E-10) %>%
+  summarise(min = min(time), max = max(time), median = median(time)) -> ref2
+
+
+temp %>%
+  rename(Old = brut, New = new) %>%
+  gather("method", "value", Old, New) %>%
+  mutate(value= as.double(value)) %>%
+  ggplot()+
+  geom_line(aes(n, value, col = method), size = 2)+
+  geom_line(aes(n, value, col = method), size = 2)+
+  geom_ribbon(data = temp, aes(x = n, ymin = brut, ymax = new), alpha = 0.3)+
+  theme_bw()+
+  scale_y_log10()+
+  scale_x_log10()+
+  geom_hline(data = ref2, aes(yintercept = max), lty = 1)+
+  geom_rect(data = ref2, aes(xmin = -Inf, xmax = Inf, ymin = min, ymax =  max), lty = 1,alpha = 0.3)+
+  geom_hline(data = ref2, aes(yintercept = median), lty = 2)+
+  geom_hline(data = ref2, aes(yintercept = min), lty = 1)+
+  labs(x = "Time to compute 2000 VPs with RxODE (sec)",y = "Time for performing 200.000 VPs (sec)")
+
+
+
+# Time analyse ------------------------------------------------------------
+
+# ref
+
+
+timeTrack2 <- list()
+
+t00 <- t0 <- Sys.time()
+
+    cohort <- crossing(VP_df,  proto  = unique(self$targets$protocol)) %>%
+      mutate(psi = 20)
+
+
+    target <- self$targets
+
+    self$protocols[] %>%
+      bind_rows() %>%
+      mutate(proto = names( self$protocols)) -> protocols
+
+    eventsadmin  <- crossing(id = 1:2000, proto  = unique(self$targets$protocol)) %>%
+      left_join(protocols, by = "proto" ) %>%
+      mutate(evid = 1)
+
+    eventsadmin  <-   eventsadmin %>%
+      bind_rows(
+
+        eventsadmin  %>%
+          mutate(evid = 0, amt = 0) %>%
+          select(-time) %>%
+          crossing(time = self$times)
+      ) %>%
+      arrange(id, time)
+
+
+    demo <- cohort %>%
+      rowid_to_column("ids") %>%
+      mutate(group = floor(ids/2000)+1)
+
+
+    idtorems <- double()
+
+    resultsap <- list()
+
+
+    timeTrack2$prefor <- difftime(Sys.time(), t0, units = "s")
+
+    loop2 <-  tibble()
+
+    tpreloop <- Sys.time()
+
+    for(a in unique(demo$group)){
+
+
+      t0 <- Sys.time()
+
+      x <- demo %>% filter(group == a) %>%
+        rowid_to_column("id")
+
+      events <- eventsadmin %>%
+        left_join(x %>% select(id, ids, group, proto) , by = c("id", "proto")) %>%
+        filter(!is.na(ids))
+
+
+      perrun  <- tibble(pre_simul = difftime(Sys.time(), t0, units = "s"));  t0 <- Sys.time()
+
+      res <- self$model$solve(x %>% select(-proto), events, c(X2 = 0)) %>%
+        as_tibble
+
+      if(max(x$id) == 1) res <- res %>% mutate(id = 1)
+
+      perrun$simul <- difftime(Sys.time(), t0, units = "s") ;  t0 <- Sys.time()
+
+
+      res <- res %>%
+        left_join(x %>% select(id, proto, ids), by = "id")
+
+      perrun$post_simul_join1 <- difftime(Sys.time(), t0, units = "s") ;  t0 <- Sys.time()
+
+
+
+
+      res %>%
+        filter(time %in% self$targets$time) %>%
+        rename(protocol = proto) %>%
+        gather("cmt", "value", unique(self$targets$cmt)) %>%
+        left_join(target, by = c("time", "protocol", "cmt")) %>%
+        filter(value > max | value < min) %>% pull(ids ) -> idtorem
+
+      perrun$post_simul_join2 <- difftime(Sys.time(), t0, units = "s") ;  t0 <- Sys.time()
+
+
+      idtorems <- c(idtorems, idtorem)
+
+
+      resultsap[[a]]<-  res %>%   filter( ! (ids %in% idtorem))
+
+
+      perrun$post_simul_join3 <- difftime(Sys.time(), t0, units = "s") ;  t0 <- Sys.time()
+
+
+      loop2 <-  bind_rows(loop2,perrun )
+    }
+
+    timeTrack2$loop <- loop2 ;  t0 <- Sys.time()
+    timeTrack2$tloop <- difftime(Sys.time(), tpreloop, units = "s")
+
+    resultsap <- bind_rows(resultsap)
+
+
+
+    demo <- demo %>%
+      filter(! (ids %in% idtorems)) %>%
+      left_join( resultsap, by = c("ids", "proto") )
+
+
+    timeTrack2$finalmerge <- difftime(Sys.time(), t0, units = "s") ;  t0 <- Sys.time()
+    timeTrack2$ttotal <- difftime(Sys.time(), t00, units = "s") ;  t0 <- Sys.time()
+
+
+
+#protocoldf <- sample next lines and compute protocol
+
+tt <- self$timeTrack
+
+total <-tt$tTOTAL
+
+
+loop <- tt$poolVP_compteur %>%
+  mutate( Treduc_filter_neg_both  =  Treduc_filter_neg_below +  Treduc_filter_neg_above) %>%
+  mutate( Treduc_filter_pos_both  =  Treduc_filter_green_below_tumVol +  Treduc_filter_green_above_tumVol) %>%
+  mutate( TapplyGreenFilter  =  TapplyGreenFilterBelow_tumVol +  TapplyGreenFilterAbove_tumVol) %>%
+  mutate( RedFilter = TapplyRedFilterBoth + Treduc_filter_neg_both, GreenFilter =  Treduc_filter_pos_both + TapplyGreenFilter, RxODE = timemodel) %>%
+  mutate(patientRemovedperSec = as.double(NremovedRedFilter) / as.double((RedFilter + timemodel )),
+         refpatientRemovedperSec =  as.double(nsimul) / as.double((timemodel )))
+
+
+
+# Main times
+loop %>%
+  select(timesampleline, protocoldf, timemodel, Treduc_filter_neg_both ,TapplyRedFilterBoth, TremoveNegDirect,
+         Treduc_filter_pos_both, TapplyGreenFilter, timesimlandjoin,res2) %>%
+# loop %>%
+  # select(timesampleline, protocoldf, timemodel, res2, filter_neg_below, filter_neg_above, remneg_fil, time_addgreennofil, timesimlandjoin) %>%
+  gather("step", "value") %>%
+  group_by(step) %>%
+  summarise(sum = sum(value, na.rm = T)) -> temp; print(temp); temp %>%
+  summarise(sum(sum))
+
+
+
+loop %>%
+  select(RedFilter, GreenFilter, RxODE) %>%
+  gather("step", "value") %>%
+  group_by(step) %>%
+  summarise(sum = sum(value, na.rm = T)) -> TimeSimplified
+
+
+dataredfilter <-  temp %>% filter(step %in% c("TapplyRedFilterBoth", "Treduc_filter_neg_both")) %>%
+  mutate(name = if_else(step == "TapplyRedFilterBoth", "Apply", "Reduce")) %>%
+  mutate(sum = as.double(sum))
+
+datagreenfilter <-  temp %>% filter(step %in% c("TapplyGreenFilter", "Treduc_filter_pos_both")) %>%
+  mutate(name = if_else(step == "TapplyGreenFilter", "Apply", "Reduce")) %>%
+  mutate(sum = as.double(sum))
+
+
+fig1 <- TimeSimplified %>%
+  add_row(step = "other", sum = total - sum(TimeSimplified$sum)) %>%
+  ggplot()+
+  geom_col(aes(fct_reorder(step, sum, .desc = T), sum, fill = step))+
+  geom_text(aes(fct_reorder(step, sum, .desc = T), sum, label = round(sum,1)), nudge_y = 0.3)+
+  scale_fill_manual(values = c("darkgreen", "grey", "red", "blue"))+
+  theme_bw()+
+  geom_col(data = dataredfilter, aes("RedFilter", sum), col = "black", alpha = 0)+
+  geom_text(data = dataredfilter %>% mutate(sum2 = sum, sum = dataredfilter %>% slice(1) %>% pull(sum), lag = c(0, TimeSimplified$sum[TimeSimplified$step == "RedFilter"] )),
+            aes("RedFilter", (sum + lag)/2, label = paste0(name, "\n(",  round(sum2,1),")")), col = "black")+
+  geom_col(data = datagreenfilter, aes("GreenFilter", sum), col = "black", alpha = 0)+
+  geom_text(data = datagreenfilter %>% mutate(sum2 = sum, sum = datagreenfilter %>% slice(1) %>% pull(sum), lag = c(0, TimeSimplified$sum[TimeSimplified$step == "GreenFilter"] )),
+            aes("GreenFilter", (sum + lag)/2, label = paste0(name, "\n(",  round(sum2,1),")")), col = "black"); fig1
+
+
+
+ref <- timeTrack2$loop %>%
+  summarise(RxODE = sum(simul))
+
+ref <- ref %>%
+  mutate(other = timeTrack2$ttotal - RxODE) %>%
+  gather("step", "value") %>%
+  group_by(step)
+
+
+TimeSimplified %>%
+  add_row(step = "other", sum = total - sum(TimeSimplified$sum)) %>%
+  mutate(method = "New") %>%
+  bind_rows(ref %>% rename(sum = value)%>% mutate(method = "Old")) %>%
+  ggplot()+
+  geom_col(aes(method, sum, fill = fct_reorder(step, sum, .desc = F)), alpha = 0.4)+
+  geom_text(aes(method, sum, fill = fct_reorder(step, sum, .desc = F), label = as.double(sum) %>% round(1)), position = position_stack(vjust = .5))+
+  scale_fill_manual(values = c("grey", "darkgreen", "red", "blue"))+
+  # geom_col(data= ref , aes(x = "Old", y = value, fill =step))+
+  # geom_text(data= ref, aes("New", sum, fill = step, label = as.double(sum) %>% round(1)), position = position_stack(vjust = .5))+
+  geom_label(data = mtcars, aes("New", as.double(total) %>% round(1), label = paste0("Total:", as.double(total) %>% round(1), "s")), nudge_y = 5)+
+  geom_label(data = mtcars, aes("Old", as.double(ref$value %>% sum) %>% round(1), label = paste0("Total:", as.double(ref$value %>% sum) %>% round(1), "s")), nudge_y = 5)+
+  theme_bw()+
+  labs(fill = "step")+
+  labs(caption = paste0(loop %>% pull(nsimul) %>% sum, " VPs done instaed vs 200.000 (" , loop %>% pull(nsimul) %>% sum / 200000, "%)"))
+
+loop %>% pull(nsimul) %>% sum / 200000
+
+# Time comptation total
+
+tt$nVP * loop %>%
+  filter(nsimul == max(loop$nsimul)) %>%
+  summarise(mean = mean(timemodel)) %>%
+  pull(mean) / max(loop$nsimul)
+
+
+loop %>%
+  filter(!is.na(NremovedRedFilter)) %>%
+  ggplot()+
+  geom_point(aes(n, NremovedRedFilter))+
+  geom_line(aes(n, NremovedRedFilter))
+
+# Patients removed per seconds
+loop %>%
+  slice(1:2) %>%
+  # select(n, NremovedRedFilter, RedFilter, timesampleline)
+  # filter(!is.na(NremovedRedFilter)) %>%
+  ggplot()+
+  geom_line(aes(n, patientRemovedperSec))+
+  geom_line(aes(n, refpatientRemovedperSec))
+
+
+
+loop %>%
+  slice(1:2) %>%
+  ggplot()+
+  geom_line(aes(n, TSavedRedFilter))+
+  geom_line(aes(n, TimeTotalRedFilter))
+
+
+
+  loop %>%
+  mutate(patientRemovedperSec = as.double(NremovedRedFilter) / as.double((RedFilter + timesampleline )),
+         refpatientRemovedperSec =  as.double(nsimul) / as.double((timesampleline )))
 

@@ -181,6 +181,7 @@ self$set_targets(filter = Dose == 50 & cmt == "tumVol",timeforce = c(12,19, 30,4
 VP_df <- crossing(k1 = c(0.5),
                   k2 = seq(0,8,0.5),
                   ke = 1 ,#*  seq(0.6,1.4,0.2),
+                  w0 = 50,
                   lambda0 =seq(0.04,0.16,0.025),
                   lambda1 = c(12),
                   Vd =  c(20:40)) %>% #c(0.8,1,1.2)) %>%
@@ -233,6 +234,7 @@ self <- VP_proj_creator$new()
 self$set_targets(filter = Dose == 50 & cmt == "tumVol",timeforce = c(12,19, 30,45))
 
 VP_df <- crossing(k1 = c(0.5),
+                  w0 = 50,
                   k2 = seq(0,8,0.1),
                   ke = seq(0.6,1.4,0.4),
                   lambda0 =seq(0,0.16,0.03),
@@ -246,8 +248,11 @@ VP_df <- crossing(k1 = c(0.5),
   } )
 
 t0 <- Sys.time()
-self$add_VP(VP_df, fillatend = F, reducefilteratend = F,use_green_filter = F, npersalve = 2000, time_compteur = F, pctActivGreen = 0.75)
+self$add_VP(VP_df, fillatend = F, reducefilteratend = F,use_green_filter = T, npersalve = 2000, time_compteur = T, pctActivGreen = 0.75)
 Sys.time() - t0
+
+
+self$timeTrack
 
 self$plot_VP(nmax = 2000)
 self$n_filter_reduc()
@@ -923,6 +928,8 @@ VP_df <- crossing(Bcl20 = seq(100,1000,200),
 
 
 self$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore")
+
+self$compute_zone_maybe()
 
 self$poolVP %>%
   arrange(id) %>%

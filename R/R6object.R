@@ -35,6 +35,7 @@ VP_proj_creator <- R6Class("VT",
   timesaver = NULL,
   zone_maybe = NULL,
   zone_sure = NULL,
+  timeTrack = NULL,
   algo2list = list(),
   action_programmed = list(),
 
@@ -156,11 +157,19 @@ print( as.data.frame(targets))
 
 })
 
-# methodFilter = 2; npersalve = 1000; time_compteur = F
+# methodFilter = 2; npersalve = 1000; time_compteur = T
 # VP_production -----------------------------------------------------------
 VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F,
                                                  pctActivGreen = 0.75, keepRedFiltaftDis = F, methodFilter = 2, use_red_filter = T, cmtalwaysbelow = NULL, keep = NULL){
 
+  tTOTAL <- Sys.time()
+
+  if(time_compteur == T){
+
+    timesaver <- list()
+    timesaver$nVP0 <- nrow(VP_df)
+
+  }
 
 
   ### Handle the plannification if there are fixed parameter
@@ -198,7 +207,7 @@ return(cat(red("Done")))
            rowid = rowid + max(self$poolVP$rowid))
 
 
-  if(time_compteur == T)  timesaver <- list()
+
 
 
   # Extract the cmts or interest (ytype / observation type)
@@ -217,14 +226,13 @@ return(cat(red("Done")))
 
   ## Section to apply the filters already stored in memory
 
-  if(time_compteur == T){
-    t0 <- Sys.time()
-    nbef <- nrow(poolVP)
-  }
+  # if(time_compteur == T){
+  #   t0 <- Sys.time()
+  # }
 
   # remove filter neg
 
-  if(nrow(self$filters_neg_above) > 0){
+  # if(nrow(self$filters_neg_above) > 0){
 
     # remove neg_above
     # temp <-  self$filters_neg_above[[cmt]]
@@ -256,56 +264,56 @@ return(cat(red("Done")))
     #   select(-rowid) %>%
     #   rowid_to_column()
 
-  }
+  # }
 
   # Apply the green filter
-  for(cmt in cmts){
-
-    filter_template <- self$make_filters(cmt)%>%
-      gsub(pattern = "line\\$", replacement = "")
-
-
-
-    # set pos abov
-    temp <-  self$filters_pos_above[[cmt]]
-    if(is.null(temp)) temp <- tibble()
-    filter_temp <- paste("(", filter_template[[1]], ")")
-    if(nrow(temp) > 0){
-      for(a in 1:nrow(temp)){
-
-        ref <-temp %>% slice(a)
-
-        poolVP %>%
-          filter(!!parse_expr(filter_temp)) %>%
-          pull(rowid) ->rowidstemp
-
-        poolVP[[paste0(cmt, "_AL")]][rowidstemp] <- rep(T, length(rowidstemp))
-
-      }
-    }
-    # set pos below
-    temp <-  self$filters_pos_below[[cmt]]
-    filter_temp <- paste("(", filter_template[[2]], ")")
-    if(is.null(temp)) temp <- tibble()
-    if(nrow(temp) > 0){
-      for(a in 1:nrow(temp)){
-
-        ref <-temp %>% slice(a)
-
-        poolVP %>%
-          filter(!!parse_expr(filter_temp)) %>%
-          pull(rowid) ->rowidstemp
-
-        poolVP[[paste0(cmt, "_BU")]][rowidstemp] <- T
-
-      }
-    }
-  }
-
-
-  if(time_compteur == T)  timesaver$filtre_prev <- tibble(time = difftime(Sys.time(), t0, units = "s"), nrem =nbef -  nrow(poolVP) )
-
-
+  # for(cmt in cmts){
+  #
+  #   filter_template <- self$make_filters(cmt)%>%
+  #     gsub(pattern = "line\\$", replacement = "")
+  #
+  #
+  #
+  #   # set pos abov
+  #   temp <-  self$filters_pos_above[[cmt]]
+  #   if(is.null(temp)) temp <- tibble()
+  #   filter_temp <- paste("(", filter_template[[1]], ")")
+  #   if(nrow(temp) > 0){
+  #     for(a in 1:nrow(temp)){
+  #
+  #       ref <-temp %>% slice(a)
+  #
+  #       poolVP %>%
+  #         filter(!!parse_expr(filter_temp)) %>%
+  #         pull(rowid) ->rowidstemp
+  #
+  #       poolVP[[paste0(cmt, "_AL")]][rowidstemp] <- rep(T, length(rowidstemp))
+  #
+  #     }
+  #   }
+  #   # set pos below
+  #   temp <-  self$filters_pos_below[[cmt]]
+  #   filter_temp <- paste("(", filter_template[[2]], ")")
+  #   if(is.null(temp)) temp <- tibble()
+  #   if(nrow(temp) > 0){
+  #     for(a in 1:nrow(temp)){
+  #
+  #       ref <-temp %>% slice(a)
+  #
+  #       poolVP %>%
+  #         filter(!!parse_expr(filter_temp)) %>%
+  #         pull(rowid) ->rowidstemp
+  #
+  #       poolVP[[paste0(cmt, "_BU")]][rowidstemp] <- T
+  #
+  #     }
+  #   }
+  # }
+  #
+  #
+  # if(time_compteur == T)  timesaver$filtre_prev <- tibble(time = difftime(Sys.time(), t0, units = "s"), nrem =nbef -  nrow(poolVP) )
+  #
+  #
 
 
 
@@ -326,7 +334,6 @@ return(cat(red("Done")))
     full_join(self$targets) %>%
     filter(is.na(time)) -> torem
 
-  if(time_compteur == T) timesaver$toremfilter <- difftime(Sys.time(),t0, units = "s")
 
   if(nrow(torem)>0){
 
@@ -335,13 +342,13 @@ return(cat(red("Done")))
       cmt_to_rm <- torem$cmt[[a]]
       pro <- torem$protocol[[a]]
 
-      poolVP[[paste0(cmt_to_rm,"_BU")]][poolVP$protocol == pro] <- FALSE
-      poolVP[[paste0(cmt_to_rm,"_AL")]][poolVP$protocol == pro] <- FALSE
+      poolVP[[paste0(cmt_to_rm,"_BU")]][poolVP$protocol == pro] <- -1
+      poolVP[[paste0(cmt_to_rm,"_AL")]][poolVP$protocol == pro] <- -1
     }
 
   }
 
-  if(time_compteur == T) timesaver$toremfilter2 <- difftime(Sys.time(),t0, units = "s")
+  if(time_compteur == T) timesaver$cleanProto <- difftime(Sys.time(),t0, units = "s")
 
 
   # Handling death and survival agents, to greatly accelerate the process
@@ -372,7 +379,7 @@ return(cat(red("Done")))
 
   if(time_compteur == T){
 
-    timesaver$poolVP_compteur <- tibble(n = NA, time  = NA, nelim =NA, ninfo =NA_real_, computmodel = NA)
+    timesaver$poolVP_compteur <- tibble(n = NA) %>% slice(0)
     n_compteur <- 0
   }
 
@@ -382,8 +389,6 @@ return(cat(red("Done")))
   # just in case we never enter into the loop (if already filled, almost always useless)
 
   ntotal <- nrow(poolVP)
-  t00 <- Sys.time()
-
 
   maxinfo <- nrow(poolVP)
 
@@ -451,6 +456,14 @@ return(cat(red("Done")))
 
   message(green("Start main loop"))
   newratio <- is.na(poolVP[, col_to_add]) %>% sum
+
+
+  if(time_compteur == T){
+
+    timesaver$tprewhile <- difftime(Sys.time(), tTOTAL, units = "s")
+  }
+
+
   # begining while lopp----------------------------------------------------------
   while(newratio %>% sum > 0){
 
@@ -461,9 +474,7 @@ return(cat(red("Done")))
 
       n_compteur <- n_compteur + 1
 
-      poolVP_compteur_new <- timesaver$poolVP_compteur %>%
-        slice(1) %>%
-        mutate(n = n_compteur)
+      poolVP_compteur_new <- tibble(n = n_compteur)
     }
 
     # Just compute some stat...
@@ -494,7 +505,6 @@ return(cat(red("Done")))
     # Now we need to handle the administrations
     # by making a temporar copy
     # protocol  <- self$protocols[[line$protocol[[1]]]]
-    if(time_compteur == T) t02 <- Sys.time()
 
     protocol <-  line %>%
       mutate(protocol2 = map(protocol, ~ self$protocols[[.x]])) %>%
@@ -502,7 +512,7 @@ return(cat(red("Done")))
       unnest(protocol2)
 
 
-    if(time_compteur == T) poolVP_compteur_new$protocoldf <- difftime(Sys.time(), t02, units = "s")
+    if(time_compteur == T) poolVP_compteur_new$protocoldf <- difftime(Sys.time(), t0, units = "s") - poolVP_compteur_new$timesampleline
     # add_events_line$amt[is.na(add_events_line$amt )] <- 0
 
     # And now we can make the simulation and extract the result !
@@ -555,6 +565,14 @@ return(cat(red("Done")))
         mutate(ab_low = value >= min) %>%
         left_join(line %>% distinct(id, id_origin), by = c("id"))
 
+
+      if(time_compteur == T){
+
+        poolVP_compteur_new$res2 <- difftime(Sys.time(), t02)
+        t02 <- Sys.time()
+
+
+      }
 # Red filter --------------------------------------------------------------
       # If no red filter
 
@@ -599,19 +617,23 @@ return(cat(red("Done")))
         poolVP_id <- poolVP_id %>%
           filter(! id %in% idstorem)
 
-        difftime(Sys.time(), t02, units = "s")
+        if(time_compteur == T){
+
+          poolVP_compteur_new$ElimRedUnac <-  difftime(Sys.time(), t02, units = "s")
+
+        }
 
 
       }else
         {
 
       # if red filter
-      if(time_compteur == T) poolVP_compteur_new[paste0("res2_", cmtt)] <- difftime(Sys.time(), t02, units = "s")
+      # if(time_compteur == T) poolVP_compteur_new[paste0("res2_", cmtt)] <- difftime(Sys.time(), t02, units = "s")
 
 
 ##### Remove patients neg  and compute red filters if activated ########
       # lines output neg_ below
-      if(time_compteur == T) t02 <- Sys.time()
+
 
       t0filternegbelow <- Sys.time()
 
@@ -634,17 +656,19 @@ return(cat(red("Done")))
         filters_neg_below_up_reduc <- filters_neg_below
       }
 
+      timefilternegbelowmake <- difftime(Sys.time(),t0filternegbelow , units = "s")
+
       if(time_compteur == T){
-        poolVP_compteur_new$filter_neg_below <- difftime(Sys.time(), t02, units = "s")
+        poolVP_compteur_new$Treduc_filter_neg_below <- timefilternegbelowmake
         poolVP_compteur_new$nfilter_negbel_bef <- nrow(filters_neg_below)
         poolVP_compteur_new$nfilters_negbel_af <- nrow(filters_neg_below_up_reduc)
       }
       #
 
-      timefilternegbelowmake <- difftime(Sys.time(),t0filternegbelow , units = "s")
+
 
       # lines output neg_ above
-      if(time_compteur == T) t02 <- Sys.time()
+
 
       t0filternegabovemake <- Sys.time()
 
@@ -666,15 +690,19 @@ return(cat(red("Done")))
         filters_neg_above_reduc <- filters_neg_above
       }
 
+      timefilternegabovemake <- difftime(Sys.time(),t0filternegabovemake , units = "s")
+
+
        if(time_compteur == T){
-        poolVP_compteur_new$filter_neg_above <- difftime(Sys.time(), t02, units = "s")
+        poolVP_compteur_new$Treduc_filter_neg_above <- timefilternegabovemake
         poolVP_compteur_new$nfilter_negab_bef <- nrow(filters_neg_above)
         poolVP_compteur_new$nfilters_negab_af <- nrow(filters_neg_above_reduc)
        }
 
-      timefilternegabovemake <- difftime(Sys.time(),t0filternegabovemake , units = "s")
+
 
       if(time_compteur == T) t02 <- Sys.time()
+
       ## We remove all the one not accepted
       poolVP <- poolVP %>%
         filter(! id %in% c(unique(filters_neg_above$id_origin), unique(filters_neg_below$id_origin)))
@@ -683,6 +711,10 @@ return(cat(red("Done")))
 
       poolVP_id <- poolVP_id %>%
         filter(! id %in% c(unique(filters_neg_above$id_origin), unique(filters_neg_below$id_origin)))
+
+
+      if(time_compteur == T) poolVP_compteur_new$TremoveNegDirect <- difftime(Sys.time(),t02 , units = "s")
+
       #### Apply red filter if activated
 
       t02 <- Sys.time()
@@ -691,6 +723,8 @@ return(cat(red("Done")))
         t02 <- t02
         nref <- nref
       }
+
+
       if(nrow(filters_neg_above_reduc) > 0){
 
         # method 1 with loop
@@ -751,10 +785,8 @@ return(cat(red("Done")))
       }
       }
 
-      if(time_compteur == T){
-        poolVP_compteur_new$remneg_above_fil <- difftime(Sys.time(), t02, units = "s")
-        poolVP_compteur_new$nremoved_above_fil <-   nref - nrow(poolVP)
-      }
+
+    if(time_compteur == T) poolVP_compteur_new$TapplyRedFilterAbove <- difftime(Sys.time(),t02 , units = "s")
 
 
       if(nrow(filters_neg_below_up_reduc)> 0){
@@ -816,21 +848,19 @@ return(cat(red("Done")))
         }
 
       }
-      if(time_compteur == T){
-        poolVP_compteur_new$remneg_below_fil <- difftime(Sys.time(), t02, units = "s")
-        poolVP_compteur_new$nremoved_below_fil <-   nref - nrow(poolVP)
-      }
 
       nrem <- nref -  nrow(poolVP)
-
 
       time_filter_neg_apply <- difftime(Sys.time(), t02, units = "s")
       nremoved_below_fil <-  nrow(poolVP)
 
-       if(time_compteur == T){
-                 poolVP_compteur_new$remneg_below_fil <- time_filter_neg_above_apply
-                 poolVP_compteur_new$nremoved_below_fil <- nremoved_below_fil
-       }
+      if(time_compteur == T){
+        poolVP_compteur_new$TapplyRedFilterBoth <- time_filter_neg_apply
+        poolVP_compteur_new$TapplyRedFilterBelow <-      poolVP_compteur_new$TapplyRedFilterBoth -  poolVP_compteur_new$TapplyRedFilterAbove
+        poolVP_compteur_new$NremovedRedFilter <-   nrem
+      }
+
+
 
 
 ### Update filters
@@ -842,6 +872,12 @@ return(cat(red("Done")))
 
       totaltimeredfilter <- time_filter_neg_apply + timefilternegabovemake + timefilternegbelowmake
       totalsave <-  nrem * time_simulations /  n_simulations
+
+      if(time_compteur == T){
+
+        poolVP_compteur_new$TSavedRedFilter <- totalsave
+        poolVP_compteur_new$TimeTotalRedFilter <- totaltimeredfilter
+      }
 
       if(totalsave < totaltimeredfilter){
 
@@ -917,10 +953,13 @@ return(cat(red("Done")))
       donebeforegreen <- is.na(poolVP[, col_to_add]) %>% sum
 
     for(cmtt in unique(self$targets$cmt)){
+
       if(time_compteur == T){
 
+        aboveExpr <- parse_expr(paste0(cmtt, "_AL"))
+        belowExpr <- parse_expr(paste0(cmtt, "_BU"))
         befusegreen <-   poolVP %>%
-            group_by(tumVol_BU, tumVol_AL) %>%
+            group_by(!!aboveExpr, !!belowExpr) %>%
             tally
        t0green   <- Sys.time()
       }
@@ -928,6 +967,7 @@ return(cat(red("Done")))
 
 
         if(time_compteur == T) t02 <- Sys.time()
+
         self$targets %>%
           filter(protocol == unique(line$protocol), cmt == cmtt) %>%
           pull(time) %>% length -> nmax
@@ -960,14 +1000,20 @@ return(cat(red("Done")))
 
        if(below_green == T){
 
+         if(time_compteur == T) t03 <- Sys.time()
+
          filters_pos_below_up_reduc <- filter_reduc(filters_pos_below_up,obj = self , direction  =  "below")
+
+         if(time_compteur == T) poolVP_compteur_new[paste0("Treduc_filter_green_below_", cmtt)] <- difftime(Sys.time(), t03, units = "s")
+
          pos_below[[cmtt]] <- bind_rows(pos_below[[cmtt]], filters_pos_below_up_reduc[names(pos_below[[1]])])
 
          if(time_compteur == T){
            t02 <- Sys.time()
-           reff <- sum(is.na(poolVP$tumVol_BU))
+           reff <- sum(is.na(poolVP[deparse(belowExpr)]))
 
          }
+
          if(nrow(filters_pos_below_up_reduc) >0){
            for(a in 1:nrow(filters_pos_below_up_reduc)){
 
@@ -981,8 +1027,8 @@ return(cat(red("Done")))
            }
 
            if(time_compteur == T){
-             poolVP_compteur_new$time_add_below_fil <- difftime(Sys.time(), t02, units = "s")
-             poolVP_compteur_new$n_add_below_fil <-   sum(is.na(poolVP$tumVol_BU)) - reff
+             poolVP_compteur_new[paste0("TapplyGreenFilterBelow_", cmtt)] <- difftime(Sys.time(), t02, units = "s")
+             poolVP_compteur_new[paste0("n_add_below_fil", cmtt)] <-   sum(is.na(poolVP[deparse(belowExpr)])) - reff
            }
          }
 
@@ -993,13 +1039,18 @@ return(cat(red("Done")))
        if(above_green == T){
 
 
+         if(time_compteur == T) t03 <- Sys.time()
+
          filters_ps_above_lo_reduc <- filter_reduc(filters_ps_above_lo,obj = self, direction = "above")
-         pos_above[[cmtt]] <- bind_rows(pos_above[[cmtt]], filters_ps_above_lo_reduc[names(pos_above[[1]])])
+
+         if(time_compteur == T) poolVP_compteur_new[paste0("Treduc_filter_green_above_", cmtt)] <- difftime(Sys.time(), t03, units = "s")
+
+            pos_above[[cmtt]] <- bind_rows(pos_above[[cmtt]], filters_ps_above_lo_reduc[names(pos_above[[1]])])
 
 
          if(time_compteur == T){
            t02 <- Sys.time()
-           reff <- sum(is.na(poolVP$tumVol_AL))
+           reff <- sum(is.na(poolVP[[deparse(aboveExpr)]]))
 
 
          }
@@ -1021,8 +1072,8 @@ return(cat(red("Done")))
 
          }
          if(time_compteur == T){
-           poolVP_compteur_new$time_add_above_fil <- difftime(Sys.time(), t02, units = "s")
-           poolVP_compteur_new$n_add_above_fil <-   sum(is.na(poolVP$tumVol_AL)) - reff
+           poolVP_compteur_new[[paste0("TapplyGreenFilterAbove_", cmtt)]] <- difftime(Sys.time(), t02, units = "s")
+           poolVP_compteur_new[[paste0("n_add_above_fil_", cmtt)]] <-   sum(is.na(poolVP[[deparse(aboveExpr)]])) - reff
          }
 
 
@@ -1031,11 +1082,11 @@ return(cat(red("Done")))
 
 
 
-        if(time_compteur == T){
-          poolVP_compteur_new$filter_pos_above <- difftime(Sys.time(), t02, units = "s")
-          poolVP_compteur_new$nfilter_pobe_bef <- nrow(filters_pos_below_up)
-          poolVP_compteur_new$nfilters_posbe_af <- nrow(filters_pos_below_up_reduc)
-        }
+        # if(time_compteur == T){
+        #   poolVP_compteur_new$filter_pos_above <- difftime(Sys.time(), t02, units = "s")
+        #   poolVP_compteur_new$nfilter_pobe_bef <- nrow(filters_pos_below_up)
+        #   poolVP_compteur_new$nfilters_posbe_af <- nrow(filters_pos_below_up_reduc)
+        # }
 
         # lines output bpostif above lo
         # if(time_compteur == T) t02 <- Sys.time()
@@ -1056,13 +1107,13 @@ return(cat(red("Done")))
         if(time_compteur == T){
 
           afusegreen <-   poolVP %>%
-            group_by(tumVol_BU, tumVol_AL) %>%
+            group_by(!!aboveExpr, !!belowExpr) %>%
             tally  %>%
             rename(n2 = n)
 
           left_join(afusegreen, befusegreen) %>%
             mutate(Diff = n2 - n) %>%
-            mutate(colname = paste0(tumVol_BU, "-", tumVol_AL)) -> temp3
+            mutate(colname = paste0(deparse(belowExpr), "-", deparse(aboveExpr))) -> temp3
 
           for(a in 1:nrow(temp3)){
 
@@ -1110,6 +1161,13 @@ return(cat(red("Done")))
       }
 
 
+      if(time_compteur == T){
+
+        poolVP_compteur_new$TSavedGreenFilter <- totalsave
+        poolVP_compteur_new$TimeTotalGreenFilter <- timegreen
+      }
+
+
     }# end use green filter
 
 
@@ -1120,7 +1178,7 @@ return(cat(red("Done")))
 
    # Compute newratio for knowing when to stop
     newratio <- is.na(poolVP[, col_to_add]) %>% sum
- print(newratio)
+ # print(newratio)
   }# fin while 1
 
 
@@ -1133,7 +1191,7 @@ return(cat(red("Done")))
   # print("########################### SAVNG RDS #############################")
 
   # if(time_compteur == T)  poolVP_compteur <<- poolVP_compteur
-  print(Sys.time() - t00)
+  # print(Sys.time(), t00)
 
   if(time_compteur == T)  t02 <- Sys.time()
   poolVP <- poolVP %>%
@@ -1158,6 +1216,7 @@ return(cat(red("Done")))
   if(time_compteur == T)  timesaver$updatefilters <- difftime(Sys.time(), t02, units = "s")
 
 
+  if(time_compteur == T)   self$timesaver <- timesaver
   # bind_rows(self$poolVP, poolVP )
 
 
@@ -1171,7 +1230,17 @@ return(cat(red("Done")))
   }
 
 
-  if(time_compteur == T)   self$timesaver <- timesaver
+
+  if(time_compteur == T){
+    timesaver$tTOTAL <- difftime(Sys.time(), tTOTAL)
+
+    self$timeTrack <- timesaver
+  }else{
+
+
+    self$timeTrack <- list(ttotal = difftime(Sys.time(), tTOTAL))
+  }
+
   # Fill missing profile if required
   if(fillatend){
 
