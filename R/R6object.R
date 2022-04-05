@@ -27,6 +27,7 @@ VP_proj_creator <- R6Class("VT",
   initial_cmt_values = NULL, #c(X1 = 50) # initial compartment values. At least one, and every missing cmt name would be set to 0
   times = NULL, #seq(0,52, 1)
   poolVP = data.frame(),
+  errorComputation = data.frame(),
   protocols = NULL,
   param_reduce = NULL,
   param_increase = NULL,
@@ -157,10 +158,10 @@ print( as.data.frame(targets))
 
 })
 
-# methodFilter = 2; npersalve = 1000; time_compteur = T
+methodFilter = 2; npersalve = 1000; time_compteur = T ; pctActivGreen = 0.1 ; keepRedFiltaftDis = F ; methodFilter = 2 ; use_red_filter = T ; keep = NULL
 # VP_production -----------------------------------------------------------
 VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F,
-                                                 pctActivGreen = 0.75, keepRedFiltaftDis = F, methodFilter = 2, use_red_filter = T, cmtalwaysbelow = NULL, keep = NULL){
+                                                 pctActivGreen = 0, keepRedFiltaftDis = F, methodFilter = 2, use_red_filter = T, cmtalwaysbelow = NULL, keep = NULL){
 
   tTOTAL <- Sys.time()
 
@@ -380,12 +381,12 @@ return(cat(red("Done")))
   if(time_compteur == T){
 
     timesaver$poolVP_compteur <- tibble(n = NA) %>% slice(0)
-    n_compteur <- 0
+
   }
 
-
+  n_compteur <- 0
   # Create a table saving the siml, preparing a final join
-  siml <- tibble(id = integer(), protocol = character())
+  siml <-  list() #tibble(id = integer(), protocol = character())
   # just in case we never enter into the loop (if already filled, almost always useless)
 
   ntotal <- nrow(poolVP)
@@ -467,12 +468,12 @@ return(cat(red("Done")))
   # begining while lopp----------------------------------------------------------
   while(newratio %>% sum > 0){
 
-
+    n_compteur <- n_compteur + 1
     pb$update(ratio = (maxinfo -newratio / length(col_to_add))/maxinfo)
 
     if(time_compteur == T){
 
-      n_compteur <- n_compteur + 1
+
 
       poolVP_compteur_new <- tibble(n = n_compteur)
     }
@@ -573,6 +574,33 @@ return(cat(red("Done")))
 
 
       }
+
+  ## Addition 04/05/22
+
+    list_error_computation <- list()
+
+    analytical_problem <-  res2 %>% filter(value < 0)
+
+      if(nrow(analytical_problem) >0){
+
+        list_error_computation[[n_compteur]] <- analytical_problem
+
+        analytical_problem %>%
+          pull(id_origin) -> toLabelErrorAna
+
+        poolVP <- poolVP %>%
+          filter(! id %in% toLabelErrorAna)
+
+        poolVP_id <- poolVP_id %>%
+          filter(! id %in% toLabelErrorAna)
+
+      }
+
+
+
+
+
+
 # Red filter --------------------------------------------------------------
       # If no red filter
 
@@ -768,11 +796,18 @@ return(cat(red("Done")))
         if(length(filtres) > 0 ){
           filtre_line <- paste0("(", filtres, ")") %>% paste0(collapse = "|")
 
+
+
+
+
+
+
+
           poolVP_id %>%
             mutate(test = !!parse_expr(filtre_line)) %>%
             filter(test == T) %>% pull(id) ->idtorem
 
-
+          # if(idtorem[idtorem %in%idsMissings] %>% sum > 0) stop("IDs missing ! ")
 
           poolVP <- poolVP %>%
             filter(! id %in% idtorem)
@@ -836,6 +871,8 @@ return(cat(red("Done")))
           poolVP_id %>%
             mutate(test = !!parse_expr(filtre_line)) %>%
             filter(test == T) %>% pull(id) ->idtorem
+          # idtorem[idtorem %in%idsMissings]
+          # if(idtorem[idtorem %in%idsMissings] %>% sum > 0) stop("IDs missing ! ")
 
           poolVP <- poolVP %>%
             filter(! id %in% idtorem)
@@ -889,7 +926,11 @@ return(cat(red("Done")))
 
       # gree filter --------------------------------------------------------------
 
+      # dont use the freen filter if use_green_filter F
+      # OR if percentage green is below  pctActivGreen
 
+    # cat(green(paste0("use_green_filter is equa to :" , use_green_filter)))
+    # cat(green(paste0(nrow(res2 %>% filter(be_up == T & ab_low== T)), "<", pctActivGreen * nrow(res2) )))
 
       if(use_green_filter == F | nrow(res2 %>% filter(be_up == T & ab_low== T)) < pctActivGreen * nrow(res2)  ){
 
@@ -936,8 +977,8 @@ return(cat(red("Done")))
 
 
 
-        siml <- siml %>%
-          bind_rows(forjoin)
+        siml[[n_compteur]] <-  forjoin#siml %>%
+
 
         if(time_compteur == T) poolVP_compteur_new$timesimlandjoin <- difftime(Sys.time(), t02, units = "s")
 
@@ -1136,8 +1177,8 @@ return(cat(red("Done")))
 
 
 
-        siml <- siml %>%
-          bind_rows(forjoin)
+        siml[[n_compteur]] <-  forjoin#sim
+
 
         if(time_compteur == T) poolVP_compteur_new$timesimlandjoin <- difftime(Sys.time(), t02, units = "s")
 
@@ -1154,6 +1195,8 @@ return(cat(red("Done")))
 
       totalsaveGreen <-  equivVPdon * time_simulations /  n_simulations
 
+      # cat(green(paste0("Ratio Green filter:",totalsaveGreen - timegreen , "\n")))
+      # print(round(as.double(totalsaveGreen)), "<", round(as.double(timegreen))  )
       if(totalsaveGreen < timegreen){
 
         message(green("\nGreen filter system disabled."))
@@ -1194,11 +1237,18 @@ return(cat(red("Done")))
   # print(Sys.time(), t00)
 
   if(time_compteur == T)  t02 <- Sys.time()
+
+  siml <- bind_rows(siml)
+
   poolVP <- poolVP %>%
     select(-starts_with("simul")) %>%
     left_join(siml  %>%  rename(simul = data))
 
   if(time_compteur == T)  timesaver$joinsimul <- difftime(Sys.time(), t02, units = "s")
+
+  if(length(list_error_computation) > 0) self$errorComputation <-  bind_rows(list_error_computation)
+
+
 
   # Update filters
   if(time_compteur == T)  t02 <- Sys.time()

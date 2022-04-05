@@ -880,6 +880,7 @@ self$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, k
 self$poolVP %>%
   arrange(id) %>%
   unnest(simul) %>%
+  mutate(protocol = if_else(protocol == "unique", "No Drug" , protocol)) %>%
   ggplot()+
   geom_line(aes(time, Pore, group = id))+
   facet_wrap(~protocol)+
