@@ -158,7 +158,7 @@ print( as.data.frame(targets))
 
 })
 
-methodFilter = 2; npersalve = 1000; time_compteur = T ; pctActivGreen = 0.1 ; keepRedFiltaftDis = F ; methodFilter = 2 ; use_red_filter = T ; keep = NULL
+use_green_filter = T; methodFilter = 2; npersalve = 1000; time_compteur = T ; pctActivGreen = 0.1 ; keepRedFiltaftDis = F ; methodFilter = 2 ; use_red_filter = T ; keep = NULL
 # VP_production -----------------------------------------------------------
 VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F,
                                                  pctActivGreen = 0, keepRedFiltaftDis = F, methodFilter = 2, use_red_filter = T, cmtalwaysbelow = NULL, keep = NULL){
@@ -464,7 +464,7 @@ return(cat(red("Done")))
     timesaver$tprewhile <- difftime(Sys.time(), tTOTAL, units = "s")
   }
 
-
+  nextrapoGreen0 <- 0
   # begining while lopp----------------------------------------------------------
   while(newratio %>% sum > 0){
 
@@ -807,6 +807,7 @@ return(cat(red("Done")))
             mutate(test = !!parse_expr(filtre_line)) %>%
             filter(test == T) %>% pull(id) ->idtorem
 
+          idtorem[idtorem %in%idmi]
           # if(idtorem[idtorem %in%idsMissings] %>% sum > 0) stop("IDs missing ! ")
 
           poolVP <- poolVP %>%
@@ -865,13 +866,18 @@ return(cat(red("Done")))
             pull(filtre) -> filtres
 
           if(length(filtres) > 0 ){
-          filtre_line <- paste0("(", filtres, ")") %>% paste0(collapse = "|")
+          filtre_line <- paste0("(", filtres[1], ")") %>% paste0(collapse = "|")
 
 
           poolVP_id %>%
             mutate(test = !!parse_expr(filtre_line)) %>%
             filter(test == T) %>% pull(id) ->idtorem
-          # idtorem[idtorem %in%idsMissings]
+
+          idtorem[idtorem %in%idmi]
+          # idtorem[idtorem %in%243]
+          # poolVP %>%
+          #   filter(rowid == 243)
+
           # if(idtorem[idtorem %in%idsMissings] %>% sum > 0) stop("IDs missing ! ")
 
           poolVP <- poolVP %>%
@@ -1038,10 +1044,14 @@ return(cat(red("Done")))
                  filter(!(protocol == unique(res2$protocol) & cmt == cmtt & max == Inf))) == 0) below_green <- F
         if( nrow(self$targets %>%filter(!(protocol == unique(res2$protocol) & cmt == cmtt & min == -Inf))) == 0 )  above_green <- F
 
+        if(nrow(filters_pos_below_up) == 0)  below_green  <- F
+        if(nrow(filters_ps_above_lo) == 0)  above_green  <- F
+
 
        if(below_green == T){
 
          if(time_compteur == T) t03 <- Sys.time()
+
 
          filters_pos_below_up_reduc <- filter_reduc(filters_pos_below_up,obj = self , direction  =  "below")
 
@@ -1186,6 +1196,13 @@ return(cat(red("Done")))
   }
 
 
+     nextrapoGreen <-  poolVP %>%
+        filter(!is.na(!!paste0(cmtt,"_BU")) & rowid != !!paste0(cmtt,"_BU") & !is.na(!!paste0(cmtt,"_AL")) & rowid != !!paste0(cmtt,"_AL") ) %>%
+        nrow()
+
+     thisTurn <-  nextrapoGreen - nextrapoGreen0
+
+     nextrapoGreen0 <-  nextrapoGreen
 
       timegreen <- difftime(Sys.time(), t0greenfilter, units = "s")
 
@@ -1194,6 +1211,10 @@ return(cat(red("Done")))
      equivVPdon <-  (donebeforegreen  - doneaftergreen)/ length(col_to_add)
 
       totalsaveGreen <-  equivVPdon * time_simulations /  n_simulations
+
+      totalsaveGreen <-  thisTurn * time_simulations /  n_simulations
+
+      # print(thisTurn)
 
       # cat(green(paste0("Ratio Green filter:",totalsaveGreen - timegreen , "\n")))
       # print(round(as.double(totalsaveGreen)), "<", round(as.double(timegreen))  )
@@ -1208,6 +1229,7 @@ return(cat(red("Done")))
 
         poolVP_compteur_new$TSavedGreenFilter <- totalsave
         poolVP_compteur_new$TimeTotalGreenFilter <- timegreen
+        poolVP_compteur_new$nextrapoGreen <- thisTurn
       }
 
 
@@ -1224,7 +1246,7 @@ return(cat(red("Done")))
  # print(newratio)
   }# fin while 1
 
-
+cat(red("End while loop"))
   ## Need to remove filter pos for which some have been delated (because of multiple protocol,one ok, one bad)
 
   # pos_below <- map(pos_below, function(x) x %>% filter(id %in% poolVP$id) %>% select(-id))

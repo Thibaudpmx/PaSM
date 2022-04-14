@@ -6,12 +6,12 @@ library(R6)
 library(crayon)
 library(profvis)
 library(microbenchmark)
-
+source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
 
 
 # Compute our methodology
 
-source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+
 # cohorts definitions --------------------------------
 
 cohorts <- list()
@@ -270,6 +270,10 @@ source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
 
 setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni")
 
+target <- Targets(proto = 1,cmt =  1,time =  c(48))
+
+target$min <- -1E99
+target$max <- 1E99
 pcttargets <- c(1, 0.75,0.5,0.25,0.125,0.01,0)
 
 for(a in 1:5){
@@ -314,7 +318,7 @@ for(b in pcttargets){
 
       self3 <- self2$clone(deep = T)
       set.seed(123)
-      self3$add_VP(time_compteur = T, cohort, use_green_filter = T, npersalve = 2000, pctActivGreen = 0.6)
+      self3$add_VP(time_compteur = T, cohort, use_green_filter = T, npersalve = 2000, pctActivGreen = 0.8)
 
 
       saveRDS(self3, file = newnamessingle)
@@ -345,6 +349,51 @@ for(b in pcttargets){
 
 }
 
+analyzediscrepency <- function(input = "SingletRG_n4_0.5pct_proto_1_cmt_1_time1.RDS"){
+
+
+  test <- readRDS(input)
+
+  n <- gsub("SingletRG_n", "", input) %>%
+    gsub(pattern = "_.+", replacement = "")
+
+  b <- gsub("pct.+", "", input) %>%
+    gsub(pattern = ".+_", replacement = "") %>%
+    as.double
+
+  namepct <- paste0("simulAlln_",n, "_proto_1_cmt_1_time1.RDS")
+
+  allpct <- readRDS(namepct)
+
+
+  quant <- ( 1-b)/2
+
+  tmin <- quantile(allpct$tumVol, probs = quant)
+  tmax <- quantile(allpct$tumVol, probs = 1 - quant)
+
+
+  allTheoRaws <- allpct %>%
+    filter(tumVol > tmin & tumVol < tmax)
+
+
+  # Missing
+  allTheoRaws %>%
+    left_join(test$poolVP %>% mutate(test = T)) %>%
+    filter(is.na(test)) -> missingrows
+
+  VP_df <- cohort_creator(as.double(n))
+
+  prototemp <- target
+  prototemp$min <- tmin
+  prototemp$max <- tmax
+
+  self <- VP_proj_creator$new()
+  self$set_targets(manual = prototemp)
+
+  missingrows$rowid ->idmi
+
+}
+
 
 
 
@@ -354,8 +403,8 @@ for(b in pcttargets){
 
 
 
-files <- list.files("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data")
-setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data")
+files <- list.files("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni")
+setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni")
 
 toread <- files[grep("^tRG_n", files)]
 
@@ -411,22 +460,33 @@ toread <- files[grep("^SingletRG_n", files)]
 
 x <- "SingletRG_n1_0.01pct_proto_1_cmt_1_time1.RDS"
 
-allTimes <- temp <- tibble(a = toread) %>%
+ tibble(a = toread) %>%
   mutate(b = gsub("SingletRG_n", "", a )) %>%
   mutate(nparam = gsub("_.+", "", b)) %>%
   mutate(b = gsub("^._", "", b)) %>%
   mutate(pct  = gsub("pct.+", "", b)) %>%
   select(-b) %>%
   # slice(1:10) %>%
-  mutate(nsimul = map_dbl(a, function(x){
+  mutate(results = map(a, function(x){
 
     obj <- readRDS(x)
 
-    as.double(obj$timeTrack$tTOTAL)
+    timetable(obj) %>%
+      spread(step, sum) %>%
+      mutate(VPfound= obj$poolVP %>% nrow, nsimul = obj$timeTrack$poolVP_compteur %>% pull(nsimul) %>% sum,
+             timeTotal = obj$timeTrack$tTOTAL)
 
 
-  }))
+  })) %>%
+  unnest() %>%
+  select(-a) %>%
+  saveRDS("full_analysis.RDS")
 
+
+
+allTimes <- readRDS("full_analysis.RDS")
+
+allTimes
 
 
 allTimes %>%
@@ -443,24 +503,142 @@ allTimes %>%
   theme_bw()
 
 
-temp <- tibble(a = toread) %>%
-  mutate(b = gsub("SingletRG_n", "", a )) %>%
-  mutate(nparam = gsub("_.+", "", b)) %>%
-  mutate(b = gsub("^._", "", b)) %>%
-  mutate(pct  = gsub("pct.+", "", b)) %>%
-  select(-b) %>%
-  # slice(1:10) %>%
-  mutate(nsimul = map_dbl(a, function(x){
-
-  obj <- readRDS(x)
-
-  obj$timeTrack$poolVP_compteur %>%
-    pull(nsimul) %>%
-    sum
-
-  }))
+allTimes %>%
+  mutate(pct = as.double(pct)) %>%
+  ggplot()+
+  geom_point(aes(x = (1-pct), y = timeTotal, col = nparam))+
+  geom_line(aes(x = (1-pct), y = timeTotal, col = nparam))+
+  geom_hline(data = ref, aes(yintercept = min), lty = 1)+
+  geom_hline(data = ref, aes(yintercept = max), lty = 1)+
+  geom_rect(data = ref, aes(xmin = -Inf, xmax = Inf, ymin = min, ymax =  max), lty = 1,alpha = 0.2)+
+  geom_hline(data = ref, aes(yintercept = median), lty = 2)+
+  # geom_hline(yintercept =  16.7)+
+  # geom_errorbar(data = ref, aes(x = 0, ymin = min, ymax = max))+
+  theme_bw()
 
 
+
+allTimes %>%
+  filter(nparam >1) %>%
+  mutate(timeTotal = as.double(timeTotal)) %>%
+  mutate(pct = (200000-nsimul) / 200000) %>%
+  mutate(timeExtra = GreenFilter + RedFilter) %>%
+  summarise(minT = min(timeTotal), maxT = max(timeTotal),medianT =  median(timeTotal),
+            minpct = min(pct), maxpct = max(pct),medianpct =  median(pct),
+            mintimeExtra= min(timeExtra), maxtimeExtra = max(timeExtra),mediantimeExtra=  median(timeExtra))
+
+# Correlation nparam and time
+cor.test(as.double(allTimes$nparam), as.double(allTimes$nparam %>% as.double ), method=c("pearson", "kendall", "spearman"))
+
+# Correlation nparam and time extrapolation
+cor.test(as.double(allTimes$nparam), as.double((allTimes$GreenFilter + allTimes$RedFilter) %>% as.double ), method=c("pearson", "kendall", "spearman"))
+
+# Correlation nparam and nsimul
+cor.test(as.double(allTimes$nparam), allTimes$nsimul , method=c("pearson", "kendall", "spearman"))
+
+
+
+
+# Correlation pct rejetcion and time
+allTimes %>%
+  filter(pct %in% c(0.01,0.5)) %>%
+  select(pct, nparam, timeTotal) %>%
+  mutate(timeTotal = as.double(timeTotal)) %>%
+ spread(pct , timeTotal)  -> forwilcoxowvsmed
+
+names(forwilcoxowvsmed) <- c("nparam", "lowhigh", "medium")
+
+wilcox.test(forwilcoxowvsmed$lowhigh, forwilcoxowvsmed$medium, paired = TRUE)
+
+allTimes %>%
+  filter(pct %in% c(0.5,1)) %>%
+  select(pct, nparam, timeTotal) %>%
+  mutate(timeTotal = as.double(timeTotal)) %>%
+  spread(pct , timeTotal)  -> forwilcoxmedvshigh
+
+names(forwilcoxmedvshigh) <- c("nparam",  "medium","lowhigh")
+
+wilcox.test(forwilcoxmedvshigh$lowhigh, forwilcoxmedvshigh$medium, paired = TRUE)
+
+combined <- bind_rows(forwilcoxmedvshigh, forwilcoxowvsmed)
+wilcox.test(combined$lowhigh, combined$medium, paired = TRUE)
+
+
+
+
+allTimes %>%
+  filter(pct %in% c(0.01,0.5)) %>%
+  ggplot()+
+  geom_boxplot(aes(factor(pct), as.double(timeTotal)))+
+  geom_line(aes(factor(pct), as.double(timeTotal), group = nparam))
+
+
+# Correlation pct rejetcion and nsimul
+allTimes %>%
+  filter(pct %in% c(0.01,0.5)) %>%
+  select(pct, nparam, nsimul) %>%
+  mutate(v = as.double(nsimul)) %>%
+  spread(pct , nsimul)  -> forwilcoxowvsmed
+
+names(forwilcoxowvsmed) <- c("nparam", "lowhigh", "medium")
+
+wilcox.test(forwilcoxowvsmed$lowhigh, forwilcoxowvsmed$medium, paired = TRUE)
+
+allTimes %>%
+  filter(pct %in% c(0.5,1)) %>%
+  select(pct, nparam, nsimul) %>%
+  mutate(nsimul = as.double(nsimul)) %>%
+  spread(pct , nsimul)  -> forwilcoxmedvshigh
+
+names(forwilcoxmedvshigh) <- c("nparam",  "medium","lowhigh")
+
+wilcox.test(forwilcoxmedvshigh$lowhigh, forwilcoxmedvshigh$medium, paired = TRUE)
+
+combined <- bind_rows(forwilcoxmedvshigh, forwilcoxowvsmed)
+wilcox.test(combined$lowhigh, combined$medium, paired = TRUE)
+
+
+
+# Correlation pct rejetcion and nextrapolation time
+
+allTimes %>%
+  filter(pct %in% c(0.01,0.5)) %>%
+  select(pct, nparam,  GreenFilter, RedFilter) %>%
+  mutate(nsimul = as.double( GreenFilter + RedFilter)) %>%
+  select(-GreenFilter, - RedFilter) %>%
+  spread(pct , nsimul)  -> forwilcoxowvsmed
+
+names(forwilcoxowvsmed) <- c("nparam", "lowhigh", "medium")
+
+wilcox.test(forwilcoxowvsmed$lowhigh, forwilcoxowvsmed$medium, paired = TRUE)
+
+allTimes %>%
+  filter(pct %in% c(0.5,1)) %>%
+  select(pct, nparam, nsimul) %>%
+  mutate(nsimul = as.double(nsimul)) %>%
+  spread(pct , nsimul)  -> forwilcoxmedvshigh
+
+names(forwilcoxmedvshigh) <- c("nparam",  "medium","lowhigh")
+
+wilcox.test(forwilcoxmedvshigh$lowhigh, forwilcoxmedvshigh$medium, paired = TRUE)
+
+combined <- bind_rows(forwilcoxmedvshigh, forwilcoxowvsmed)
+wilcox.test(combined$lowhigh, combined$medium, paired = TRUE)
+
+
+# Correlation nparam and nsimul
+cor.test(as.double(allTimes$nparam), allTimes$nsimul , method=c("pearson", "kendall", "spearman"))
+
+
+
+
+
+
+t.test()
+
+
+allTimes %>%
+  filter(! VPfound %in% c(2000,25000,50000,100000,150000,0,200000))
 
 
 temp %>%
@@ -655,6 +833,99 @@ target$max <- 2794
 times_to_try <- list(seq(0,48,48), seq(0,48,4),seq(0,48,2),seq(0,48,1),seq(0,48,0.5),seq(0,48,0.1))
 x <- times_to_try[[1]]
 cohort <- cohort_creator(nmodif = 4)
+
+# Comparing the two extreme
+lowest <- VP_proj_creator$new()
+lowest$set_targets(manual = target)
+lowest$times <- 0:48
+
+set.seed(1)
+lowest$add_VP(VP_df = cohort, use_green_filter = T, time_compteur = T,npersalve = 2000)
+
+
+
+highest <- VP_proj_creator$new()
+highest$set_targets(manual = target)
+highest$times <- seq(0,48,0.1)
+
+set.seed(1)
+highest$add_VP(VP_df = cohort, use_green_filter = T, time_compteur = T,npersalve = 2000)
+
+timeODElow <- median(lowest$timeTrack$poolVP_compteur$timemodel)
+timeODEhigh <-  median(highest$timeTrack$poolVP_compteur$timemodel)
+VPode <-  highest$timeTrack$poolVP_compteur %>% pull(nsimul) %>% sum
+100 * timeODElow
+VPextrapolated  <- 200000 -  VPode
+100 * timeODElow
+100 * timeODEhigh
+
+print(paste0(as.double(lowest$timeTrack$tTOTAL) %>% round(1), " vs ", 10 + 100 *timeODElow %>% round(3)))
+print(paste0(as.double(highest$timeTrack$tTOTAL) %>% round(1), " vs ", 10 + 100 * timeODEhigh %>% round(3)))
+
+timetable(lowest)
+timetable(highest)
+
+VPode * timeODElow / 2000 + timetable(lowest) %>% filter(step != "RxODE") %>% pull(sum) %>% sum
+
+VPode * timeODEhigh/ 2000 + timetable(lowest) %>% filter(step != "RxODE") %>% pull(sum) %>% sum
+highest$timeTrack$tTOTAL
+
+
+
+  VPextrapolated
+# cohort %>%
+#   rowid_to_column() %>%
+#   left_join(lowest$poolVP %>% select(rowid) %>% mutate(lowest = T)) %>%
+#   left_join(highest$poolVP %>% select(rowid) %>% mutate(highest = T)) %>%
+#   mutate(lowest = if_else(is.na(lowest), F, T)) %>%
+#   mutate(highest = if_else(is.na(highest), F, T)) %>%
+#   filter(lowest != highest) -> different
+#   # group_by(lowest, highest) %>% tally
+#   pull(rowid) -> different
+
+### to see the problem of inconsistency due to the step modyfying the values
+  event1 <- lowest$protocols[["dose50"]] %>% mutate(evid = 1) %>%
+            bind_rows(crossing(cmt = "Central", time = lowest$times, amt = 0, evid =0))
+
+  event2 <- lowest$protocols[["dose50"]] %>% mutate(evid = 1) %>%
+    bind_rows(crossing(cmt = "Central", time = highest$times, amt = 0, evid =0))
+
+  event3 <- lowest$protocols[["dose50"]] %>% mutate(evid = 1) %>%
+    bind_rows(crossing(cmt = "Central", time = seq(0,48,0.5), amt = 0, evid =0))
+
+  lowest$model$solve( different %>% slice(1), event1, c(X1 = 50))%>%
+    as_tibble() %>%
+    filter(time == 48)
+
+  lowest$model$solve( different %>% slice(1), event2, c(X1 = 50)) %>%
+    as_tibble() %>%
+    filter(time == 48)
+
+  lowest$model$solve( different %>% slice(1), event3, c(X1 = 50)) %>%
+    as_tibble() %>%
+    filter(time == 48)
+
+
+  lowest$model$solve( different %>% slice(1), event2, c(X1 = 50))  %>%
+    as_tibble() %>%
+    mutate(Timestep = "") %>%
+    bind_rows(
+
+      lowest$model$solve( different %>% slice(1), event3, c(X1 = 50)) %>%
+        as_tibble() %>%
+        mutate(Timestep = "0.1")
+    ) %>%
+    gather("key", "value", Conc, tumVol) %>%
+    ggplot()+
+    geom_line(aes(time, value, col = Timestep))+
+    scale_y_log10()+
+    facet_wrap(~key, scales = "free")
+
+owest$poolVP %>%
+  filter(rowid %in% different)
+  tail
+
+##############
 
 allTimes <- map(times_to_try, function(x){
 
@@ -1011,10 +1282,30 @@ loop %>%
 # Impact ncohort ----------------------------------------------------------
 
 
+# Lindner base ------------------------------------------------------------
+  source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+  self <-   VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
+
+  self$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                                    "unique",90,"Pore", 99, 100
+
+  ))
+
+  self$times <- c(0, 50:90)
+cohort <-  cohort_creator_Lindner(6)
+
+self$add_VP(VP_df = cohort, use_green_filter = T, npersalve = 2000, time_compteur = F)
+
+self$timeTrack
 # Lindner Main algorithm to compute -----------------------------------------------
 
 
-
+self$poolVP %>%
+  slice(1:100) %>%
+  unnest() %>%
+  filter(time >50) %>%
+  ggplot()+
+  geom_line(aes(time, Pore))
 
 cohort_creator_Lindner <- function(nmodif){
 
@@ -1191,3 +1482,168 @@ self2$timeTrack$poolVP_compteur %>%
   pull(timesimlandjoin) %>%
   sum()
 
+
+
+# Find Noptimal -----------------------------------------------------------
+
+
+self <-   VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
+
+
+self$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                                  "unique",90,"Pore", 10, 12
+
+))
+
+ntotest <- 100
+
+
+
+cohort <- cohort_creator_Lindner(nmodif = 6) %>%
+  rowid_to_column("id")
+
+
+self$protocols[] %>%
+  bind_rows() %>%
+  mutate(proto = names( self$protocols)) -> protocols
+
+eventsadmin  <- crossing(id = 1:2000, proto  = unique(self$targets$protocol)) %>%
+  left_join(protocols, by = "proto" ) %>%
+  mutate(evid = 1)
+
+eventsadmin  <-   eventsadmin %>%
+  bind_rows(
+
+    eventsadmin  %>%
+      mutate(evid = 0, amt = 0) %>%
+      select(-time) %>%
+      crossing(time = self$times)
+  ) %>%
+  arrange(id, time)
+
+
+test_Lindner_speed <- function(ntotest){
+t0 <- Sys.time()
+
+res <- self$model$solve(cohort %>% slice(1:ntotest), events %>% filter(id <= ntotest), c(X2 = 0)) %>%
+  as_tibble
+
+if(max(x$id) == 1) res <- res %>% mutate(id = 1)
+as.double(difftime(Sys.time(), t0, units = "s"))
+}
+
+test <- tibble(n = c(10,100,200,500,1000,2000)) %>%
+  mutate(time = map_dbl(n, ~ test_Lindner_speed(.x)))
+
+
+test %>%
+ mutate(pern = time/n)
+
+# Lindner Comparison to brut force ----------------------------------------
+
+timeTrack2 <- list()
+
+t00 <- t0 <- Sys.time()
+
+cohort <- cohort_creator_Lindner(nmodif = 6)
+
+self <-   VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
+
+self$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                                  "unique",90,"Pore", 10, 12
+
+))
+
+self$protocols[] %>%
+  bind_rows() %>%
+  mutate(proto = names( self$protocols)) -> protocols
+
+eventsadmin  <- crossing(id = 1:2000, proto  = unique(self$targets$protocol)) %>%
+  left_join(protocols, by = "proto" ) %>%
+  mutate(evid = 1)
+
+eventsadmin  <-   eventsadmin %>%
+  bind_rows(
+
+    eventsadmin  %>%
+      mutate(evid = 0, amt = 0) %>%
+      select(-time) %>%
+      crossing(time = self$times)
+  ) %>%
+  arrange(id, time)
+
+
+demo <- cohort %>%
+  rowid_to_column("ids") %>%
+  mutate(group = floor(ids/2000)+1)
+
+
+idtorems <- double()
+
+resultsap <- list()
+
+
+timeTrack2$prefor <- difftime(Sys.time(), t0, units = "s")
+
+loop2 <-  tibble()
+
+tpreloop <- Sys.time()
+
+
+
+for(a in unique(demo$group)){
+
+
+  t0 <- Sys.time()
+
+  x <- demo %>% filter(group == a) %>%
+    rowid_to_column("id") %>%
+    mutate(proto = "unique")
+
+  events <- eventsadmin %>%
+    left_join(x %>% select(id, ids, group, proto) , by = c("id", "proto")) %>%
+    filter(!is.na(ids))
+
+
+  perrun  <- tibble(pre_simul = difftime(Sys.time(), t0, units = "s"));  t0 <- Sys.time()
+  t0 <- Sys.time()
+  res <- self$model$solve(x %>% select(-proto) %>% slice(1:100), events %>% filter(id <= 100), c(X2 = 0)) %>%
+    as_tibble
+
+  if(max(x$id) == 1) res <- res %>% mutate(id = 1)
+
+  perrun$simul <- difftime(Sys.time(), t0, units = "s") ;  t0 <- Sys.time() ; perrun$simul
+
+
+  res <- res %>%
+    left_join(x %>% select(id, proto, ids), by = "id")
+
+  perrun$post_simul_join1 <- difftime(Sys.time(), t0, units = "s") ;  t0 <- Sys.time()
+
+
+
+
+  res %>%
+    filter(time %in% self$targets$time) %>%
+    rename(protocol = proto) %>%
+    gather("cmt", "value", unique(self$targets$cmt)) %>%
+    left_join(target, by = c("time", "protocol", "cmt")) %>%
+    filter(value > max | value < min) %>% pull(ids ) -> idtorem
+
+  perrun$post_simul_join2 <- difftime(Sys.time(), t0, units = "s") ;  t0 <- Sys.time()
+
+
+  idtorems <- c(idtorems, idtorem)
+
+
+  resultsap[[a]]<-  res %>%   filter( ! (ids %in% idtorem))
+
+
+  perrun$post_simul_join3 <- difftime(Sys.time(), t0, units = "s") ;  t0 <- Sys.time()
+
+
+  loop2 <-  bind_rows(loop2,perrun )
+}
+
+timeTrack2$loop <- loop2 ;  t0 <- Sys.time()
+timeTrack2$tloop <- difftime(Sys.time(), tpreloop, units = "s")

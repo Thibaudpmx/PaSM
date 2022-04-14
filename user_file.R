@@ -289,6 +289,43 @@ self$add_VP(VP_df, fillatend = F, reducefilteratend = F,use_green_filter = F, np
 
 self$plot_VP()
 
+
+# w0 wrong ----------------------------------------------------------------
+
+
+
+source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+
+
+self <- VP_proj_creator$new()
+
+
+
+# self$set_targets(filter = Dose == 50 & cmt == "tumVol", ntime = 8)
+self$set_targets(manual = tibble(protocol = "dose50", cmt = "tumVol", time = 40, min = 80, max = 85))
+
+VP_df <- crossing(k1 = c(0),
+                  k2 = 0:8,
+                  ke = 1 ,#*  seq(0.6,1.4,0.2),
+                  lambda0 = 0.64,
+                  lambda1 = c(20,100,1),
+                  w0 = seq(20,400,1),
+                  Vd =  40) %>% #c(0.8,1,1.2)) %>%
+  map_df(function(x){
+
+    if(is.character(x)) return(x)
+    round(x,3)
+
+  } )
+
+
+
+# self$add_VP(VP_df, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F, methodFilter = 1)
+
+self$add_VP(VP_df, fillatend = F, reducefilteratend = F,  npersalve = 2000,  time_compteur = F, methodFilter = 2, use_green_filter = F)
+
+
+
 # PK AND PD ---------------------------------------------------------------
 
 
@@ -723,14 +760,14 @@ source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
 self <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
 
 self$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
-                                  "unique",300,"TimeAbove", 1E-1, Inf
+                                  "unique",90,"TimeAbove", 1E-1, Inf
 ))
 
 below <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
 
 
 below$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
-                                  "unique",300,"TimeAbove", -Inf, 1E-1
+                                  "unique",90,"TimeAbove", -Inf, 1E-1
 ))
 
 VP_df <- crossing(Bcl20 = seq(100,1000,200),
@@ -740,7 +777,7 @@ VP_df <- crossing(Bcl20 = seq(100,1000,200),
                   PUMA0 =seq(100,1000,200),
                   NOXA0 =  seq(100,1000,200),
                   BAXc0 = 1000,
-                  BAK0 = 1000) %>% #c(0.8,1,1.2)) %>%
+                  BAK0 = 0) %>% #c(0.8,1,1.2)) %>%
   map_df(function(x){
 
     if(is.character(x)) return(x)
