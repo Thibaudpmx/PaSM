@@ -7,12 +7,12 @@ model <- model_RxODE <-  RxODE({
   Conc <- Central/Vd
 
   tumVol <- X1 + X2 + X3 + X4
-  growth <- lambda0 *  max(X1,0)/((1 + (lambda0 * max(tumVol,0)/lambda1)^psi)^(1/psi))
+  growth <- lambda0 *  max(X1,0)/((1 + (lambda0 * tumVol/lambda1)^psi)^(1/psi))
 
   X1(0) <- w0
 
-  d/dt(X1) <- growth - X1 * max(Conc,0) * k2
-  d/dt(X2) <- X1 * max(Conc,0) * k2 - k1 * X2
+  d/dt(X1) <- growth - X1 * Conc * k2
+  d/dt(X2) <- X1 * Conc * k2 - k1 * X2
   d/dt(X3) <- k1 * (X2 - X3)
   d/dt(X4) <- k1 * (X3 - X4)
 
@@ -22,7 +22,7 @@ model <- model_RxODE <-  RxODE({
 
 
 proto <- tibble(cmt = "Central", time = 0, amt = 50, evid = 1) %>%
-  bind_rows(crossing(cmt = "Central", time = seq(0,52,0.01), amt = 0, evid = 0)) # change the step, (0.01,0.1,1), you will see !
+  bind_rows(crossing(cmt = "Central", time = seq(0,52,1), amt = 0, evid = 0)) # change the step, (0.01,0.1,1), you will see !
 
 id <- tibble(ke = 1, w0 = 50, k2 = 3.4, lambda0 = 0.859, Vd = 4, lambda1 = 63.4, k1 = 0.5, psi = 20)
 
@@ -75,7 +75,7 @@ res2 <- model$solve(id2, proto, c(X1 = 50)) %>%   as.tibble() %>% mutate(suppose
   bind_rows(model$solve(id2, proto2, c(X1 = 50))%>% as.tibble() %>%  mutate(supposed = "step0.01"))
 
 res2 %>%
-  filter(supposed == "step1") %>%
+  filter(supposed == "step1")
 
 
 res2 %>%

@@ -1,0 +1,199 @@
+---
+title: "TGI model analysis"
+author: "Thibaud Derippe"
+date: "14 avril 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(QSPVP)
+```
+
+
+First, here is it model we used:
+
+
+```{r}
+
+model  <-  RxODE({
+  d/dt(Central) <- -ke *  max(Central,0)
+  Conc <- Central/Vd
+
+  tumVol <- X1 + X2 + X3 + X4
+  psi <- 20
+  growth <- lambda0 *  max(X1,0)/((1 + (lambda0 * max(tumVol,0)/lambda1)^psi)^(1/psi))
+
+  X1(0) <- w0
+
+  d/dt(X1) <- max(growth,0) - X1 * max(Conc,0) * k2
+  d/dt(X2) <- X1 * max(Conc,1E-10) * k2 - k1 * X2
+  d/dt(X3) <- k1 * (X2 - X3)
+  d/dt(X4) <- k1 * (X3 - X4)
+
+})
+
+```
+
+
+# Parameter sets attribution
+
+Generic cases
+
+```{r}
+defaults_values <- tibble(ke = 1, Vd = 5, lambda0 = 0.05, lambda1 = 10, w0 = 50, k2 = 1, k1 = 0.5)
+
+map(parse_exprs(names(defaults_values)), function(x){
+  
+  defaults_values %>% 
+    bind_rows(defaults_values %>% mutate(!!enexpr(x) := !!enexpr(x) * 5)) %>% 
+    bind_rows(defaults_values %>% mutate(!!enexpr(x) := !!enexpr(x) / 5)) %>% 
+    mutate(param = deparse(x), values = c("Ref", "high", "low"))
+  
+}) %>% 
+  bind_rows() %>% 
+  rowid_to_column("id") -> idsforsimuls
+
+
+
+protocol <- tibble(time = 0, cmt = "Central", amt = 10, evid = 1) %>% 
+  bind_rows(crossing(time = 0:120, cmt = "Central", amt = 0, evid = 0)) %>% 
+  crossing(id = unique(idsforsimuls$id)) %>% 
+  arrange(id, time)
+
+
+simulations <- model$solve(idsforsimuls %>% select(-param, -values), protocol) %>% 
+  as_tibble()
+
+simulations %>% 
+  left_join(idsforsimuls %>%  select(id, param, values), by = "id") %>% 
+  ggplot()+
+  geom_line(aes(time, tumVol, col = values)  )+
+  facet_wrap(~param, scales = "free")+
+  scale_y_log10()+
+  theme_bw()
+```
+
+Exemple when w0 derivative change
+
+```{r}
+idsw0 <- tibble(k1 = 0, k2 = 7.3, ke = 1, lambda0 = 0.64, lambda1 = 87.6, Vd = 184, w0 = c(320,500), id = 1:2)
+
+protocolw0 <- tibble(time = 0, cmt = "Central", amt = 50, evid = 1) %>% 
+  bind_rows(crossing(time = 0:60, cmt = "Central", amt = 0, evid = 0)) %>% 
+  crossing(id =1:2) %>% 
+  arrange(id, time)
+
+ model$solve(idsw0, protocolw0 ) %>% 
+  as_tibble() %>% 
+   left_join(idsw0) %>% 
+   ggplot()+
+  geom_line(aes(time, tumVol, col = factor(w0))  )+
+  scale_y_log10()+
+  theme_bw()
+
+```
+
+
+Exemple when k1 derivative change
+
+```{r}
+idsk1 <- tibble(k1 = c(0.1,10), k2 = 2, ke = 1, lambda0 = 8, lambda1 = 40, Vd = 5, w0 = 50, id = 1:2)
+
+
+ model$solve(idsk1, protocolw0 ) %>% 
+  as_tibble() %>% 
+   left_join(idsk1) %>% 
+   ggplot()+
+  geom_line(aes(time, tumVol, col = factor(k1))  )+
+  scale_y_log10()+
+  theme_bw()
+
+```
+
+
+# Optimizing number of patients per salve
+
+
+```{r}
+library(microbenchmark)
+
+allids <- crossing(ke = 1, Vd = 5, lambda0 = seq(0.05,0.15,0.01), lambda1 = 10:15, w0 = 40:60, k2 = seq(0.6,1.4,0.1), k1 = 0.5) %>% 
+  rowid_to_column("id")
+
+
+protocols <- tibble(time = 0, cmt = "Central", amt = 50, evid = 1) %>% 
+  bind_rows(crossing(time = 0:60, cmt = "Central", amt = 0, evid = 0)) %>% 
+  crossing(id = unique(allids$id)) %>% 
+  arrange(id, time)
+
+alltimes <- tibble(nsimul = c(1,10,100,250,500,1000,2000,5000,10000)) %>% 
+  mutate(time_dbl = map_dbl(nsimul, function(x){
+    
+    idtemps <- allids %>% filter(id %in% 1:x)
+    protocoltemp <- protocols  %>% filter(id %in% 1:x)
+  
+    test <-  microbenchmark(model$solve(idtemps, protocoltemp ), times = 5, unit = "ms")
+    
+    # time in ms
+    median(test$time / 1E6)
+    
+  }))
+
+alltimes %>% 
+  mutate(time_per_id = time_dbl / nsimul ) %>% 
+  ggplot()+
+  geom_point(aes(nsimul, time_per_id))+
+  geom_line(aes(nsimul, time_per_id))+
+  theme_bw()+
+  scale_x_log10()+
+  scale_y_log10()
+```
+
+
+
+# Some computational issues
+
+```{r}
+
+
+
+proto <- tibble(cmt = "Central", time = 0, amt = 50, evid = 1) %>%
+  bind_rows(crossing(cmt = "Central", time = seq(0,52,1), amt = 0, evid = 0)) # change the step, (0.01,0.1,1), you will see !
+
+id <- tibble(ke = 1, w0 = 50, k2 = 3.4, lambda0 = 0.859, Vd = 4, lambda1 = 63.4, k1 = 0.5, psi = 20)
+
+id2 <-  tibble(ke = 1, w0 = 50, k2 = 2.93, lambda0 = 1, Vd = 4, lambda1 = 86.1, k1 = 0.5, psi = 20)
+
+
+res <- model$solve(id2, proto, c(X1 = 50)) %>%   as.tibble() %>% mutate(supposed = "above") %>%
+  bind_rows(model$solve(id, proto, c(X1 = 50))%>% as.tibble() %>%  mutate(supposed = "below"))
+
+
+res %>%
+  ggplot()+
+  geom_line(aes(time, tumVol, col = supposed))+
+  scale_y_log10()
+```
+
+
+
+```{r}
+
+
+
+proto <- tibble(cmt = "Central", time = 0, amt = 50, evid = 1) %>%
+  bind_rows(crossing(cmt = "Central", time = seq(0,52,0.01), amt = 0, evid = 0)) # change the step, (0.01,0.1,1), you will see !
+
+res <- model$solve(id2, proto, c(X1 = 50)) %>%   as.tibble() %>% mutate(supposed = "above") %>%
+  bind_rows(model$solve(id, proto, c(X1 = 50))%>% as.tibble() %>%  mutate(supposed = "below"))
+
+
+res %>%
+  ggplot()+
+  geom_line(aes(time, tumVol, col = supposed))+
+  scale_y_log10()
+```
+
+
+

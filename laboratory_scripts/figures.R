@@ -1392,28 +1392,6 @@ ggplot(simul)+
   geom_segment(aes(x = 30, xend = 30, y = 50, yend = 100, col = "target"), size = 2)+
   theme_bw()
 
-# pie chart ---------------------------------------------------------------
-
-library(ggplot2)
-
-# Create Data
-
-tibble(group=c("Trial and error files\nNever published", "Reported\nafter QC"),
-       value=c(85,15)) %>%
-ggplot(aes(x="", y=value, fill=group)) +
-  geom_bar(stat="identity", width=1, color="white") +
-  coord_polar("y", start=0) +
-  geom_text(aes(label = group), position = position_stack(vjust = 0.5))+
-  theme_void()
-
-tibble(group=c("Trial and error files\nNever published", "Reported\nafter QC"),
-       value=c(85,15)) %>%
-  ggplot(aes(x="", y=value, fill=group, alpha = group)) +
-  geom_bar(stat="identity", width=1, color="white") +
-  coord_polar("y", start=0) +
-  geom_text(aes(label = group), position = position_stack(vjust = 0.5))+
-  theme_void()+
-  scale_alpha_manual(values = c(0.3,1))
 
 
 
