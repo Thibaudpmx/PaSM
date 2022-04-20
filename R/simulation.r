@@ -87,7 +87,18 @@ eval(criteria)
 }
 
 
-
+#'
+#' @param ind_param
+#' @param add_events
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#'
+# simulations(ind_param = celltheque %>% slice(1), add_events = add_events) %>%
+#   ggplot()+
+#   geom_line(aes(time, Bcl2_I))
 simulations2 <- function(ind_param = double(), add_events = tibble(), returnSim = T,
                         icmt = initial_cmt_values, time_vec = times,
                         pardf = parameters_default_values, model = model_RxODE){

@@ -17,9 +17,12 @@
 ##
 ## ---------------------------
 
+ fix_df = NULL; saven = 50; drug = NULL; update_at_end = T; time_compteur = T;  fillatend = F; reducefilteratend = F; npersalve = 2000; use_green_filter = T;
+pctActivGreen = 0.8; keepRedFiltaftDis = F; methodFilter = 2; use_red_filter = T; cmtalwaysbelow = NULL; keep = NULL; saveVPRej = T
+
 
 VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F,
-                                                 pctActivGreen = 0, keepRedFiltaftDis = F, methodFilter = 2, use_red_filter = T, cmtalwaysbelow = NULL, keep = NULL){
+                                                 pctActivGreen = 0.8, keepRedFiltaftDis = F, methodFilter = 2, use_red_filter = T, cmtalwaysbelow = NULL, keep = NULL, saveVPRej = T){
 
   tTOTAL <- Sys.time()
 
@@ -322,6 +325,8 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
     timesaver$tprewhile <- difftime(Sys.time(), tTOTAL, units = "s")
   }
 
+  VP_rej <- tibble()
+
   nextrapoGreen0 <- 0
   # begining while lopp----------------------------------------------------------
   while(newratio %>% sum > 0){
@@ -391,7 +396,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
 
       tokeep <- c(self$targets$cmt, keep) %>% unique()
       res <- res %>%
-        select(id, time,!!!parse_exprs(tokeep) , Pore)
+        select(id, time,!!!parse_exprs(tokeep))
     }
 
     time_simulations <-  difftime(Sys.time(), b, units = "s")
@@ -497,6 +502,15 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
       }
 
 
+      if(saveVPRej == T){
+
+
+        VP_rej <- bind_rows(VP_rej, res2 %>%
+                              filter(id_origin %in% idstorem) %>%
+                              mutate(n = n_compteur)
+        )
+      }
+
       poolVP <- poolVP %>%
         filter(! id %in% idstorem)
 
@@ -510,8 +524,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
       }
 
 
-    }else
-    {
+    }else{
 
       # if red filter
       # if(time_compteur == T) poolVP_compteur_new[paste0("res2_", cmtt)] <- difftime(Sys.time(), t02, units = "s")
@@ -589,6 +602,18 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
 
       if(time_compteur == T) t02 <- Sys.time()
 
+      ## SaveRej if needed
+
+      if(saveVPRej == T){
+
+
+        VP_rej <- bind_rows(VP_rej, res2 %>%
+          filter(id_origin %in% c(unique(filters_neg_above$id_origin), unique(filters_neg_below$id_origin))) %>%
+            mutate(n = n_compteur)
+        )
+
+      }
+
       ## We remove all the one not accepted
       poolVP <- poolVP %>%
         filter(! id %in% c(unique(filters_neg_above$id_origin), unique(filters_neg_below$id_origin)))
@@ -624,6 +649,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
               filter(test == T) %>%
               pull(id) ->idtorem
 
+            if(saveVPRej == T)    VP_rej <- bind_rows(VP_rej, tibble(id_origin = idtorem) %>% mutate(n = n_compteur))
 
             poolVP <- poolVP %>%
               filter(!id %in% idtorem)
@@ -668,6 +694,9 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
             # idtorem[idtorem %in%idmi]
             # if(idtorem[idtorem %in%idsMissings] %>% sum > 0) stop("IDs missing ! ")
 
+            if(saveVPRej == T)    VP_rej <- bind_rows(VP_rej, tibble(id_origin = idtorem) %>% mutate(n = n_compteur))
+
+
             poolVP <- poolVP %>%
               filter(! id %in% idtorem)
 
@@ -697,6 +726,8 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
               filter(test == T) %>%
               pull(id)  ->idtorem
 
+            if(saveVPRej == T)    VP_rej <- bind_rows(VP_rej, tibble(id_origin = idtorem) %>% mutate(n = n_compteur))
+
             poolVP <- poolVP %>%
               filter(!id %in% idtorem)
 
@@ -724,7 +755,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
             pull(filtre) -> filtres
 
           if(length(filtres) > 0 ){
-            filtre_line <- paste0("(", filtres[1], ")") %>% paste0(collapse = "|")
+            filtre_line <- paste0("(", filtres, ")") %>% paste0(collapse = "|")
 
 
             poolVP_id %>%
@@ -737,6 +768,8 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
             #   filter(rowid == 243)
 
             # if(idtorem[idtorem %in%idsMissings] %>% sum > 0) stop("IDs missing ! ")
+            if(saveVPRej == T)    VP_rej <- bind_rows(VP_rej, tibble(id_origin = idtorem) %>% mutate(n = n_compteur))
+
 
             poolVP <- poolVP %>%
               filter(! id %in% idtorem)
@@ -1170,6 +1203,16 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
 
     self$timeTrack <- list(ttotal = difftime(Sys.time(), tTOTAL))
   }
+
+
+  # Save Rej if needed
+  if(saveVPRej == T)   self$VP_rejected <-  VP_rej %>% left_join(
+
+    VP_df %>%
+      rowid_to_column("id_origin"), by = "id_origin"
+
+  )
+
 
   # Fill missing profile if required
   if(fillatend){
