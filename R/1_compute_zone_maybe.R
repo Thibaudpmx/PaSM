@@ -152,18 +152,32 @@
 
 
 
-
-
-VP_proj_creator$set("public", "compute_zone_maybe", function(zone_sure = F){
-
-
-  param_unique <- map(self$param[!self$param %in% c("w0", "k1")], function(x){
+# start functin -----------------------------------------------------------
 
 
 
-    temp <-  c(self$filters_neg_above[[x]], self$filters_neg_below[[x]],0,Inf )  %>% unique
+
+VP_proj_creator$set("public", "compute_zone_maybe", function(zone_sure = F, keptSingleValue = T){
 
 
+  allcmt <- unique(self$targets$cmt) # to know if we add 0 and Inf
+
+  param_unique <- map(self$param, function(x){
+
+
+
+    temp <-  c(self$filters_neg_above[[x]], self$filters_neg_below[[x]])  %>% unique
+
+
+
+    # if the paramter is included in the system
+  if(map_lgl(allcmt, ~ x %in% c(self$param_no_impact[[.x]],self$param_increase[[.x]],self$param_reduce[[.x]] )) %>% max){
+
+    if((length(temp) == 1 &   keptSingleValue == F) |length(temp) > 1 ){ # if there is only one value of a param, do you
+      # want to extrapolate to 0 et Inf, or keet it simple by saying you don't want any dimension on it
+    temp <- c(temp, 0, Inf) %>% unique
+    }
+  }
 
 
 if(zone_sure == T ) temp <- c(temp, self$poolVP[[x]]) %>% unique
@@ -216,9 +230,7 @@ if(zone_sure == T ) temp <- c(temp, self$poolVP[[x]]) %>% unique
 # perfor <- 1E6
 # for(a in 0:(ceiling(nrow(allsquares0)/perfor)-1)){
 
-  allsquares <-  allsquares0  %>%
-    mutate(w0min = 50 , w0max = 50, k1min = 0.5, k1max = 0.5)#%>%
-    # slice((a*perfor+ 1): ((a+1) *perfor))
+  allsquares <-  allsquares0
 
 
   for(x in names(self$param_increase)){
@@ -264,10 +276,20 @@ if(zone_sure == T ) temp <- c(temp, self$poolVP[[x]]) %>% unique
     # filters_neg_above %>%
     #   arrange()
 
+
+
+
+
+
     if(nrow(filters_neg_above) > 0){
+
+      pb <- progress_bar$new(total = nrow(filters_neg_above), format = paste0("Zone maybe - Neg above - ", x,
+                                                                              "[:bar] :percent Remains: :eta"))
+
       for(a in 1:nrow(filters_neg_above)){
 
-        print(a)
+        pb$tick()
+        # print(a)
         ref <- filters_neg_above %>% slice(a)
 
         allsquares <- allsquares %>%
@@ -285,8 +307,12 @@ if(zone_sure == T ) temp <- c(temp, self$poolVP[[x]]) %>% unique
 
 
     if(nrow(filters_neg_below) > 0){
-      for(a in 1:nrow(filters_neg_below)){
 
+      pb <- progress_bar$new(total = nrow(filters_neg_below), format = paste0("Zone maybe - Neg below - ", x,
+                                                                              "[:bar] :percent Remains: :eta"))
+
+      for(a in 1:nrow(filters_neg_below)){
+        pb$tick()
         ref <- filters_neg_below %>% slice(a)
 
         allsquares <- allsquares %>%

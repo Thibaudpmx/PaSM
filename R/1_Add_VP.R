@@ -418,6 +418,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
       filter(protocol == unique(line$protocol))#%>%
 
 
+    if(!"id" %in% names(res)) res <- res %>% mutate(id = 1)
     # # Compute the tests
     res2 <- res %>%
       select(id, time,  unique(targets_temp$cmt)) %>%

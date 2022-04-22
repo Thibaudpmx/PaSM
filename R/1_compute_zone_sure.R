@@ -153,36 +153,36 @@ VP_proj_creator$set("public", "compute_zone_sure", function(domain){
   final <- allsquares %>% filter(above & below)
   self$zone_sure <- final
 })
-#
-self$poolVP %>%
-  filter(rowid %in% c(12191, 6856))
-#
-#
-#
-
-allsquares %>%
-  filter(k2min <= 0.25, k2max >=0.25, lambda0min <= 1.05, lambda0max >=1.05, kemin <= 0.3, kemax >=0.3, Vdmin <= 27, Vdmax >=27,
-         lambda1min <= 6, lambda1max >=6 & k2max == 0.25 & lambda0min == 1.05 &  kemin == 0.3)
-
-
-allsquares %>%
-  filter(k2min == 0.25, k2max == 0.25, lambda0min <= 1.05, lambda0max >=1.05, kemin <= 0.3, kemax >=0.3, Vdmin <= 27, Vdmax >=27,
-         lambda1min <= 6, lambda1max >=6)
-
-
-allsquares %>%
-  filter(k2min == 0.25, k2max == 0.25)
-allsquares
-
-allsquares %>%
-  filter(k2min == 0.25)
-  filter(k2min == 0.2, k2max == 0.4, lambda0min == 0.28, kemin == 0.9, Vdmin == 35, lambda1min == 4.8)
-#
+# #
 # self$poolVP %>%
-#   filter(rowid %in% c(31741))
+#   filter(rowid %in% c(12191, 6856))
+# #
+# #
+# #
 #
-# # below %>%
-#   filter(k2 <= 0.2, lambda0 >= 1.12, ke >= 1.1, Vd >=37,lambda1>=4.8 )
+# allsquares %>%
+#   filter(k2min <= 0.25, k2max >=0.25, lambda0min <= 1.05, lambda0max >=1.05, kemin <= 0.3, kemax >=0.3, Vdmin <= 27, Vdmax >=27,
+#          lambda1min <= 6, lambda1max >=6 & k2max == 0.25 & lambda0min == 1.05 &  kemin == 0.3)
 #
 #
+# allsquares %>%
+#   filter(k2min == 0.25, k2max == 0.25, lambda0min <= 1.05, lambda0max >=1.05, kemin <= 0.3, kemax >=0.3, Vdmin <= 27, Vdmax >=27,
+#          lambda1min <= 6, lambda1max >=6)
+#
+#
+# allsquares %>%
+#   filter(k2min == 0.25, k2max == 0.25)
+# allsquares
+#
+# allsquares %>%
+#   filter(k2min == 0.25)
+#   filter(k2min == 0.2, k2max == 0.4, lambda0min == 0.28, kemin == 0.9, Vdmin == 35, lambda1min == 4.8)
+# #
+# # self$poolVP %>%
+# #   filter(rowid %in% c(31741))
+# #
+# # # below %>%
+# #   filter(k2 <= 0.2, lambda0 >= 1.12, ke >= 1.1, Vd >=37,lambda1>=4.8 )
+# #
+# #
 # self$poolVP %>% arrange(lambda1)
