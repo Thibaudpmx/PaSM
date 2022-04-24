@@ -28,8 +28,6 @@ library(QSPVP)
 
 
 
-
-
 # Goal: vary percentage of acceptance/rejection and number of varying parameter
 # Method: generate 200.000 VPs, compute them manually, then use the quantiles function
 # to adjust the target, determining the pct of acceptance needed

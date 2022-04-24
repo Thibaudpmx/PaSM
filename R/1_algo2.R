@@ -448,6 +448,8 @@ maybeFinal <- bind_rows(to_do_final, to_dive)
 
       tempVPstorage <- list("neg_above" = tempVP$filters_neg_above, "neg_below" = tempVP$filters_neg_below, "poolVP" = tempVP$poolVP)
 
+      if(nrow(tempVP$poolVP) > 0  ) self$poolVP <- bind_rows(self$poolVP, tempVP$poolVP %>% mutate(from = newname))
+
       self$algo2list[[newname]] <- tempVPstorage
 
       self$algo2list$tree  <- self$algo2list$tree %>%
