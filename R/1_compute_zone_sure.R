@@ -17,7 +17,7 @@
 ##
 ## ---------------------------
 
-VP_proj_creator$set("public", "compute_zone_sure", function(domain){
+VP_proj_creator$set("public", "compute_zone_sure", function(domain, keptSingleValue = T){
 
   # self$poolVP
 
@@ -26,7 +26,7 @@ VP_proj_creator$set("public", "compute_zone_sure", function(domain){
 
 
 
-    temp <-  c(self$poolVP[[x]],0, Inf )  %>% unique
+    temp <-  c(self$poolVP[[x]] )  %>% unique
 
 
 
@@ -125,6 +125,14 @@ VP_proj_creator$set("public", "compute_zone_sure", function(domain){
         print(a)
         ref <- above %>% slice(a)
 
+        allsquares %>%
+          filter(!!parse_expr("( kemin >= ref$ke & Vdmin >= ref$Vd  & lambda1min >= ref$lambda1 & w0min == ref$w0 & k1min == ref$k1)"))
+
+
+        allsquares %>%
+          filter( kemin < ref$ke)
+
+
 
         allsquares <-
           allsquares %>%
@@ -150,7 +158,7 @@ VP_proj_creator$set("public", "compute_zone_sure", function(domain){
     }
   }
 
-  final <- allsquares %>% filter(above & below)
+  final <- allsquares %>% filter(is.na(above) | is.na(below))
   self$zone_sure <- final
 })
 # #
@@ -186,3 +194,7 @@ VP_proj_creator$set("public", "compute_zone_sure", function(domain){
 # #
 # #
 # self$poolVP %>% arrange(lambda1)
+allsquares %>% filter(k2min > 4 & lambda0min > 0.6)
+
+above %>%
+  filter( k2 <=  4.2  )

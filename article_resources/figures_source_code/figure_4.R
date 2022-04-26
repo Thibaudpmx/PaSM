@@ -96,7 +96,7 @@ cohort_creator <- function(nmodif){
 
 pcttargets <- c(1,0.875,0.99, 0.75,0.5,0.25,0.125,0.01,0)
 
-a <- 3; b <- 1
+a <- 5; b <- 1
 
 for(a in 1:5){ # For each number of varying parameter to try
 
@@ -154,6 +154,38 @@ for(a in 1:5){ # For each number of varying parameter to try
     }
 
   }# end for pcttargets
+
+  if(a == 5){
+
+  for(b in pcttargets){ # for every percentage
+
+    for(d in 1:5){ # because each analyse repeated five time
+
+      newnames <- paste0(a,"_", b, "_", d, "_alt.RDS") # compute the name of the file (nparamvarying_pcttarget_iteration)
+
+      if(!file.exists(newnames)){ # If the file does not exist yet
+        # determine new targets◘
+        prototemp <- target # and apply the new min and max
+        prototemp$min <- 0
+        prototemp$max <- quantile(alltumVol, probs = b)
+
+        if(b == 0)  prototemp$max <-  prototemp$max *0.8
+
+                  self2 <- self$clone(deep = T) # create a copy of self
+        self2$set_targets(manual = prototemp) # use the new target
+
+
+        # and do the computation ! With time_compteur activated for doing further analyses
+        self2$add_VP(time_compteur = T, cohort, use_green_filter = T, npersalve = 2000, pctActivGreen = 0, saveVPRej = F)
+
+
+        saveRDS(self2, file = newnames)
+      }
+
+    }
+
+  }# end for pcttargets
+  } # end for a == 6
 
 }
 
@@ -226,7 +258,7 @@ toread <- toread[! toread %in%  c("timeReference.RDS", "full_analysis.RDS")]
 str_split(toread, pattern = "_", simplify = T) %>%
   as_tibble() %>%
   mutate(V3 = gsub("\\.RDS","", V3 )) %>%
-  rename(nparam = V1, pct = V2, iteration = V3) %>%
+  rename(nparam = V1, pct = V2, iteration = V3, meth= V4) %>%
   mutate(pct = as.double(pct), nparam = as.double(nparam)) %>%
   mutate(file = toread) %>%
   mutate(results = map(file, function(x){
@@ -246,7 +278,7 @@ str_split(toread, pattern = "_", simplify = T) %>%
 
   })) %>%
   unnest() %>%
-  saveRDS("full_analysis.RDS")
+saveRDS("full_analysis.RDS")
 
 
 
@@ -348,7 +380,9 @@ saveRDS(mbref, "timeReference.RDS")
 #  plot A - making: Simeoni analysis -----------------------------------------------
 setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni")
 
-allTimes <- readRDS("full_analysis.RDS")
+allTimes <- readRDS("full_analysis.RDS") #%>%
+  # mutate(meth = if_else(meth == "", "", "alt")) %>%
+  # mutate(nparam = paste0(nparam, meth))
 
 readRDS("timeReference.RDS") %>%
   as.data.frame() %>%
@@ -366,9 +400,11 @@ allTimes %>%
 # Main plot time benefice
 
 plotA <- allTimes %>%
+
   mutate(pct = as.double(pct)) %>%
   mutate(nparam = as.character(nparam)) %>%
-  group_by(nparam, pct) %>%
+  mutate(meth = if_else(meth == "", "Centered", "Lowest")) %>%
+  group_by(nparam, pct, meth) %>%
   summarise(timeTotal = median(timeTotal)) %>%
   ungroup() %>%
   ggplot()+
@@ -376,14 +412,16 @@ plotA <- allTimes %>%
   geom_segment(aes(x = 56, xend = 52, y = 45, yend = 42), col = "red",  arrow = arrow(length = unit(0.2, "cm")))+
   # geom_text(aes(x = 62, y = 46, label = "next plots"), col = "red", size = 3)+ # Note: last 3 brut way, not reproducible
   geom_point(aes(x = (1-pct) * 100, y = timeTotal, col = nparam))+
-  geom_line(aes(x = (1-pct)* 100, y = timeTotal, col = nparam))+
+  geom_line(aes(x = (1-pct)* 100, y = timeTotal, col = nparam, lty = meth))+
   geom_hline(data = ref, aes(yintercept = min), lty = 1)+
   geom_hline(data = ref, aes(yintercept = max), lty = 1)+
   geom_rect(data = ref, aes(xmin = -Inf, xmax = Inf, ymin = min, ymax =  max, fill = "Time of\nreference"), lty = 1,alpha = 0.2)+
   geom_hline(data = ref, aes(yintercept = median), lty = 2)+
   theme_bw()+
+  scale_linetype_manual(values = c(1,2))+
   scale_fill_manual(values = "grey")+
-  labs(x = "Percentage of rejected VP", y = "Total Time analysis (sec)", col = "Number\nvarying\nparameters", fill = ""); plotA
+  labs(x = "Percentage of rejected VP", y = "Total Time analysis (sec)", col = "Number\nvarying\nparameters", fill = "",
+       lty = "Target\nmethod"); plotA
 
 # wallTimes %>%
 #   ggplot()+
@@ -426,12 +464,12 @@ allTimes %>%
   mutate(timeTotal= as.double(timeTotal)) %>%
   left_join(
 allTimes %>%
-  group_by(nparam, pct) %>%
+  group_by(nparam, pct,meth) %>%
   summarise(  timeTotal = median(as.double(timeTotal)) ) %>%
   mutate(test = T)
   ) %>%
   filter(test) %>%
-  select(nparam, pct, iteration,test) -> iteration_to_keep
+  select(nparam, pct, meth,iteration,test) -> iteration_to_keep
 
 
 
@@ -440,7 +478,7 @@ allTimes %>%
 
 
 plotB <- allTimes %>%
-  filter(nparam == 5 & pct == 0.5) %>%
+  filter(nparam == 5 & pct == 0.5 & meth == "") %>%
   left_join(iteration_to_keep) %>%
   filter(test) %>%
   gather("time", "value",GreenFilter, Other, RedFilter, RxODE) %>%
@@ -462,7 +500,7 @@ plotB <- allTimes %>%
   geom_text(aes(pct, value, fill = fct_reorder(time, value, .desc = F), label = as.double(value) %>% round(1)), position = position_stack(vjust = .5))+
   geom_label(aes(pct, total+ 5 ,  label = paste0("Total:",as.double(total) %>% round(1), "s"))); plotB
 
-plot_grid(plotA, plotB, nrow =   1)
+cowplot::plot_grid(plotA, plotB, nrow =   1)
 
 
 
@@ -470,12 +508,14 @@ plot_grid(plotA, plotB, nrow =   1)
 
 
 suplementA <- allTimes %>%
-  filter(nparam !=1) %>%
+  # filter(nparam !=1) %>%
   left_join(iteration_to_keep) %>%
   filter(test) %>%
   gather("time", "value",GreenFilter, Other, RedFilter, RxODE) %>%
   mutate(pct = as.factor((1-pct) * 100 )) %>%
   mutate(label = if_else(value < 4, "", as.character(value))) %>%
+  mutate(nparam = paste0(nparam, meth) ) %>%
+  mutate(nparam = if_else(nparam == "5alt.RDS", "5 alt", nparam)) %>%
   # bind_rows( tibble(pct = "Ref", time = c("Other", "RxODE"), value = c(7.1,47.9)) %>% crossing(nparam = 2:5)) %>%
   ggplot()+
   geom_col(aes(pct, value, fill = fct_reorder(time, value, .desc = F)), alpha = 0.5)+
@@ -674,37 +714,47 @@ temp <- tibble(n = map_dbl(times_to_try, ~ length(.x)), brut = allTimesRxODE %>%
 
 
 # plot D ------------------------------------------------------------------
-
-
-
-plotD <- allTimes %>%
+temp <- allTimes %>%
+  # mutate(meth = if_else(meth == "", "Centered", "Lowest")) %>%
   mutate(timeTotal = as.double(timeTotal)) %>%
-  group_by(nparam, pct) %>%
+  group_by(nparam, pct, meth) %>%
   mutate(median = median(timeTotal)) %>%
   ungroup() %>%
   filter(timeTotal == median) %>%
+  mutate(nparam = paste0(nparam, if_else(meth == "", "", "alt")))
+
+
+plotD <- temp %>%
   ggplot()+
   geom_point(aes(nparam,nsimul, col = factor(1-pct)))+
-  geom_line(aes(nparam, nsimul, col =factor(1-pct)))+
-  theme_bw()+
+
+  geom_line(data = temp %>% filter(nparam != "5alt"), aes(nparam, nsimul, col =factor(1-pct), group = pct))+
+  geom_line(data = temp %>% filter(nparam %in% c("5", "5alt")), aes(nparam, nsimul, col =factor(1-pct), group = pct), lty = 2)+
+   theme_bw()+
+  geom_segment(aes(x = 5.5, xend = 5.1, y = 49000, yend = 47532), col = "red",  arrow = arrow(length = unit(0.2, "cm")))+
+
   scale_y_log10()+
   labs(x = "Number of varying parameter", y = "Number of simulations performed",col = "Percentage\nRejection");plotD
 
 
-
 # plot E ------------------------------------------------------------------
-
-
-plotE<- allTimes %>%
+temp <- allTimes %>%
   mutate(timeTotal = as.double(timeTotal)) %>%
-  group_by(nparam, pct) %>%
+  group_by(nparam, pct, meth) %>%
   mutate(median = median(timeTotal)) %>%
   mutate(filtreTime = (Tgreen1 + Tgreen1)) %>%
   ungroup() %>%
   filter(timeTotal == median) %>%
+  mutate(nparam = paste0(nparam, if_else(meth == "", "", "alt")))
+
+plotE<- temp %>%
   ggplot()+
+
   geom_point(aes(nparam,filtreTime, col = factor(1-pct)))+
-  geom_line(aes(nparam, filtreTime, col =factor(1-pct)))+
+  geom_segment(aes(5.4, xend = 5.1, y = 16.5, yend = 14.7), col = "red",  arrow = arrow(length = unit(0.2, "cm")))+
+
+  geom_line(data = temp %>% filter(nparam != "5alt"), aes(nparam, filtreTime, col =factor(1-pct), group = pct))+
+  geom_line(data = temp %>% filter(nparam %in% c("5", "5alt")), aes(nparam, filtreTime, col =factor(1-pct), group = pct), lty = 2)+
   theme_bw()+
   scale_y_log10()+
   labs(x = "Number of varying parameter", y = "Filtering time first iteration (sec)",col = "Percentage\nRejection");plotE
@@ -924,4 +974,4 @@ setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/I
 
 library(cowplot)
 
-plot_grid(plotA, plotB, plotC,plotD, plotE, plotG, labels = LETTERS, nrow = 2)
+plot_grid(plotA, plotB, plotD, plotE, plotC, plotG, labels = LETTERS, nrow = 2)

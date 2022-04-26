@@ -23,7 +23,6 @@
 
 # Use the same target as in Figure 1
 
-source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
 
 
 ## One increase one decrease (k2 and lambda0)
@@ -65,8 +64,9 @@ param20 <-   param %>%
 
 plot1 <-  param20 %>%
   ggplot()+
-  geom_point(aes(x = k2, y = lambda0))+
-  theme_bw()
+  geom_point(aes(x = k2, y = lambda0, shape = "VP\nsampled\namong\ncohort"))+
+  labs(shape = "")+
+  theme_bw();plot1
 
 ids <-   param20 %>%
   rowid_to_column("id")
@@ -260,7 +260,22 @@ plot8 <- param20 %>%
 # filtersreduc
 
 
-plot_grid(plot1, plot2, plot3, plot4, plot5, plot6,plot7, plot8, nrow = 2, labels = LETTERS[1:8])
+self$n_filter_reduc()
 
+
+plot9 <- ggplot()+
+  geom_point(data = self$filters_neg_above, aes(k2, lambda0, col = "Above"))+
+  geom_rect(data = self$filters_neg_above,aes(xmin = 0, xmax = k2, ymin = lambda0, ymax = Inf, fill = "Above" ), alpha = 0.1)+
+  geom_point(data = self$filters_neg_below, aes(k2, lambda0, col = "Below"))+
+  geom_point(data = self$poolVP, aes(k2, lambda0, col = "Accepted"))+
+  geom_rect(data = self$filters_neg_below,aes(xmin = k2 , xmax = Inf, ymin = 0, ymax = lambda0, fill = "Below" ), alpha = 0.1)+
+
+  theme_bw()+
+  scale_color_manual(values = c("red", "darkgreen", "chocolate"))+
+  scale_fill_manual(values = c("red",  "chocolate"))+
+  labs(col = "VPs", fill = "Filters"); plot9
+
+
+plot_grid(plot1, plot2, plot3, plot4, plot5, plot6,plot7, plot8,plot9, nrow = 3, labels = LETTERS)
 
 

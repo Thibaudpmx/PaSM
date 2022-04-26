@@ -196,7 +196,7 @@ self$set_targets(manual = prototiny)
  npersalveFinal = 1E6
  fix <-c(k1 = 0.5, w0 = 50)
 
-file <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/testtwodose.RDS"
+# file <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/testtwodose.RDS"
 self <- readRDS(file)
 file <- ""
 save_every = 2

@@ -1058,6 +1058,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
             mutate(Diff = n2 - n) %>%
             mutate(colname = paste0(deparse(belowExpr), "-", deparse(aboveExpr))) -> temp3
 
+          if(nrow(temp3) >=1){
           for(a in 1:nrow(temp3)){
 
             poolVP_compteur_new[temp3$colname[[a]]] <-  temp3$Diff[[a]]
@@ -1065,7 +1066,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
           }
           poolVP_compteur_new$wholegreenfilter <- difftime(Sys.time(), t0green, units = "s")
         }
-
+        }
         if(time_compteur == T) t02 <- Sys.time()
 
         res %>%

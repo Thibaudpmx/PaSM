@@ -50,10 +50,21 @@ events <- tibble(cmt = "Central", time = 0, amt = c(0,50,100), evid = 1, id = 1:
 simul <- self$model$solve(VP, events) %>%
   as_tibble
 
-simul %>%
+plot0 <- simul %>%
+  # filter(time %in% c(8,30)) %>%
+  # select(id, time, tumVol) %>%
+  mutate(protocol = case_when(id == 1 ~ 0,
+                              id == 2 ~ 50,
+                              id == 3 ~ 100)) %>%
+                              {temppoint <<- .} %>%
+  filter(time <=40) %>%
   ggplot()+
-  geom_line(aes(time, tumVol, col = factor(id))) +
-  scale_y_log10()
+  geom_line(aes(time, tumVol, col = factor(protocol))) +
+  scale_y_log10()+
+  theme_bw()+
+  labs( x = "Time (days)", y = "Tumor Volume (mm3)", col = "Dose", shape = "")+
+  geom_vline(xintercept = c(8,30), lty = 2)+
+  geom_point(data = temppoint %>% filter(time %in% c(8,30)), aes( time, tumVol, shape = "Target")); plot0
 
 simul %>%
   filter(time %in% c(8,30)) %>%
@@ -143,6 +154,30 @@ plotB <- tree   %>%
   theme_bw()+
   labs(x = "Time (sec)", fill = "VP\nfound"); plotB
 
-cowplot::plot_grid(plotA, plotB)
 
-slice(1)
+
+
+domain <- tribble(~param, ~from, ~to, ~digits,
+                  "k2", 0, 3, 2 ,
+                  "lambda0", 0, 1.4, 2,
+                  "ke", 0, 2,1,
+                  "Vd", 0,40,0,
+                  "lambda1", 0,240,0
+)
+
+fix <-c(k1 = 0.5, w0 = 50)
+
+
+self$algo2list$tree %>%
+  summarise(time = sum(time))
+
+2609.409 / 60
+
+self$algo2list$first %>%
+  group_by(blocsPool) %>%
+  summarise(sum = sum(temp3)) %>%
+  pull(sum) %>% median
+
+cowplot::plot_grid(plot0,"3",  plotA, plotB, labels = LETTERS)
+
+
