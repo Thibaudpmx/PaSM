@@ -17,6 +17,7 @@ Thibaud Derippe
 \item \href{#method-new}{\code{VP_proj_creator$new()}}
 \item \href{#method-print}{\code{VP_proj_creator$print()}}
 \item \href{#method-add_VP}{\code{VP_proj_creator$add_VP()}}
+\item \href{#method-algo2}{\code{VP_proj_creator$algo2()}}
 \item \href{#method-big_screening}{\code{VP_proj_creator$big_screening()}}
 \item \href{#method-compute_zone_maybe}{\code{VP_proj_creator$compute_zone_maybe()}}
 \item \href{#method-compute_zone_sure}{\code{VP_proj_creator$compute_zone_sure()}}
@@ -69,12 +70,30 @@ Thibaud Derippe
   reducefilteratend = F,
   npersalve = 1000,
   use_green_filter = F,
-  pctActivGreen = 0,
+  pctActivGreen = 0.1,
   keepRedFiltaftDis = F,
   methodFilter = 2,
   use_red_filter = T,
   cmtalwaysbelow = NULL,
-  keep = NULL
+  keep = NULL,
+  saveVPRej = T,
+  timeSave = NULL
+)}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-algo2"></a>}}
+\if{latex}{\out{\hypertarget{method-algo2}{}}}
+\subsection{Method \code{algo2()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{VP_proj_creator$algo2(
+  domain,
+  fix = NULL,
+  npersalve = 2e+05,
+  npersalveFinal = 1e+06,
+  file = "",
+  save_every = 5
 )}\if{html}{\out{</div>}}
 }
 
@@ -93,7 +112,7 @@ Thibaud Derippe
 \if{latex}{\out{\hypertarget{method-compute_zone_maybe}{}}}
 \subsection{Method \code{compute_zone_maybe()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{VP_proj_creator$compute_zone_maybe(domain)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{VP_proj_creator$compute_zone_maybe(zone_sure = F, keptSingleValue = T)}\if{html}{\out{</div>}}
 }
 
 }
@@ -102,7 +121,7 @@ Thibaud Derippe
 \if{latex}{\out{\hypertarget{method-compute_zone_sure}{}}}
 \subsection{Method \code{compute_zone_sure()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{VP_proj_creator$compute_zone_sure(domain)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{VP_proj_creator$compute_zone_sure(domain, keptSingleValue = T)}\if{html}{\out{</div>}}
 }
 
 }

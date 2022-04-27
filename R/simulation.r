@@ -96,9 +96,13 @@ eval(criteria)
 #'
 #' @examples
 #'
+#'
+#'
 # simulations(ind_param = celltheque %>% slice(1), add_events = add_events) %>%
 #   ggplot()+
 #   geom_line(aes(time, Bcl2_I))
+
+
 #' Title
 #'
 #' @param ind_param

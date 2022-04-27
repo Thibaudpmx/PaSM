@@ -20,19 +20,10 @@
 
 library(QSPVP)
 
-# Data generation ---------------------------------------------------------
+# Data generation  VP to seek---------------------------------------------------------
 
 
 
-domain <- tribble(~param, ~from, ~to, ~digits,
-                  "k2", 0, 3, 2 ,
-                  "lambda0", 0, 1.4, 2,
-                  "ke", 0, 2,1,
-                  "Vd", 0,40,0,
-                  "lambda1", 0,240,0
-)
-
-fix <-c(k1 = 0.5, w0 = 50)
 
 
 # Step 1 create the hide and seek VP
@@ -77,13 +68,37 @@ simul %>%
   select(protocol, cmt, time, min, max) ->  prototiny
 
 
+# data generation lets find it --------------------------------------------
+
+
 self <- VP_proj_creator$new()
 
 self$set_targets(manual = prototiny)
 
-
 npersalve = 2E5
 npersalveFinal = 1E6
+
+
+domain <- tribble(~param, ~from, ~to, ~digits,
+                  "k2", 0, 3, 2 ,
+                  "lambda0", 0, 1.4, 2,
+                  "ke", 0, 2,1,
+                  "Vd", 0,40,0,
+                  "lambda1", 0,240,0
+)
+
+
+domain <- tribble(~param, ~from, ~to, ~by,
+                  "k2", 0, 3, 0.01 ,
+                  "lambda0", 0, 1.4, 0.01,
+                  "ke", 0, 2,0.1,
+                  "Vd", 0,40,1,
+                  "lambda1", 0,240,1
+)
+
+fix <-c(k1 = 0.5, w0 = 50)
+self$algo2(domain = domain, fix = fix,npersalve =  npersalve, npersalveFinal = npersalveFinal)
+
 fix <-c(k1 = 0.5, w0 = 50)
 
 file <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/fig5_data.RDS"
@@ -130,15 +145,27 @@ allVPs %>%
 tree <- self$algo2list$tree
 
 # Just a template, to replace by tracking time inside the function
-template <- tibble(step = c("1_algo1", "2_filter", "3_maybe", "4_reduce", "5_other"), time = c(35,25,40,50, 17))
+template <- tibble(step = c("1_algo1", "2_filter", "3_maybe", "4_reduce", "5_other"), time = c(21.7,15.19,42.6,75.5, 7) ,method = "Full") %>%
+  bind_rows(
+
+    tibble(step = c("1_algo1", "2_filter", "3_maybe", "4_reduce", "5_other"), time = c(0,0,0,168, 7),method = "alt")
+
+
+  )
+
+
 
 plotA <- template %>%
   ggplot()+
-  geom_bar(aes(x = step,y= time), stat="identity",col = "black")+
+  geom_bar(aes(x = step,y= time, fill = method), stat="identity",col = "black")+
   labs(y = "Time(sec)")+
   theme_bw(); plotA
 
-
+template %>%
+  ggplot()+
+  geom_bar(aes(x = method,y= time, fill = step), stat="identity",col = "black")+
+  labs(y = "Time(sec)")+
+  theme_bw()
 
 template %>%
   ggplot()+
