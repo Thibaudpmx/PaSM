@@ -72,7 +72,7 @@ in_in$plot_2D(x = Vd, y = lambda0, plotoreturn = 1,add_point = F) + ggtitle("", 
 
 # Several time points --------------------------------------------------------
 
-source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+# source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
 twozone <- VP_proj_creator$new()
 above_or_below <- VP_proj_creator$new()
 above_or_below2 <- VP_proj_creator$new()
@@ -89,6 +89,7 @@ VP_df_twozone <- crossing(k1 = c(0.5),
                          ke = 1 ,#*  seq(0.6,1.4,0.2),
                          lambda0 =seq(0,1,0.02),
                          lambda1 = c(12),
+                         w0 = 50,
                          Vd =  40) %>% #c(0.8,1,1.2)) %>%
   map_df(function(x){
 

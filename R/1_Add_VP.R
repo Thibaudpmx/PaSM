@@ -18,11 +18,11 @@
 ## ---------------------------
 
  fix_df = NULL; saven = 50; drug = NULL; update_at_end = T; time_compteur = T;  fillatend = F; reducefilteratend = F; npersalve = 2000; use_green_filter = T;
-pctActivGreen = 0.8; keepRedFiltaftDis = F; methodFilter = 2; use_red_filter = T; cmtalwaysbelow = NULL; keep = NULL; saveVPRej = T
+pctActivGreen = 0.1; keepRedFiltaftDis = F; methodFilter = 2; use_red_filter = T; cmtalwaysbelow = NULL; keep = NULL; saveVPRej = T; timeSave = NULL
 
 
 VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F,
-                                                 pctActivGreen = 0.8, keepRedFiltaftDis = F, methodFilter = 2, use_red_filter = T, cmtalwaysbelow = NULL, keep = NULL, saveVPRej = T){
+                                                 pctActivGreen = 0.1, keepRedFiltaftDis = F, methodFilter = 2, use_red_filter = T, cmtalwaysbelow = NULL, keep = NULL, saveVPRej = T, timeSave = NULL){
 
   tTOTAL <- Sys.time()
 
@@ -54,10 +54,10 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
 
 
 
-  poolVP_id <-     VP_df %>%
+  poolVP <-     VP_df %>%
     rowid_to_column("id") # add row equal to id
 
-  poolVP <-  map( unique(self$targets$protocol), ~ poolVP_id %>% mutate(protocol = .x)) %>% # one df per protocole
+  poolVP <-  map( unique(self$targets$protocol), ~ poolVP %>% mutate(protocol = .x)) %>% # one df per protocole
     bind_rows() %>% # bind all df
     rowid_to_column("rowid") # add rowid
 
@@ -455,8 +455,8 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
       poolVP <- poolVP %>%
         filter(! id %in% toLabelErrorAna)
 
-      poolVP_id <- poolVP_id %>%
-        filter(! id %in% toLabelErrorAna)
+      # poolVP_id <- poolVP_id %>%
+        # filter(! id %in% toLabelErrorAna)
 
     }
 
@@ -515,8 +515,8 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
       poolVP <- poolVP %>%
         filter(! id %in% idstorem)
 
-      poolVP_id <- poolVP_id %>%
-        filter(! id %in% idstorem)
+      # poolVP_id <- poolVP_id %>%
+        # filter(! id %in% idstorem)
 
       if(time_compteur == T){
 
@@ -616,13 +616,18 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
       }
 
       ## We remove all the one not accepted
+      tfilterODE <- Sys.time()
+
       poolVP <- poolVP %>%
         filter(! id %in% c(unique(filters_neg_above$id_origin), unique(filters_neg_below$id_origin)))
 
+      tfilterODE <- difftime( Sys.time(), tfilterODE, units = "s")
+
+
       # which(c(unique(filters_neg_above$id_origin, unique(filters_neg_below$id_origin))) %in% poolVP$id[!is.na(poolVP$tumVol_BU)])
 
-      poolVP_id <- poolVP_id %>%
-        filter(! id %in% c(unique(filters_neg_above$id_origin), unique(filters_neg_below$id_origin)))
+      # poolVP_id <- poolVP_id %>%
+        # filter(! id %in% c(unique(filters_neg_above$id_origin), unique(filters_neg_below$id_origin)))
 
 
       if(time_compteur == T) poolVP_compteur_new$TremoveNegDirect <- difftime(Sys.time(),t02 , units = "s")
@@ -645,7 +650,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
 
             ref <- filters_neg_above_reduc %>% slice(a)
 
-            poolVP_id %>%
+            poolVP %>%
               mutate(test = !!parse_expr(filters[[ref$cmt]][["above"]])) %>%
               filter(test == T) %>%
               pull(id) ->idtorem
@@ -655,8 +660,8 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
             poolVP <- poolVP %>%
               filter(!id %in% idtorem)
 
-            poolVP_id <- poolVP_id %>%
-              filter(!id %in% idtorem)
+            # poolVP_id <- poolVP_id %>%
+              # filter(!id %in% idtorem)
           }
         }else{ # method 2 with biiig filter
 
@@ -688,7 +693,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
 
 
 
-            poolVP_id %>%
+            poolVP %>%
               mutate(test = !!parse_expr(filtre_line)) %>%
               filter(test == T) %>% pull(id) ->idtorem
 
@@ -701,8 +706,8 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
             poolVP <- poolVP %>%
               filter(! id %in% idtorem)
 
-            poolVP_id <- poolVP_id %>%
-              filter(! id %in% idtorem)
+            # poolVP_id <- poolVP_id %>%
+              # filter(! id %in% idtorem)
           }
 
 
@@ -722,7 +727,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
             ref <- filters_neg_below_up_reduc %>% slice(a)
 
 
-            poolVP_id %>%
+            poolVP %>%
               mutate(test = !!parse_expr(filters[[ref$cmt]][["below"]])) %>%
               filter(test == T) %>%
               pull(id)  ->idtorem
@@ -732,8 +737,8 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
             poolVP <- poolVP %>%
               filter(!id %in% idtorem)
 
-            poolVP_id <- poolVP_id %>%
-              filter(!id %in% idtorem)
+            # poolVP_id <- poolVP_id %>%
+              # filter(!id %in% idtorem)
           }
         }else{ # method 2 with biiig filter
 
@@ -759,7 +764,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
             filtre_line <- paste0("(", filtres, ")") %>% paste0(collapse = "|")
 
 
-            poolVP_id %>%
+            poolVP %>% #poolVP_id
               mutate(test = !!parse_expr(filtre_line)) %>%
               filter(test == T) %>% pull(id) ->idtorem
 
@@ -775,8 +780,8 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
             poolVP <- poolVP %>%
               filter(! id %in% idtorem)
 
-            poolVP_id <- poolVP_id %>%
-              filter(! id %in% idtorem)
+            # poolVP_id <- poolVP_id %>%
+              # filter(! id %in% idtorem)
 
 
           }
@@ -806,7 +811,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
       ##### Compute the rendement of red filter and disable if negative
 
       totaltimeredfilter <- time_filter_neg_apply + timefilternegabovemake + timefilternegbelowmake
-      totalsave <-  nrem * time_simulations /  n_simulations
+      totalsave <-  nrem * time_simulations /  n_simulations + tfilterODE
 
       if(time_compteur == T){
 
@@ -862,6 +867,8 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
 
 
       if(time_compteur == T) t02 <- Sys.time()
+
+      if( !is.null(timeSave)) res <- res %>% filter(time %in% timeSave)
 
       res %>%
         left_join(line %>% distinct(id, id_origin), by = "id") %>%
@@ -1069,6 +1076,8 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
         }
         if(time_compteur == T) t02 <- Sys.time()
 
+        if( !is.null(timeSave)) res <- res %>% filter(time %in% timeSave)
+
         res %>%
           left_join(line %>% distinct(id, id_origin), by = "id") %>%
           filter(id_origin %in% unique(poolVP$id) & !id_origin %in% siml$id) %>%
@@ -1197,7 +1206,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
 
 
   if(time_compteur == T){
-    timesaver$tTOTAL <- difftime(Sys.time(), tTOTAL)
+    timesaver$tTOTAL <- difftime(Sys.time(), tTOTAL, units = 's')
 
     self$timeTrack <- timesaver
   }else{

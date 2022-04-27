@@ -194,7 +194,7 @@ VP_proj_creator$set("public", "compute_zone_sure", function(domain, keptSingleVa
 # #
 # #
 # self$poolVP %>% arrange(lambda1)
-allsquares %>% filter(k2min > 4 & lambda0min > 0.6)
-
-above %>%
-  filter( k2 <=  4.2  )
+# allsquares %>% filter(k2min > 4 & lambda0min > 0.6)
+#
+# above %>%
+#   filter( k2 <=  4.2  )
