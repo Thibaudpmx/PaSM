@@ -38,6 +38,14 @@ events <- tibble(cmt = "Central", time = 0, amt = c(0,50,100), evid = 1, id = 1:
   arrange(id, time)
 
 
+
+## just to verify he is still there
+maybe %>%
+  filter(kemin <= 0.6 & kemax >= 0.6, lambda0min <= 0.85, lambda0max >= 0.85, kemin <= 0.6, kemax >= 0.6,
+         lambda1min <=72 & lambda1max >= 72, Vdmin <= 36, Vdmax >=36)
+
+####
+
 simul <- self$model$solve(VP, events) %>%
   as_tibble
 
@@ -68,6 +76,21 @@ simul %>%
   select(protocol, cmt, time, min, max) ->  prototiny
 
 
+simul %>%
+  filter(time %in% c(0, 1, 2)) %>%
+  select(id, time, Conc) %>%
+  filter(id != 1) %>%
+  mutate(protocol = case_when(id == 1 ~ "dose0",
+                              id == 2 ~ "dose50",
+                              id == 3 ~ "dose100")) %>%
+  select(-id) %>%
+  mutate(cmt = "Conc", min = Conc *0.95, max = Conc *1.05 ) %>%
+  # slice(-1) %>%
+  select(protocol, cmt, time, min, max) ->  prototinyPK
+
+  prototinypkpd <- bind_rows( prototiny, prototinyPK)
+
+
 # data generation lets find it --------------------------------------------
 
 
@@ -75,35 +98,56 @@ self <- VP_proj_creator$new()
 
 self$set_targets(manual = prototiny)
 
+self$set_targets(manual = prototinypkpd)
 npersalve = 2E5
 npersalveFinal = 1E6
 
 
-domain <- tribble(~param, ~from, ~to, ~digits,
-                  "k2", 0, 3, 2 ,
-                  "lambda0", 0, 1.4, 2,
-                  "ke", 0, 2,1,
-                  "Vd", 0,40,0,
-                  "lambda1", 0,240,0
-)
+# domain <- tribble(~param, ~from, ~to, ~digits,
+#                   "k2", 0, 3, 2 ,
+#                   "lambda0", 0, 1.4, 2,
+#                   "ke", 0, 2,1,
+#                   "Vd", 0,40,0,
+#                   "lambda1", 0,240,0
+# )
 
 
 domain <- tribble(~param, ~from, ~to, ~by,
                   "k2", 0, 3, 0.01 ,
                   "lambda0", 0, 1.4, 0.01,
                   "ke", 0, 2,0.1,
-                  "Vd", 0,40,1,
+                  "Vd", 1,40,1,
                   "lambda1", 0,240,1
 )
 
-fix <-c(k1 = 0.5, w0 = 50)
-self$algo2(domain = domain, fix = fix,npersalve =  npersalve, npersalveFinal = npersalveFinal)
+#domain PKPD
+domain <- tribble(~param, ~from, ~to, ~by,
+                  "k2", 0, 6, 0.01 ,
+                  "lambda0", 0, 3.4, 0.01,
+                  "ke", 0, 5,0.1,
+                  "Vd", 1,40,0.1,
+                  "lambda1", 0,240,0.1
+)
+
+ndomain(domain)
+
+
+fix <-c(k1 = 0.5, w0 = 50); method = 1
+
+file <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/fig5_data2.RDS"
+self$algo2(domain = domain, fix = fix,npersalve =  npersalve, npersalveFinal = npersalveFinal, method = 1, file = file, save_every = 2)
 
 fix <-c(k1 = 0.5, w0 = 50)
 
-file <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/fig5_data.RDS"
+file <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/fig5_data2.RDS"
 
+self$algo2list <- test$algo2list
+self$poolVP <- test$poolVP
+self$targets <- test$targets
 
+self <- test
+test <- readRDS(file)
+test$algo2list
 # Just to confirm after first analyse there is still a bloc containing our VPs
 maybeFinal %>%
   filter(k2min <= VP$k2[[1]], k2max >= VP$k2[[1]],

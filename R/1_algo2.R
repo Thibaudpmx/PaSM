@@ -2,7 +2,23 @@
 
 
 # Helping functions -------------------------------------------------------
+#' Title
+#'
+#' @param ind_param
+#' @param add_events
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#'
+cleanObj <- function(obj){
 
+  obj$filters_neg_above <- tibble()
+  obj$filters_neg_below <- tibble()
+  obj$poolVP <- tibble()
+obj
+}
 
 #' Title
 #'
@@ -17,27 +33,39 @@
 reduce_maybe2 <- function(maybe, obj = self){
 
 
-  testabove <- obj$clone(deep = T)
-  testabove$poolVP <- tibble()
 
-  testbelow <- obj$clone(deep = T)
-  testbelow$poolVP <- tibble()
-  #Which are above
 
-  # tempreduce$targets$min <-  tempreduce$targets$max
-  testabove$targets$max <- Inf
-  testbelow$targets$min <-- Inf
 
-  maybeabove <- maybe
-  maybebelow <- maybe
+  for(OoI in obj$targets$cmt %>% unique){
+
+
+
+    testabove <- obj$clone(deep = T) %>% cleanObj()
+
+    testbelow <- obj$clone(deep = T) %>% cleanObj()
+
+    #Which are above
+
+    # tempreduce$targets$min <-  tempreduce$targets$max
+    testabove$targets$max <- Inf
+    testbelow$targets$min <-- Inf
+
+    # kept only the target of desired OoI
+    testabove$targets <- testabove$targets %>% filter(cmt == OoI)
+    testbelow$targets <- testbelow$targets %>% filter(cmt == OoI)
+
+    maybeabove <- maybe
+    maybebelow <- maybe
+
+  if(nrow(maybe) > 0){
 
   for(a in obj$param){
 
-    if(a %in% obj$param_increase[[1]]){
+    if(a %in% obj$param_increase[[OoI]]){
 
       names(maybeabove)[names(maybeabove) == paste0(a, "max")] <- a
       names(maybebelow)[names(maybebelow) == paste0(a, "min")] <- a
-    }else if(a %in% obj$param_reduce[[1]] ){
+    }else if(a %in% obj$param_reduce[[OoI]] ){
 
       names(maybeabove)[names(maybeabove) == paste0(a, "min")] <- a
       names(maybebelow)[names(maybebelow) == paste0(a, "max")] <- a
@@ -60,6 +88,7 @@ reduce_maybe2 <- function(maybe, obj = self){
 
   maybebelow2 <- maybebelow %>%  rowid_to_column("tokeep") %>% slice(idpostabove) %>% select(!!!parse_exprs(obj$param), tokeep)
 
+  if(nrow(maybebelow %>% slice(idpostabove)) > 0){
   testbelow$add_VP(maybebelow %>% slice(idpostabove) %>% select(!!!parse_exprs(obj$param)), use_green_filter = T, npersalve = 2000)
 
 
@@ -79,14 +108,21 @@ reduce_maybe2 <- function(maybe, obj = self){
 
 
 
-  maybe2 <- maybe %>%
+  maybe <- maybe %>%
     slice(idtokeep)
   # rowid_to_column("id") %>%
   # filter(id %in% idtokeep)
 
+  }else{
 
+    maybe <- maybe %>% slice(0)
+  }
+
+  }
+
+  }# end if nrow(maybe > 0)
   # difftime(Sys.time(), t0, "s")
-  return(maybe2)
+  return(maybe)
 }
 #
 
@@ -255,10 +291,10 @@ add_nvp_bloc <- function(blocs){
 #' @examples
 #'
 
-VP_proj_creator$set("public", "algo2", function(domain, fix = NULL, npersalve = 2E5, npersalveFinal = 1E6, file = "", save_every = 5){
+VP_proj_creator$set("public", "algo2", function(domain, fix = NULL, npersalve = 2E5, npersalveFinal = 1E6, file = "", save_every = 5, method = 1){
 
 
-  nVPs0  <- ndomain(domain) - 2^nrow(domain) # Compute the number of VPs
+  nVP0s  <- ndomain(domain) - 2^nrow(domain) # Compute the number of VPs
 
 
   timeTrak <- list()
@@ -267,6 +303,17 @@ VP_proj_creator$set("public", "algo2", function(domain, fix = NULL, npersalve = 
 
   timeTrak$Start <- t0
 
+
+  DFfix <- as.data.frame(fix) %>%
+    rownames_to_column() %>%
+    spread(rowname , fix)
+
+  DFfix2 <- DFfix %>%
+    gather("param", "value") %>%
+    crossing(a = c("min", "max")) %>%
+    mutate(param = paste0(param, a)) %>%
+    select(-a) %>%
+    spread(param, value)
 
   namesparam <- c(paste0(domain$param,  "max"),paste0(domain$param,  "min") ) # names of parameter with min and max
 
@@ -283,36 +330,18 @@ VP_proj_creator$set("public", "algo2", function(domain, fix = NULL, npersalve = 
 
   nperparam <- floor(npersalve^(1/nrow(domain))) # how many division per parameter per iteration
 
-  blocs %>%
-    mutate(sampl = pmap(list(from, to, by), function(from, to, by){
-
-      # from = 0; to = 3; digits = 4
-      # seq(from, to, (to-from)/(nperparam-1)) %>% round(digits) %>% unique()
-      temp <- seq(from, to, (to-from)/(nperparam+1))
-
-      temp <- temp - temp %% by
-
-      temp[-c(1, length(temp))]
-
-    })) -> VPsparam
 
 
-  # Cross parameter (per bloc) and add fixed values: perfom the first cohort
-  newVPs <- VPsparam %>%
-    group_split(id) %>%
-    map( function(x){
+
+algo1 <- function(obj = self, VPsparam ){
 
 
-      temp <- rlang::invoke(.fn = tidyr::crossing,.args =  x$sampl )
 
-      names(temp) <- x$param
-      temp
-    }) %>%
-    bind_rows() %>%
+
+  newVPs <-  rlang::invoke(.fn = crossing, VPsparam$sampl )
+  names(newVPs) <- VPsparam$param
+  newVPs <- newVPs %>%
     add_column(DFfix)
-
-
-algo1 <- function(obj = self, newVPs ){
 
   timeTrakTemp <- list()
 
@@ -335,7 +364,7 @@ algo1 <- function(obj = self, newVPs ){
 
   # Compute zone_maybe
   tMaybe <- Sys.time()
-  obj$compute_zone_maybe()
+  obj$compute_zone_maybe(limits = blocs)
   timeTrakTemp$ZoneMaybe <- difftime(Sys.time(),  tMaybe, units = "s")
 
   maybe <- obj$zone_maybe
@@ -360,101 +389,24 @@ algo1 <- function(obj = self, newVPs ){
 
 
 
-if(method == 1){
-
-usealgo1 <- algo1(self, newVPs)
-
-self <- usealgo1$obj
-
-maybe <- self$zone_maybe
-
-timeTrak$round1  <- usealgo1$timeTrack
-}else{
-
-
-  maybe <- map2(VPsparam$param, VPsparam$sampl, function(x, y){
-
-    namemax <- parse_expr(paste0(x,"max"))
-
-    tibble(!!namemax := c(0, y, domain$to[domain$param == x])) %>%
-      mutate(!!parse_expr(paste0(x,"min")) := lag(!!namemax)) %>%
-      slice(-1)
-
-  }) %>%
-    invoke(.fn = tidyr::crossing) %>%
-    mutate(w0min = 50, w0max = 50, k1min = 0.5, k1max = 0.5)-> allBlocs
-
-}
-
-  timeTrak$sizeMaybeBeforeReduc <- nrow(maybe)
-  cat("Reduce maybe")
-  tMaybeReduce <- Sys.time()
-  maybe <- reduce_maybe2(maybe)
-  timeTrak$tMaybeReduce <- difftime(Sys.time(),  tMaybeReduce, units = "s")
-  timeTrak$sizeMaybeAfterReduc <- nrow(maybe)
-  cat("End reduce maybe")
-
-  tSizeBloc<- Sys.time()
-  maybe <- add_nvp_bloc(maybe)
-  timeTrak$tSizeBlock <- difftime(Sys.time(),  tSizeBloc, units = "s")
-
-  self$zone_maybe   <- maybe
-
-
-to_do_final <-   maybe %>%
-    filter(temp3 < npersalveFinal)
-
-gatherblocsPool <- (npersalveFinal / median(maybe$temp3)) %>% floor()
-
-to_do_final <- to_do_final %>%
-    rowid_to_column("blocsPool") %>%
-    mutate(blocsPool = floor(blocsPool/gatherblocsPool) + 1) %>%
-    mutate(todo = "final")
-
-to_dive <-   maybe %>%
-  filter(temp3 >= npersalveFinal) %>%
-  rowid_to_column("blocsPool") %>%
-  mutate(blocsPool = max(to_do_final$blocsPool)+blocsPool) %>%
-  mutate(todo = "dive")
-
-
-maybeFinal <- bind_rows(to_do_final, to_dive)
-
-  nVPs <- sum(maybeFinal$temp3)
-
-  timeperun <- 0.5/2000
-
-  self$algo2list[["tree"]] <- tibble(Name = "first", size = length(unique(maybeFinal$blocsPool)), todo = 1,
-                                     before = nVPs0, after = nVPs, ratio = nVPs/nVPs0,
-                                     time = difftime(Sys.time(), t0, units = "s"), what = "zoom")
-
-  self$algo2list[["domain"]] <- domain
-
-  self$algo2list[["first"]] <- maybeFinal
-
 
   # maybeFinal[namesparam] %>% distinct()
 
   if(file != "") saveRDS(self, file)
 
-  tree <- self$algo2list[["tree"]]
-  # nextstep <-  self$algo2list[["tree"]] %>%
-  #   filter(!is.na(todo)) %>%
-  #   slice(1)
-  #
-  #
-  #
-  # nVPs/nVPs0 * 100
-  # nVPs/2000 * 0.5 / 3600 / 24
-  #
-  # nVPs0/2000 * 0.5 / 3600 / 24
+
   # Now the deep dive
   nsave <- 0
-  while(sum( self$algo2list[["tree"]]$todo) > 0 ){
+  while(sum( self$algo2list[["tree"]]$todo) > 0 | is.null( self$algo2list[["tree"]]) ){
 
 
+    # Determine what to do
     t0 <- Sys.time()
 
+    if(is.null( self$algo2list[["tree"]])){
+      maybe <- list()
+      maybe$todo <- "First0"
+    }else{
     nextstep <- self$algo2list[["tree"]] %>% filter(todo > 0) %>% slice(1)
 
     print(nextstep)
@@ -465,8 +417,194 @@ maybeFinal <- bind_rows(to_do_final, to_dive)
     # if(nextstep$Name !="first") maybe <- maybe$algo2list[[1]]
 
     nVP0s <- sum(maybe$temp3)
+    }
 
-    if(unique(maybe$todo) == "final"){
+
+
+    tempVP <- self$clone(deep = T)
+
+    tempVP$filters_neg_above <- tibble()
+    tempVP$filters_neg_below <- tibble()
+    tempVP$algo2list  <- list()
+    ### Here do differently wether we should cut a domain or completely explore it
+
+# Zoom --------------------------------------------------------------------
+
+
+    if(unique(maybe$todo) != "final"){ # In case we need to cut a domain
+
+
+
+
+      if( unique(maybe$todo) == "First0"){
+        blocs <- domain
+      }else{
+
+        blocs <- maybe %>%
+          select(-todo) %>%
+          gather("param", "value") %>%
+          filter(grepl("(min$)|(max$)", param)) %>%
+          mutate(minmax = if_else(grepl("min$", param), "min", "max")) %>%
+          mutate(param = gsub("(min$)|(max$)", "", param)) %>%
+          filter(param %in% domain$param) %>%
+          spread(minmax, value) %>%
+          rename(from = min, to = max) %>%
+          left_join(domain %>% select(param, by), by = "param") %>%
+          select(param, from, to, by)
+
+      }
+
+
+      nperparam <- floor(npersalve^(1/nrow(domain)))
+
+
+      blocs %>%
+        mutate(sampl = pmap(list(from, to, by), function(from, to, by){
+
+          # from = 0; to = 75; digits = 5
+          temp <- seq(from, to, (to-from)/(nperparam+1))
+
+          temp <- temp - temp %% by
+
+          temp[-c(1, length(temp))]
+
+        })) -> VPsparam
+
+
+
+
+
+
+      map2(VPsparam$param, VPsparam$sampl, function(x, y){
+
+        namemax <- parse_expr(paste0(x,"max"))
+
+        tibble(!!namemax := c(0, y, domain$to[domain$param == x])) %>%
+          mutate(!!parse_expr(paste0(x,"min")) := lag(!!namemax)) %>%
+          slice(-1)
+
+      }) %>%
+        rlang::invoke(.fn = tidyr::crossing) %>%
+        mutate(w0min = 50, w0max = 50, k1min = 0.5, k1max = 0.5)-> allBlocs
+
+
+      if(method == 1){
+
+        usealgo1 <- algo1(tempVP, VPsparam)
+
+        tempVP <- usealgo1$obj
+
+        maybe <- tempVP$zone_maybe
+
+        timeTrak$round1  <- usealgo1$timeTrack
+      }else{
+
+
+        maybe <- map2(VPsparam$param, VPsparam$sampl, function(x, y){
+
+          namemax <- parse_expr(paste0(x,"max"))
+
+          tibble(!!namemax := c( blocs$from[blocs$param == x], y, blocs$to[blocs$param == x])) %>%
+            mutate(!!parse_expr(paste0(x,"min")) := lag(!!namemax)) %>%
+            slice(-1)
+
+        }) %>%
+          rlang::invoke(.fn = tidyr::crossing) %>%
+          mutate(DFfix2)
+
+      }
+
+      timeTrak$sizeMaybeBeforeReduc <- nrow(maybe)
+      cat("Reduce maybe")
+      tMaybeReduce <- Sys.time()
+      maybe <- reduce_maybe2(maybe, obj = tempVP)
+      timeTrak$tMaybeReduce <- difftime(Sys.time(),  tMaybeReduce, units = "s")
+      timeTrak$sizeMaybeAfterReduc <- nrow(maybe)
+      cat("End reduce maybe")
+
+
+      if(nrow(maybe) > 0 ){
+      tSizeBloc<- Sys.time()
+      maybe <- add_nvp_bloc(maybe)
+      timeTrak$tSizeBlock <- difftime(Sys.time(),  tSizeBloc, units = "s")
+
+      tempVP$zone_maybe   <- maybe
+
+
+      to_do_final <-   maybe %>%
+        filter(temp3 < npersalveFinal)
+
+      gatherblocsPool <- (npersalveFinal / median(to_do_final$temp3)) %>% floor()
+
+      to_do_final <- to_do_final %>%
+        rowid_to_column("blocsPool") %>%
+        mutate(blocsPool = floor(blocsPool/gatherblocsPool) ) %>%
+        mutate(todo = "final")
+
+      if(nrow(to_do_final) >0) if(min(to_do_final$blocsPool) == 0) to_do_final$blocsPool <- to_do_final$blocsPool + 1
+
+
+      to_dive <-   maybe %>%
+        filter(temp3 >= npersalveFinal) %>%
+        rowid_to_column("blocsPool") %>%
+        mutate(blocsPool = max(to_do_final$blocsPool,0)+blocsPool) %>%
+        mutate(todo = "dive")
+
+
+      maybeFinal <- bind_rows(to_do_final, to_dive)
+
+      nVPs <- sum(maybeFinal$temp3)
+      ntodo <- 1
+      }else{ #if every blocs deleated
+
+        maybeFinal <- maybe
+
+        nVPs <- 0
+    ntodo <- 0
+      }
+
+if(unique(maybe$todo) == "First0"){
+
+      self <- tempVP
+
+      self$algo2list[["tree"]] <- tibble(Name = "first", size = length(unique(maybeFinal$blocsPool)), todo = 1,
+                                         before = nVP0s, after = nVPs, ratio = nVPs/nVP0s,
+                                         time = difftime(Sys.time(), t0, units = "s"), what = "zoom")
+
+      self$algo2list[["domain"]] <- domain
+
+      self$algo2list[["first"]] <- maybeFinal
+
+}else{
+
+
+  newname <- paste0(nextstep$Name,"_", nextstep$todo)
+
+
+  if(nrow(tempVP$poolVP) > 0  ) self$poolVP <- bind_rows(self$poolVP, tempVP$poolVP %>% mutate(from = newname))
+
+  self$algo2list[[newname]] <- maybeFinal
+
+  self$algo2list$tree  <- self$algo2list$tree %>%
+    add_row(Name = newname, size =  max(c(maybeFinal$blocsPool,0)), todo = ntodo, before = nVP0s, after = nVPs, ratio = nVPs/nVP0s, what = "Done",
+            time =   difftime(Sys.time(), t0, units = "s")
+    )
+
+  self$algo2list$tree$todo[self$algo2list$tree$Name == nextstep$Name] <- if_else(nextstep$todo == nextstep$size, 0, nextstep$todo + 1)
+
+
+
+}
+
+
+
+# dig ---------------------------------------------------------------------
+
+
+    }else{
+
+
+
 
       # Compute all patient
 
@@ -480,18 +618,20 @@ maybeFinal <- bind_rows(to_do_final, to_dive)
         select(-key) %>%
         spread(a, value) %>%
         rename(from = min, to = max) %>%
-        left_join(domain %>% distinct(param, digits), by = "param")
-
-
+        left_join(domain %>% distinct(param, by), by = "param")
 
       blocs %>%
-        mutate(sampl = pmap(list(from, to, digits), function(from, to, digits){
+        mutate(sampl = pmap(list(from, to, by), function(from, to, by){
 
-          # from = 0; to = 3; digits = 4
-          temp <- seq(from, to, 10^(-digits) )  %>% unique()
-          temp[2:max(length(temp)-1,2)]
+          # from = 0; to = 75; digits = 5
+          temp <- seq(from, to, (to-from)/(nperparam+1))
+
+          temp <- temp - temp %% by
+
+          temp[-c(1, length(temp))] %>% unique()
 
         })) -> VPsparam
+
 
       # VPsparam
 
@@ -509,30 +649,20 @@ maybeFinal <- bind_rows(to_do_final, to_dive)
 
       # newVPs <- newVPs %>% distinct()
 
-#
-#       newVPs <-   newVPs %>%
-#         rowid_to_column("group") %>%
-#         mutate(group = floor(group / 400000) + 1)
-
-
-
-
-      tempVP <- self$clone(deep = T)
-
-      tempVP$filters_neg_above <- tibble()
-      tempVP$filters_neg_below <- tibble()
-      tempVP$algo2list  <- list()
-      tempVP$poolVP  <- tibble()
+      #
+      #       newVPs <-   newVPs %>%
+      #         rowid_to_column("group") %>%
+      #         mutate(group = floor(group / 400000) + 1)
 
       # for(a in newVPs$group %>% unique()){
 
-        # print(paste0(a, "/", length(newVPs$group %>% unique())))
+      # print(paste0(a, "/", length(newVPs$group %>% unique())))
 
-        # newVPs2 <- newVPs %>%
-          # filter(group == a)
+      # newVPs2 <- newVPs %>%
+      # filter(group == a)
 
-        tempVP$add_VP(newVPs, keepRedFiltaftDis = T, reducefilteratend = F, use_green_filter = T, pctActivGreen = 0.1,npersalve = 2000)
-        #
+      tempVP$add_VP(newVPs, keepRedFiltaftDis = T, reducefilteratend = F, use_green_filter = T, pctActivGreen = 0.1,npersalve = 2000)
+      #
       # }
 
       # print(tempVP)
@@ -573,164 +703,7 @@ maybeFinal <- bind_rows(to_do_final, to_dive)
       #
       # next
 
-    }else{
 
-
-      maybe <-  maybe %>%
-        # self$algo2list[[nextstep$Name]]
-        filter(blocsPool == todo) %>%
-        select(-blocsPool)
-
-      nVP0s <- sum(maybe$temp3)
-
-
-
-      blocs <- maybe[namesparam] %>%
-        rowid_to_column("id") %>%
-        gather("key", "value", -id) %>%
-        mutate(param = gsub("(min$)|(max$)", "", key)) %>%
-        mutate(a = map2_chr(param, key, ~ gsub(.x, "", .y))) %>%
-        select(-key) %>%
-        spread(a, value) %>%
-        rename(from = min, to = max) %>%
-        left_join(domain %>% distinct(param, digits), by = "param")
-
-      nperparam <- ceiling((npersalve/length(unique(blocs$id)))^(1/nrow(domain)))
-
-
-      blocs %>%
-        mutate(sampl = pmap(list(from, to, digits), function(from, to, digits){
-
-          # from = 0; to = 3; digits = 4
-          # seq(from, to, (to-from)/(nperparam-1)) %>% round(digits) %>% unique()
-          withbord <- seq(from, to, 10^(-digits)) %>% round(digits) %>% unique()
-          withbord[2:max(length(withbord)-1,2)]
-
-        })) -> VPsparam
-
-      # Cross parameter (per bloc) and add fixed values
-      newVPs <- VPsparam %>%
-        group_split(id) %>%
-        map( function(x){
-          temp <- rlang::invoke(.fn = crossing, x$sampl )
-          names(temp) <- x$param
-          temp
-        }) %>%
-        bind_rows() %>%
-        add_column(DFfix)
-
-
-      tempVP <- self$clone(deep = T)
-
-      tempVP$filters_neg_above <- tibble()
-      tempVP$filters_neg_below <- tibble()
-      tempVP$algo2list  <- list()
-      #
-      # if(nrow(self$poolVP)>0 ){
-      #
-      # newVPs <- newVPs %>%
-      #   left_join(self$poolVP %>% select(!!!parse_exprs(names(newVPs)),  id)) %>%
-      #   filter(is.na(id)) %>%
-      #   select(-id)
-      # }
-      #
-      # if(! firstbloc) newVPs <- newVPs %>%
-      #   left_join(prevVPs %>% mutate(test = 1)) %>%
-      #   filter(is.na(test)) %>%
-      #   select(-test)
-      #
-      # prevVPs <-newVPs
-
-
-
-      # newVPs <- invoke(.fn = crossing, .args = VPsparam)%>%
-      #   add_column(DFfix)
-
-      # Compute the new VPs
-      tempVP$add_VP(newVPs, keepRedFiltaftDis = T, reducefilteratend = F)
-
-
-
-
-      # self$n_filter_reduc()
-      # Compute zone_maybe
-
-   test_zone_maybe <-    try({   aezatempVP$compute_zone_maybe()})
-
-        # Which become the new blocs
-        # tempVP$zone_maybe
-   if(class(test_zone_maybe) != "try-error"){
-        zone_maybe <- tempVP$zone_maybe
-        zone_maybe <- reduce_maybe2(zone_maybe)
-
-        tempVP$algo2list[["blocs"]] <- zone_maybe %>%
-          rowid_to_column("blocsPool") %>%
-          mutate(blocsPool = floor(blocsPool/gatherblocsPool) + 1)
-
-        sizetemp <- max(tempVP$algo2list[["blocs"]]$blocsPool)
-
-        # ndomain2(tempVP$zone_maybe)
-   }else{
-
-     zone_maybe <- tibble()
-
-     tempVP$algo2list[["blocs"]] <- "too big"
-     sizetemp <- NA
-     nVPs <- NA
-   }
-
-
-
-      # maybe
-
-      # tempVP$zone_maybe
-      if(nrow(zone_maybe)> 0 ){
-      zone_maybe <- add_nvp_bloc(zone_maybe)
-      nVPs <- sum(zone_maybe$temp3)
-      }else if(!is.na(sizetemp)){
-
-        nVPs <- 0
-        sizetemp <- 0
-      }
-      tloop <- difftime(Sys.time(), t0, units = "s")
-
-      # Deactivate zoom system if needed
-      timesaved <- (nVP0s - nVPs) * as.double(taddvp) / 200000
-
-      if(is.na(timesaved)){
-
-        nextsteptype <- "not_computable"
-      }else if(tloop < 2 * timesaved ) {
-
-        nextsteptype <- "all"
-      }else{
-      nextsteptype <- "zoom"
-      }
-
-      # nVPs * as.double(taddvp) / 200000
-      #   as.double(tloop)
-
-
-
-      newname <- paste0(c(nextstep$Name, nextstep$todo), collapse = "_")
-      self$algo2list[[newname]] <- tempVP
-
-      self$algo2list$tree  <- self$algo2list$tree %>%
-        add_row(Name = newname, size =  sizetemp, todo = min(nVPs,1), before = nVP0s, after = nVPs, ratio = nVPs/nVP0s,
-                time = difftime(Sys.time(), t0, units = "s"), what = nextsteptype
-        )
-
-      self$algo2list$tree$todo[self$algo2list$tree$Name == nextstep$Name] <- self$algo2list$tree$todo[self$algo2list$tree$Name == nextstep$Name] + 1
-      if(self$algo2list$tree$todo[self$algo2list$tree$Name == nextstep$Name] > self$algo2list$tree$size[self$algo2list$tree$Name == nextstep$Name]){
-
-        self$algo2list$tree$todo[self$algo2list$tree$Name == nextstep$Name]  <- 0
-      }
-
-      nextstep <-  self$algo2list[["tree"]] %>%
-        filter(todo != 0 ) %>%
-        # filter(what == "all") %>%
-        filter(!is.na(todo)) %>%
-        slice(1)
 
       # saveRDS(self, "D:/these/Second_project/QSP/modeling_work/VT_simeoni/algo2.RDS")
       #
@@ -742,6 +715,8 @@ maybeFinal <- bind_rows(to_do_final, to_dive)
 
 
     nsave <- nsave + 1
+
+    cat(paste0("Nsave = ", nsave))
     if(file != "" &   nsave == save_every){
 
       cat(silver("Saving..."))
@@ -755,7 +730,7 @@ maybeFinal <- bind_rows(to_do_final, to_dive)
   } # end while loop
 
 
-
+  saveRDS(self, file)
 })
 
 # self$algo2list$tree  <- self$algo2list$tree %>%
@@ -768,151 +743,151 @@ maybeFinal <- bind_rows(to_do_final, to_dive)
 
 
 # Tries -------------------------------------------------------------------
-
-maybe
-
-VPsparam
-
-
-domain
-# newVPs <-
-map2(VPsparam$param, VPsparam$sampl, function(x, y){
-
-  namemax <- parse_expr(paste0(x,"max"))
-
-  tibble(!!namemax := c(0, y, domain$to[domain$param == x])) %>%
-    mutate(!!parse_expr(paste0(x,"min")) := lag(!!namemax)) %>%
-    slice(-1)
-
-}) %>%
-  invoke(.fn = tidyr::crossing) %>%
-  mutate(w0min = 50, w0max = 50, k1min = 0.5, k1max = 0.5)-> allBlocs
-
-allBlocs <- allBlocs
-
-T00 <- Sys.time()
-allBlocs <- reduce_maybe2(allBlocs)
-talt <-  difftime( Sys.time(),T00)
-
-
-allBlocs <- add_nvp_bloc(allBlocs)
-
-
-allBlocs %>%
-  rename(nnew= temp3) %>%
-  left_join(maybeFinal %>% select(-blocsPool)) %>%
-  filter(is.na(temp3))
-
-# try to compute new patients
 #
-#   nnew <- (600000 / nrow(blocs))%>% ceiling
+# maybe
 #
-#   temp <-  blocs %>%
-#     # slice(1:2) %>%
-#     rowid_to_column("id") %>%
-#     gather("key", "value", -id , -contains("blocsPool")) %>%
-#     mutate(param = gsub("(min$)|(max$)", "", key)) %>%
-#     mutate(a = map2_chr(param, key, ~ gsub(.x, "", .y))) %>%
-#     select(-key) %>%
-#     spread(a, value) %>%
-#     rename(from = min, to = max) %>%
-#     left_join(domain %>% distinct(param, digits), by = "param")
+# VPsparam
 #
 #
-#   temp %>%
-#     filter(!is.na(digits)) %>%
-#     # slice(1) %>%
-#     mutate(how = pmap(list(from, to, digits), function(from, to , digits){
+# domain
+# # newVPs <-
+# map2(VPsparam$param, VPsparam$sampl, function(x, y){
+#
+#   namemax <- parse_expr(paste0(x,"max"))
+#
+#   tibble(!!namemax := c(0, y, domain$to[domain$param == x])) %>%
+#     mutate(!!parse_expr(paste0(x,"min")) := lag(!!namemax)) %>%
+#     slice(-1)
+#
+# }) %>%
+#   invoke(.fn = tidyr::crossing) %>%
+#   mutate(w0min = 50, w0max = 50, k1min = 0.5, k1max = 0.5)-> allBlocs
+#
+# allBlocs <- allBlocs
+#
+# T00 <- Sys.time()
+# allBlocs <- reduce_maybe2(allBlocs)
+# talt <-  difftime( Sys.time(),T00)
 #
 #
-#       tempp <- seq(from, to, (to-from)/(3+1)) %>% round(digits) %>% unique()
-#
-#       # print(tempp)
-#       tibble(n = list(tempp[-c(1, length(tempp))]), ntotal =     max(length(seq(from, to, 10^(-digits))) - 2,1))
+# allBlocs <- add_nvp_bloc(allBlocs)
 #
 #
+# allBlocs %>%
+#   rename(nnew= temp3) %>%
+#   left_join(maybeFinal %>% select(-blocsPool)) %>%
+#   filter(is.na(temp3))
 #
-#
-#
-#
-#     })) -> temp2
-#
-#   temp2 %>%
-#   # temp2 %>%
-#     unnest() %>%
-#     filter(id == 1) -> x
-#     group_split(id) %>%
-#     map(function(x){
-#
-#       print(unique(unique(x$id)))
-#       x %>%
-#         mutate(exp = paste0(n)) %>%
-#         pull(exp) -> exp
-#
-#       names(exp ) <- x$param
-#
-#       crossing(!!!parse_exprs(exp)) %>%
-#         mutate(id = unique(x$id))
-#     }) -> temp3
-#
-#
-#
-#
-#     temp3 %>%
-#     bind_rows() %>%
-#     group_by(id) %>%
-#     tally %>%
-#     group_by(n) %>%
-#     tally
-#
-#     newcohort <-
-#       temp3 %>%
-#       bind_rows() %>%
-#       select(-id) %>%
-#       mutate(k1 = 0.5, w0 = 50)
-#
-#     self2 <- VP_proj_creator$new()
-#
-#     self2$set_targets(manual = prototiny)
-#
-#     self2$add_VP(newcohort, keepRedFiltaftDis = T, reducefilteratend = F)
-#
-#     self2$n_filter_reduc()
-#
-#     self2
-#
-#     # Which become the new blocs
-#     self2$compute_zone_maybe()
-#     maybe <- self$zone_maybe
-#
-#
-#     self3 <- self2$clone(deep = T)
-#
-#     self2$filters_neg_above %>%
-#       distinct(lambda0) %>%
-#       pull(lambda0)
-#
-#     self3$filters_neg_above  <- self3$filters_neg_above  %>% filter(lambda0 < 0.52)
-#     self3$filters_neg_below  <- self3$filters_neg_below  %>% filter(lambda0 < 0.52)
-#     self3$compute_zone_maybe()
-#
-#     self4$filters_neg_above  <- self3$filters_neg_above  %>% filter(lambda0 >=  0.52)
-#     self4$filters_neg_below  <- self3$filters_neg_below  %>% filter(lambda0 >=  0.52)
-#     self4$compute_zone_maybe()
-#
-#
-#     self2$compute_zone_maybe()
-#
-#     message("Reduce maybe")
-#     maybe <- reduce_maybe2(maybe)
-#     message("End reduce maybe")
-#
-#
-#     gatherblocsPool <- 100
-#
-#     blocs <- maybe %>%
-#       rowid_to_column("blocsPool") %>%
-#       mutate(blocsPool = floor(blocsPool/gatherblocsPool) + 1)
-#
-#
-#     blocs <- add_nvp_bloc(blocs)
+# # try to compute new patients
+# #
+# #   nnew <- (600000 / nrow(blocs))%>% ceiling
+# #
+# #   temp <-  blocs %>%
+# #     # slice(1:2) %>%
+# #     rowid_to_column("id") %>%
+# #     gather("key", "value", -id , -contains("blocsPool")) %>%
+# #     mutate(param = gsub("(min$)|(max$)", "", key)) %>%
+# #     mutate(a = map2_chr(param, key, ~ gsub(.x, "", .y))) %>%
+# #     select(-key) %>%
+# #     spread(a, value) %>%
+# #     rename(from = min, to = max) %>%
+# #     left_join(domain %>% distinct(param, digits), by = "param")
+# #
+# #
+# #   temp %>%
+# #     filter(!is.na(digits)) %>%
+# #     # slice(1) %>%
+# #     mutate(how = pmap(list(from, to, digits), function(from, to , digits){
+# #
+# #
+# #       tempp <- seq(from, to, (to-from)/(3+1)) %>% round(digits) %>% unique()
+# #
+# #       # print(tempp)
+# #       tibble(n = list(tempp[-c(1, length(tempp))]), ntotal =     max(length(seq(from, to, 10^(-digits))) - 2,1))
+# #
+# #
+# #
+# #
+# #
+# #
+# #     })) -> temp2
+# #
+# #   temp2 %>%
+# #   # temp2 %>%
+# #     unnest() %>%
+# #     filter(id == 1) -> x
+# #     group_split(id) %>%
+# #     map(function(x){
+# #
+# #       print(unique(unique(x$id)))
+# #       x %>%
+# #         mutate(exp = paste0(n)) %>%
+# #         pull(exp) -> exp
+# #
+# #       names(exp ) <- x$param
+# #
+# #       crossing(!!!parse_exprs(exp)) %>%
+# #         mutate(id = unique(x$id))
+# #     }) -> temp3
+# #
+# #
+# #
+# #
+# #     temp3 %>%
+# #     bind_rows() %>%
+# #     group_by(id) %>%
+# #     tally %>%
+# #     group_by(n) %>%
+# #     tally
+# #
+# #     newcohort <-
+# #       temp3 %>%
+# #       bind_rows() %>%
+# #       select(-id) %>%
+# #       mutate(k1 = 0.5, w0 = 50)
+# #
+# #     self2 <- VP_proj_creator$new()
+# #
+# #     self2$set_targets(manual = prototiny)
+# #
+# #     self2$add_VP(newcohort, keepRedFiltaftDis = T, reducefilteratend = F)
+# #
+# #     self2$n_filter_reduc()
+# #
+# #     self2
+# #
+# #     # Which become the new blocs
+# #     self2$compute_zone_maybe()
+# #     maybe <- self$zone_maybe
+# #
+# #
+# #     self3 <- self2$clone(deep = T)
+# #
+# #     self2$filters_neg_above %>%
+# #       distinct(lambda0) %>%
+# #       pull(lambda0)
+# #
+# #     self3$filters_neg_above  <- self3$filters_neg_above  %>% filter(lambda0 < 0.52)
+# #     self3$filters_neg_below  <- self3$filters_neg_below  %>% filter(lambda0 < 0.52)
+# #     self3$compute_zone_maybe()
+# #
+# #     self4$filters_neg_above  <- self3$filters_neg_above  %>% filter(lambda0 >=  0.52)
+# #     self4$filters_neg_below  <- self3$filters_neg_below  %>% filter(lambda0 >=  0.52)
+# #     self4$compute_zone_maybe()
+# #
+# #
+# #     self2$compute_zone_maybe()
+# #
+# #     message("Reduce maybe")
+# #     maybe <- reduce_maybe2(maybe)
+# #     message("End reduce maybe")
+# #
+# #
+# #     gatherblocsPool <- 100
+# #
+# #     blocs <- maybe %>%
+# #       rowid_to_column("blocsPool") %>%
+# #       mutate(blocsPool = floor(blocsPool/gatherblocsPool) + 1)
+# #
+# #
+# #     blocs <- add_nvp_bloc(blocs)

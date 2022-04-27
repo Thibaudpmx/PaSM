@@ -157,7 +157,7 @@
 
 
 
-VP_proj_creator$set("public", "compute_zone_maybe", function(zone_sure = F, keptSingleValue = T){
+VP_proj_creator$set("public", "compute_zone_maybe", function(zone_sure = F, keptSingleValue = T, limits = NULL){
 
 
   allcmt <- unique(self$targets$cmt) # to know if we add 0 and Inf
@@ -171,11 +171,17 @@ VP_proj_creator$set("public", "compute_zone_maybe", function(zone_sure = F, kept
 
 
     # if the paramter is included in the system
-  if(map_lgl(allcmt, ~ x %in% c(self$param_no_impact[[.x]],self$param_increase[[.x]],self$param_reduce[[.x]] )) %>% max){
+  if(map_lgl(allcmt, ~ x %in% c(self$param_no_impact[[.x]],self$param_increase[[.x]],self$param_reduce[[.x]] )) %>% max ){
 
     if((length(temp) == 1 &   keptSingleValue == F) |length(temp) > 1 ){ # if there is only one value of a param, do you
       # want to extrapolate to 0 et Inf, or keet it simple by saying you don't want any dimension on it
-    temp <- c(temp, 0, Inf) %>% unique
+   if(is.null(limits)){
+     temp <- c(temp, 0, Inf) %>% unique
+   }else{
+
+     temp <- c(temp, limits$from[limits$param == x], limits$to[limits$param == x]) %>% unique
+   }
+
     }
   }
 

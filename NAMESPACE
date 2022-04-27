@@ -3,6 +3,7 @@
 export()
 export(VP_proj_creator)
 export(add_nvp_bloc)
+export(cleanObj)
 export(data_segment)
 export(data_segment_plot)
 export(filter_reduc)
