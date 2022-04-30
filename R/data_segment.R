@@ -88,6 +88,8 @@ data_segment_plot <- function(data, targets,  filter = NULL){
     facet_wrap(cmt~protocol, scales = "free")+
     geom_segment(data = targets,
                  aes(x = time, xend = time, y = min, yend = max), col ="red", size = 2)+
-    scale_y_log10()
+    scale_y_log10()+
+    theme_bw()
+
 
 }

@@ -207,12 +207,20 @@ timetable <- function(self){
     mutate(patientRemovedperSec = as.double(NremovedRedFilter) / as.double((RedFilter + timemodel )),
            refpatientRemovedperSec =  as.double(nsimul) / as.double((timemodel )))
 
+  namesCol <- names(loop)
 
-  if("Treduc_filter_green_below_tumVol" %in% names( tt$poolVP_compteur)){
+  if(grepl("Treduc_filter_green",  namesCol) %>% sum > 1){
+
+    naemesReduc <- namesCol[grepl("Treduc_filter_green", namesCol)]
+    naemesReduc2 <- namesCol[grepl("TapplyGreenFilter", namesCol)]
+
+
+
+    loop[ , naemesReduc] %>% map_df(~ as.double(.x)) %>% sum(na.rm = T)
 
     loop <- loop %>%
-      mutate( Treduc_filter_pos_both  =  Treduc_filter_green_below_tumVol +  Treduc_filter_green_above_tumVol) %>%
-      mutate( TapplyGreenFilter  =  TapplyGreenFilterBelow_tumVol +  TapplyGreenFilterAbove_tumVol,
+      mutate( Treduc_filter_pos_both  =  !!parse_expr(paste0(naemesReduc, collapse = "+"))) %>%
+      mutate( TapplyGreenFilter  = !!parse_expr(paste0(naemesReduc2, collapse = "+")),
               GreenFilter =  Treduc_filter_pos_both + TapplyGreenFilter)
 
 

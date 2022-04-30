@@ -18,11 +18,11 @@
 ## ---------------------------
 
  fix_df = NULL; saven = 50; drug = NULL; update_at_end = T; time_compteur = T;  fillatend = F; reducefilteratend = F; npersalve = 2000; use_green_filter = T;
-pctActivGreen = 0.1; keepRedFiltaftDis = F; methodFilter = 2; use_red_filter = T; cmtalwaysbelow = NULL; keep = NULL; saveVPRej = T; timeSave = NULL
+pctActivGreen = 0.1; keepRedFiltaftDis = F; methodFilter = 2; use_red_filter = T; cmtalwaysbelow = NULL; keep = NULL; saveVPRej = T; timeSave = NULL;PreviousResults = tibble()
 
 
 VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F,
-                                                 pctActivGreen = 0.1, keepRedFiltaftDis = F, methodFilter = 2, use_red_filter = T, cmtalwaysbelow = NULL, keep = NULL, saveVPRej = T, timeSave = NULL){
+                                                 pctActivGreen = 0.1, keepRedFiltaftDis = F, methodFilter = 2, use_red_filter = T, cmtalwaysbelow = NULL, keep = NULL, saveVPRej = T, timeSave = NULL, PreviousResults = tibble()){
 
   tTOTAL <- Sys.time()
 
@@ -62,6 +62,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
     rowid_to_column("rowid") # add rowid
 
 
+
   # Simply modify the id if already stored in the R6 object
   # Such as former and new VP don't have the same IDs
   if(nrow(self$poolVP) > 0 ) poolVP <- poolVP %>%
@@ -84,100 +85,6 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
                   paste0(cmts, "_AL"))
 
   for(a in col_to_add) poolVP[a] <- NA
-
-
-  ## Section to apply the filters already stored in memory
-
-  # if(time_compteur == T){
-  #   t0 <- Sys.time()
-  # }
-
-  # remove filter neg
-
-  # if(nrow(self$filters_neg_above) > 0){
-
-  # remove neg_above
-  # temp <-  self$filters_neg_above[[cmt]]
-  # filter_temp <- paste("!(", filter_template[[1]], ")")
-  # if(nrow(temp) > 0){
-  #   for(a in 1:nrow(temp)){
-  #
-  #     ref <-temp %>% slice(a)
-  #
-  #     poolVP <- poolVP %>%
-  #       filter(!!parse_expr(filter_temp))
-  #
-  #   }
-  # }
-  # # remove neg_below
-  # temp <-  self$filters_neg_below[[cmt]]
-  # filter_temp <- paste("!(", filter_template[[2]], ")")
-  # if(nrow(temp) > 0){
-  #   for(a in 1:nrow(temp)){
-  #
-  #     ref <-temp %>% slice(a)
-  #
-  #     poolVP <- poolVP %>%
-  #       filter(!!parse_expr(filter_temp))
-  #
-  #   }
-  # }
-  # poolVP <- poolVP %>%
-  #   select(-rowid) %>%
-  #   rowid_to_column()
-
-  # }
-
-  # Apply the green filter
-  # for(cmt in cmts){
-  #
-  #   filter_template <- self$make_filters(cmt)%>%
-  #     gsub(pattern = "line\\$", replacement = "")
-  #
-  #
-  #
-  #   # set pos abov
-  #   temp <-  self$filters_pos_above[[cmt]]
-  #   if(is.null(temp)) temp <- tibble()
-  #   filter_temp <- paste("(", filter_template[[1]], ")")
-  #   if(nrow(temp) > 0){
-  #     for(a in 1:nrow(temp)){
-  #
-  #       ref <-temp %>% slice(a)
-  #
-  #       poolVP %>%
-  #         filter(!!parse_expr(filter_temp)) %>%
-  #         pull(rowid) ->rowidstemp
-  #
-  #       poolVP[[paste0(cmt, "_AL")]][rowidstemp] <- rep(T, length(rowidstemp))
-  #
-  #     }
-  #   }
-  #   # set pos below
-  #   temp <-  self$filters_pos_below[[cmt]]
-  #   filter_temp <- paste("(", filter_template[[2]], ")")
-  #   if(is.null(temp)) temp <- tibble()
-  #   if(nrow(temp) > 0){
-  #     for(a in 1:nrow(temp)){
-  #
-  #       ref <-temp %>% slice(a)
-  #
-  #       poolVP %>%
-  #         filter(!!parse_expr(filter_temp)) %>%
-  #         pull(rowid) ->rowidstemp
-  #
-  #       poolVP[[paste0(cmt, "_BU")]][rowidstemp] <- T
-  #
-  #     }
-  #   }
-  # }
-  #
-  #
-  # if(time_compteur == T)  timesaver$filtre_prev <- tibble(time = difftime(Sys.time(), t0, units = "s"), nrem =nbef -  nrow(poolVP) )
-  #
-  #
-
-
 
 
 
@@ -328,21 +235,58 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
   VP_rej <- tibble()
 
   nextrapoGreen0 <- 0
+
+
+  if(nrow( PreviousResults) > 0){
+
+    PreviousResults <- PreviousResults %>%
+      select(-starts_with("id")) %>%
+      left_join(poolVP)
+
+  }
+  PrevLoop <- F
+
   # begining while lopp----------------------------------------------------------
   while(newratio %>% sum > 0){
+
+    # Just compute some stat...
+    t0 <- Sys.time()
+
+    if(time_compteur == T) poolVP_compteur_new <- tibble(n = n_compteur)
 
     n_compteur <- n_compteur + 1
     pb$update(ratio = (maxinfo -newratio / length(col_to_add))/maxinfo)
 
-    if(time_compteur == T){
+
+    if(nrow(PreviousResults) > 0){ # First use the previous results if provided
+
+      PrevLoop <- T
+
+     proto   <- sample(PreviousResults$protocol %>% unique, 1)
+
+      res <-  PreviousResults %>%
+        filter(protocol == proto)
+
+      res <- res %>%
+        slice(1:min(2000, nrow(PreviousResults)))
 
 
+      line <- res %>%
+        mutate(id_origin = id)
 
-      poolVP_compteur_new <- tibble(n = n_compteur)
-    }
 
-    # Just compute some stat...
-    t0 <- Sys.time()
+      if(time_compteur == T){
+        poolVP_compteur_new$timemodel <- NA
+        poolVP_compteur_new$nsimul <- NA
+      }
+
+    }else{ # then complete the rest
+
+      if( PrevLoop == T) cat(red("\nEnd of using previous results\n"))
+
+      PrevLoop <- F
+
+
 
     # set.seed(89651)
     # Sample one rows among the not done yet
@@ -392,6 +336,10 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
     # left_join(line %>% distinct(id, id_origin), by = "id") %>%
     # select(-id) %>%
     # rename(id = id_origin)
+
+
+    if(!"id" %in% names(res)) res <- res %>% mutate(id = 1)
+
     if(!is.null(keep)){
 
       tokeep <- c(self$targets$cmt, keep) %>% unique()
@@ -409,16 +357,17 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
     }
 
 
+
+    }  # end if_else previous results vs new ode system
+
+
     if(time_compteur == T) t02 <- Sys.time()
-
-
-
     # # get targets for this patients
     targets_temp <- self$targets %>%
       filter(protocol == unique(line$protocol))#%>%
 
 
-    if(!"id" %in% names(res)) res <- res %>% mutate(id = 1)
+
     # # Compute the tests
     res2 <- res %>%
       select(id, time,  unique(targets_temp$cmt)) %>%
@@ -469,7 +418,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
     # If no red filter
 
 
-    if(use_red_filter == F){
+    if(use_red_filter == F & PrevLoop == F){
 
 
       t02 <- Sys.time()
@@ -617,9 +566,12 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
 
       ## We remove all the one not accepted
       tfilterODE <- Sys.time()
-
+      idremoved <-  c(unique(filters_neg_above$id_origin), unique(filters_neg_below$id_origin))
       poolVP <- poolVP %>%
-        filter(! id %in% c(unique(filters_neg_above$id_origin), unique(filters_neg_below$id_origin)))
+        filter(! id %in%idremoved)
+
+if(PrevLoop == T) PreviousResults <- PreviousResults %>%
+        filter(id %in% idremoved & protocol == line$protocol [[1]])
 
       tfilterODE <- difftime( Sys.time(), tfilterODE, units = "s")
 
@@ -660,6 +612,8 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
             poolVP <- poolVP %>%
               filter(!id %in% idtorem)
 
+            if(PrevLoop == T) PreviousResults <- PreviousResults %>%
+              filter(id %in% idtorem & protocol == line$protocol [[1]])
             # poolVP_id <- poolVP_id %>%
               # filter(!id %in% idtorem)
           }
@@ -706,6 +660,10 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
             poolVP <- poolVP %>%
               filter(! id %in% idtorem)
 
+
+            if(PrevLoop == T) PreviousResults <- PreviousResults %>%
+              filter(id %in% idtorem & protocol == line$protocol [[1]])
+
             # poolVP_id <- poolVP_id %>%
               # filter(! id %in% idtorem)
           }
@@ -736,6 +694,10 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
 
             poolVP <- poolVP %>%
               filter(!id %in% idtorem)
+
+
+            if(PrevLoop == T) PreviousResults <- PreviousResults %>%
+              filter(id %in% idtorem & protocol == line$protocol [[1]])
 
             # poolVP_id <- poolVP_id %>%
               # filter(!id %in% idtorem)
@@ -768,21 +730,19 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
               mutate(test = !!parse_expr(filtre_line)) %>%
               filter(test == T) %>% pull(id) ->idtorem
 
-            # idtorem[idtorem %in%idmi]
-            # idtorem[idtorem %in%243]
-            # poolVP %>%
-            #   filter(rowid == 243)
 
-            # if(idtorem[idtorem %in%idsMissings] %>% sum > 0) stop("IDs missing ! ")
+
+
+
             if(saveVPRej == T)    VP_rej <- bind_rows(VP_rej, tibble(id_origin = idtorem) %>% mutate(n = n_compteur))
 
 
             poolVP <- poolVP %>%
               filter(! id %in% idtorem)
 
-            # poolVP_id <- poolVP_id %>%
-              # filter(! id %in% idtorem)
 
+            if(PrevLoop == T) PreviousResults <- PreviousResults %>%
+              filter(id %in% idtorem & protocol == line$protocol [[1]])
 
           }
         }
@@ -809,7 +769,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
       self$filters_neg_below <- bind_rows(self$filters_neg_below, filters_neg_below_up_reduc )
 
       ##### Compute the rendement of red filter and disable if negative
-
+if(PrevLoop == F){
       totaltimeredfilter <- time_filter_neg_apply + timefilternegabovemake + timefilternegbelowmake
       totalsave <-  nrem * time_simulations /  n_simulations + tfilterODE
 
@@ -824,18 +784,20 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
         message(red("\nRed filter system disabled."))
         use_red_filter <- F
       }
+
+}
+
     }# end use of red filter
 
 
     # gree filter --------------------------------------------------------------
-
     # dont use the freen filter if use_green_filter F
     # OR if percentage green is below  pctActivGreen
 
     # cat(green(paste0("use_green_filter is equa to :" , use_green_filter)))
     # cat(green(paste0(nrow(res2 %>% filter(be_up == T & ab_low== T)), "<", pctActivGreen * nrow(res2) )))
 
-    if(use_green_filter == F | nrow(res2 %>% filter(be_up == T & ab_low== T)) < pctActivGreen * nrow(res2)  ){
+    if( (use_green_filter == F | nrow(res2 %>% filter(be_up == T & ab_low== T)) < pctActivGreen * nrow(res2)) & PrevLoop == F  ){
 
 
       if(time_compteur == T) t02 <- Sys.time()
@@ -891,7 +853,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
 
 
 
-    }else {
+    }else if (PrevLoop == F | nrow(PreviousResults) > 0){
 
 
       t0greenfilter <- Sys.time()
@@ -974,6 +936,8 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
                 filter(test == T) %>% pull(id) -> id_temp
 
               poolVP[[paste0(cmtt,"_BU")]][poolVP$id %in% id_temp & poolVP$protocol == unique(line$protocol)] <-  ref$rowid
+
+          if(PrevLoop) PreviousResults[[paste0(cmtt,"_BU")]][PreviousResults$id %in% id_temp & PreviousResults$protocol == unique(line$protocol)] <-  ref$rowid
             }
 
             if(time_compteur == T){
@@ -1018,6 +982,9 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
 
 
               poolVP[[paste0(cmtt,"_AL")]][poolVP$id %in% id_temp & poolVP$protocol == unique(line$protocol)] <- ref$rowid
+
+              if(PrevLoop) PreviousResults[[paste0(cmtt,"_AL")]][PreviousResults$id %in% id_temp & PreviousResults$protocol == unique(line$protocol)] <-  ref$rowid
+
             }
 
           }
@@ -1112,14 +1079,15 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
 
       equivVPdon <-  (donebeforegreen  - doneaftergreen)/ length(col_to_add)
 
+      if(time_compteur == T)  poolVP_compteur_new$TimeTotalGreenFilter <- timegreen
+
+      if(PrevLoop == F){
       totalsaveGreen <-  equivVPdon * time_simulations /  n_simulations
 
       totalsaveGreen <-  thisTurn * time_simulations /  n_simulations
 
-      # print(thisTurn)
 
       # cat(green(paste0("Ratio Green filter:",totalsaveGreen - timegreen , "\n")))
-      # print(round(as.double(totalsaveGreen)), "<", round(as.double(timegreen))  )
       if(totalsaveGreen < timegreen){
 
         message(green("\nGreen filter system disabled."))
@@ -1129,11 +1097,13 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
 
       if(time_compteur == T){
 
-        poolVP_compteur_new$TSavedGreenFilter <- totalsave
+        poolVP_compteur_new$TSavedGreenFilter <- totalsaveGreen
         poolVP_compteur_new$TimeTotalGreenFilter <- timegreen
         poolVP_compteur_new$nextrapoGreen <- thisTurn
       }
+}
 
+      if(PrevLoop == T) PreviousResults <- PreviousResults %>%   filter(!!parse_expr(filter_to_use))
 
     }# end use green filter
 
@@ -1145,7 +1115,6 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
 
     # Compute newratio for knowing when to stop
     newratio <- is.na(poolVP[, col_to_add]) %>% sum
-    # print(newratio)
   }# fin while 1
 
   cat(red("End while loop"))
@@ -1154,11 +1123,6 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
   # pos_below <- map(pos_below, function(x) x %>% filter(id %in% poolVP$id) %>% select(-id))
   # pos_above <- map(pos_above, function(x) x %>% filter(id %in% poolVP$id) %>% select(-id))
 
-  ## Here happen after nsave iteration
-  # print("########################### SAVNG RDS #############################")
-
-  # if(time_compteur == T)  poolVP_compteur <<- poolVP_compteur
-  # print(Sys.time(), t00)
 
   if(time_compteur == T)  t02 <- Sys.time()
 
