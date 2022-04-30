@@ -487,6 +487,34 @@ synergy$add_VP(VP_df2, fillatend = F, reducefilteratend = F, use_green_filter = 
 
 saveRDS(synergy, "synergy")
 
+# Step 6 Synergi from start------------------------------------------------------------------
+
+
+
+synergy <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
+
+synergy$protocols <- protocols
+
+
+synergy$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                                     "unique",100,"TimeAbove", -Inf, 1E-1,
+                                     "apog",100,"TimeAbove",  -Inf, 1E-1,
+                                     "ABT737",100,"TimeAbove", -Inf, 1E-1,
+                                     "synergy",100,"TimeAbove", 1E-1, Inf
+))
+
+
+
+
+synergy$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
+               time_compteur = T, keepRedFiltaftDis = T)
+
+
+plotLindner(synergy)
+saveRDS(synergy, "synergy")
+
+
+
 # Final -------------------------------------------------------------------
 
 

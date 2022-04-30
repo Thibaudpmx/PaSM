@@ -95,7 +95,7 @@ VP_proj_creator <- R6Class("VT",
 
                                           },
                                           print = function(...) {
-                                            cat(green(paste0("Number of VP found: ", nrow(self$poolVP))))
+                                            cat(green(paste0("Number of VP found: ", length(unique(self$poolVP$id)))))
                                             cat(red(paste0("\nNumber of red filter above: ", nrow(self$filters_neg_above))))
                                             cat(red(paste0("\nNumber of red filter below: ", nrow(self$filters_neg_below))))
                                             invisible(self)

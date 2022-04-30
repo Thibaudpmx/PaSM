@@ -18,11 +18,12 @@
 ## ---------------------------
 
  fix_df = NULL; saven = 50; drug = NULL; update_at_end = T; time_compteur = T;  fillatend = F; reducefilteratend = F; npersalve = 2000; use_green_filter = T;
-pctActivGreen = 0.1; keepRedFiltaftDis = F; methodFilter = 2; use_red_filter = T; cmtalwaysbelow = NULL; keep = NULL; saveVPRej = T; timeSave = NULL;PreviousResults = tibble()
-
+pctActivGreen = 0.1; keepRedFiltaftDis = T; methodFilter = 2; use_red_filter = T; cmtalwaysbelow = NULL; keep = NULL; saveVPRej = T; timeSave = NULL;PreviousResults = tibble()
+RedFilterDisAllProt = F; GreenFilterDisAllProt = F
 
 VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F,
-                                                 pctActivGreen = 0.1, keepRedFiltaftDis = F, methodFilter = 2, use_red_filter = T, cmtalwaysbelow = NULL, keep = NULL, saveVPRej = T, timeSave = NULL, PreviousResults = tibble()){
+                                                 pctActivGreen = 0.1, keepRedFiltaftDis = T, methodFilter = 2, use_red_filter = T, cmtalwaysbelow = NULL, keep = NULL, saveVPRej = T, timeSave = NULL, PreviousResults = tibble(),
+                                                 RedFilterDisAllProt = F, GreenFilterDisAllProt = F){
 
   tTOTAL <- Sys.time()
 
@@ -246,6 +247,9 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
   }
   PrevLoop <- F
 
+
+  use_red_filter <- tibble(protocol = unique(self$targets$protocol), use = use_red_filter)
+  use_green_filter <- tibble(protocol = unique(self$targets$protocol), use = use_green_filter)
   # begining while lopp----------------------------------------------------------
   while(newratio %>% sum > 0){
 
@@ -418,7 +422,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
     # If no red filter
 
 
-    if(use_red_filter == F & PrevLoop == F){
+    if(use_red_filter$use[use_red_filter$protocol == unique(line$protocol)] == F & PrevLoop == F){
 
 
       t02 <- Sys.time()
@@ -781,8 +785,20 @@ if(PrevLoop == F){
 
       if(totalsave < totaltimeredfilter){
 
-        message(red("\nRed filter system disabled."))
-        use_red_filter <- F
+        if(RedFilterDisAllProt == T){
+
+          message(red(paste0("\nRed filter system (all protocols) disabled.")))
+
+          use_red_filter$use <- F
+        }else{
+
+          message(red(paste0("\nRed filter system for protocol ", unique(line$protocol) , "  disabled.")))
+
+          use_red_filter$use[use_red_filter$protocol == unique(line$protocol)] <- F
+
+        }
+
+
       }
 
 }
@@ -797,7 +813,7 @@ if(PrevLoop == F){
     # cat(green(paste0("use_green_filter is equa to :" , use_green_filter)))
     # cat(green(paste0(nrow(res2 %>% filter(be_up == T & ab_low== T)), "<", pctActivGreen * nrow(res2) )))
 
-    if( (use_green_filter == F | nrow(res2 %>% filter(be_up == T & ab_low== T)) < pctActivGreen * nrow(res2)) & PrevLoop == F  ){
+    if( (use_green_filter$use[use_red_filter$protocol == unique(line$protocol)] == F | nrow(res2 %>% filter(be_up == T & ab_low== T)) < pctActivGreen * nrow(res2)) & PrevLoop == F  ){
 
 
       if(time_compteur == T) t02 <- Sys.time()
@@ -856,22 +872,36 @@ if(PrevLoop == F){
     }else if (PrevLoop == F | nrow(PreviousResults) > 0){
 
 
-      t0greenfilter <- Sys.time()
 
-      donebeforegreen <- is.na(poolVP[, col_to_add]) %>% sum
+      t0greenfilterFull <- Sys.time()
 
-      for(cmtt in unique(self$targets$cmt)){
+      cmttall <- unique(self$targets$cmt)
+
+      while(length(cmttall) > 0){
+
+
+        cmtt <- cmttall[[1]]
+
+        t0greenfilter <- Sys.time()
+
+        aboveExpr <- parse_expr(paste0(cmtt, "_AL"))
+        belowExpr <- parse_expr(paste0(cmtt, "_BU"))
+
 
         if(time_compteur == T){
 
-          aboveExpr <- parse_expr(paste0(cmtt, "_AL"))
-          belowExpr <- parse_expr(paste0(cmtt, "_BU"))
           befusegreen <-   poolVP %>%
             group_by(!!aboveExpr, !!belowExpr) %>%
             tally
           t0green   <- Sys.time()
         }
         # lines output below_up
+
+        donebeforegreen <-  poolVP %>%
+            filter(!is.na(!!belowExpr) & ! rowid %in% line$rowid & !is.na(!!aboveExpr) ) %>%
+            nrow()
+
+
 
 
         if(time_compteur == T) t02 <- Sys.time()
@@ -998,30 +1028,7 @@ if(PrevLoop == F){
         } # end if above green
 
 
-
-        # if(time_compteur == T){
-        #   poolVP_compteur_new$filter_pos_above <- difftime(Sys.time(), t02, units = "s")
-        #   poolVP_compteur_new$nfilter_pobe_bef <- nrow(filters_pos_below_up)
-        #   poolVP_compteur_new$nfilters_posbe_af <- nrow(filters_pos_below_up_reduc)
-        # }
-
-        # lines output bpostif above lo
-        # if(time_compteur == T) t02 <- Sys.time()
-        #
-        #
-        #
-        #
-        #
-        # if(time_compteur == T){
-        #   poolVP_compteur_new$filter_pos_above <- difftime(Sys.time(), t02, units = "s")
-        #   poolVP_compteur_new$nfilter_posab_bef <- nrow(filters_ps_above_lo)
-        #   poolVP_compteur_new$nfilters_posab_af <- nrow(filters_ps_above_lo_reduc)
-        # }
-
-        ###### Use the filters
-
-
-        if(time_compteur == T){
+        if(time_compteur == T){ # TODO adapt it with recent modification (counting efficiency)
 
           afusegreen <-   poolVP %>%
             group_by(!!aboveExpr, !!belowExpr) %>%
@@ -1041,6 +1048,8 @@ if(PrevLoop == F){
           poolVP_compteur_new$wholegreenfilter <- difftime(Sys.time(), t0green, units = "s")
         }
         }
+
+
         if(time_compteur == T) t02 <- Sys.time()
 
         if( !is.null(timeSave)) res <- res %>% filter(time %in% timeSave)
@@ -1061,49 +1070,71 @@ if(PrevLoop == F){
 
         if(time_compteur == T) poolVP_compteur_new$timesimlandjoin <- difftime(Sys.time(), t02, units = "s")
 
-        # end for each compartment
+
+        # Count how many VPs are already good
+     doneaftergreen <-  poolVP %>%
+          filter(!is.na(!!belowExpr) & ! rowid %in% line$rowid & !is.na(!!aboveExpr) ) %>%
+          nrow()
+
+     nextrapoGreen <- doneaftergreen - donebeforegreen
+
+     timegreen <- difftime(Sys.time(), t0greenfilter, units = "s")
+
+
+
+
+     if(PrevLoop == F){
+
+       totalsaveGreen <-  doneaftergreen * time_simulations /  n_simulations
+
+       # cat(green(paste0("Ratio Green filter:",totalsaveGreen - timegreen , "\n")))
+       if(totalsaveGreen < timegreen){
+
+
+         if(GreenFilterDisAllProt == T){
+
+           message(green(paste0("\nGreen filter system (all protocols) disabled.")))
+
+           use_green_filter$use <- F
+         }else{
+
+           message(green(paste0("\nGreen filter system for protocol ", unique(line$protocol) , "  disabled.")))
+
+           use_green_filter$use[use_green_filter$protocol == unique(line$protocol)] <- F
+
+         }
+
+         cmttall <- character()
+
+       }else{
+
+         cmttall <- cmttall[-1]
+
+       }
+
+
+       if(time_compteur == T){
+
+         # poolVP_compteur_new$TSavedGreenFilter <- totalsaveGreen
+         # poolVP_compteur_new$TimeTotalGreenFilter <- timegreen
+         # poolVP_compteur_new$nextrapoGreen <- thisTurn
+       }
+     }
+
+     if(PrevLoop == T) PreviousResults <- PreviousResults %>%   filter(!!parse_expr(filter_to_use))
+
+
+        # end for each OoI
       }
 
 
-      nextrapoGreen <-  poolVP %>%
-        filter(!is.na(!!paste0(cmtt,"_BU")) & rowid != !!paste0(cmtt,"_BU") & !is.na(!!paste0(cmtt,"_AL")) & rowid != !!paste0(cmtt,"_AL") ) %>%
-        nrow()
-
-      thisTurn <-  nextrapoGreen - nextrapoGreen0
-
-      nextrapoGreen0 <-  nextrapoGreen
-
-      timegreen <- difftime(Sys.time(), t0greenfilter, units = "s")
-
-      doneaftergreen <-   is.na(poolVP[, col_to_add]) %>% sum
-
-      equivVPdon <-  (donebeforegreen  - doneaftergreen)/ length(col_to_add)
-
-      if(time_compteur == T)  poolVP_compteur_new$TimeTotalGreenFilter <- timegreen
-
-      if(PrevLoop == F){
-      totalsaveGreen <-  equivVPdon * time_simulations /  n_simulations
-
-      totalsaveGreen <-  thisTurn * time_simulations /  n_simulations
-
-
-      # cat(green(paste0("Ratio Green filter:",totalsaveGreen - timegreen , "\n")))
-      if(totalsaveGreen < timegreen){
-
-        message(green("\nGreen filter system disabled."))
-        use_green_filter <- F
-      }
 
 
       if(time_compteur == T){
-
-        poolVP_compteur_new$TSavedGreenFilter <- totalsaveGreen
-        poolVP_compteur_new$TimeTotalGreenFilter <- timegreen
-        poolVP_compteur_new$nextrapoGreen <- thisTurn
+        poolVP_compteur_new$TimeTotalGreenFilter <- difftime(Sys.time(), t0greenfilterFull, units = "s")
       }
-}
 
-      if(PrevLoop == T) PreviousResults <- PreviousResults %>%   filter(!!parse_expr(filter_to_use))
+
 
     }# end use green filter
 
