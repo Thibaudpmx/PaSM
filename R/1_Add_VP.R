@@ -570,6 +570,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
 
       ## We remove all the one not accepted
       tfilterODE <- Sys.time()
+
       idremoved <-  c(unique(filters_neg_above$id_origin), unique(filters_neg_below$id_origin))
       poolVP <- poolVP %>%
         filter(! id %in%idremoved)
@@ -774,6 +775,7 @@ if(PrevLoop == T) PreviousResults <- PreviousResults %>%
 
       ##### Compute the rendement of red filter and disable if negative
 if(PrevLoop == F){
+
       totaltimeredfilter <- time_filter_neg_apply + timefilternegabovemake + timefilternegbelowmake
       totalsave <-  nrem * time_simulations /  n_simulations + tfilterODE
 
@@ -898,10 +900,13 @@ if(PrevLoop == F){
         # lines output below_up
 
         donebeforegreen <-  poolVP %>%
-            filter(!is.na(!!belowExpr) & ! rowid %in% line$rowid & !is.na(!!aboveExpr) ) %>%
+            filter(!is.na(!!belowExpr) & protocol %in% line$protocol[[1]] & !is.na(!!aboveExpr) ) %>%
             nrow()
 
-
+        donebeforegreen <- donebeforegreen +  res2 %>%
+          filter(cmt == cmtt) %>%
+          filter(be_up == T &ab_low  == T ) %>%
+          nrow()
 
 
         if(time_compteur == T) t02 <- Sys.time()
@@ -921,6 +926,8 @@ if(PrevLoop == F){
           filter(n == nmax) %>%
           group_by(id_origin) %>%
           slice(1) %>% pull(id_origin) -> idsaccepted
+
+
 
 
         line %>% filter(id_origin %in% idsaccepted) -> filters_pos_below_up ->  filters_ps_above_lo
@@ -1028,7 +1035,7 @@ if(PrevLoop == F){
         } # end if above green
 
 
-        if(time_compteur == T){ # TODO adapt it with recent modification (counting efficiency)
+        if(time_compteur == T){ # TODO adapt it with recent modification (counting effi)
 
           afusegreen <-   poolVP %>%
             group_by(!!aboveExpr, !!belowExpr) %>%
@@ -1073,7 +1080,7 @@ if(PrevLoop == F){
 
         # Count how many VPs are already good
      doneaftergreen <-  poolVP %>%
-          filter(!is.na(!!belowExpr) & ! rowid %in% line$rowid & !is.na(!!aboveExpr) ) %>%
+          filter(!is.na(!!belowExpr) & protocol %in% line$protocol  & !is.na(!!aboveExpr) ) %>%
           nrow()
 
      nextrapoGreen <- doneaftergreen - donebeforegreen
@@ -1085,7 +1092,7 @@ if(PrevLoop == F){
 
      if(PrevLoop == F){
 
-       totalsaveGreen <-  doneaftergreen * time_simulations /  n_simulations
+       totalsaveGreen <-  nextrapoGreen * time_simulations /  n_simulations
 
        # cat(green(paste0("Ratio Green filter:",totalsaveGreen - timegreen , "\n")))
        if(totalsaveGreen < timegreen){

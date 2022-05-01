@@ -80,7 +80,7 @@ cohort_creator <- function(nmodif){
   output %>%
     sample_n(200000) %>% # and randomly sample 200.000 VPs (due to the ceiling function, nrow(output) > 200K)
     mutate(k1 = 0.5, psi = 20) #%>%
-    # map(~length(unique(.x)))
+  # map(~length(unique(.x)))
 
 
 }
@@ -130,48 +130,17 @@ for(a in 1:5){ # For each number of varying parameter to try
 
     for(d in 1:5){ # because each analyse repeated five time
 
-    newnames <- paste0(a,"_", b, "_", d, ".RDS") # compute the name of the file (nparamvarying_pcttarget_iteration)
-
-    if(!file.exists(newnames)){ # If the file does not exist yet
-      # determine new targets
-      quant <- ( 1-b)/2 # determine the probability for quantile function
-      prototemp <- target # and apply the new min and max
-      prototemp$min <- quantile(alltumVol, probs = quant)
-      prototemp$max <- quantile(alltumVol, probs = 1 - quant)
-
-
-      self2 <- self$clone(deep = T) # create a copy of self
-      self2$set_targets(manual = prototemp) # use the new target
-
-
-      # and do the computation ! With time_compteur activated for doing further analyses
-      self2$add_VP(time_compteur = T, cohort, use_green_filter = T, npersalve = 2000, pctActivGreen = 0, saveVPRej = F)
-
-
-      saveRDS(self2, file = newnames)
-    }
-
-    }
-
-  }# end for pcttargets
-
-  if(a == 5){
-
-  for(b in pcttargets){ # for every percentage
-
-    for(d in 1:5){ # because each analyse repeated five time
-
-      newnames <- paste0(a,"_", b, "_", d, "_alt.RDS") # compute the name of the file (nparamvarying_pcttarget_iteration)
+      newnames <- paste0(a,"_", b, "_", d, ".RDS") # compute the name of the file (nparamvarying_pcttarget_iteration)
 
       if(!file.exists(newnames)){ # If the file does not exist yet
-        # determine new targets◘
+        # determine new targets
+        quant <- ( 1-b)/2 # determine the probability for quantile function
         prototemp <- target # and apply the new min and max
-        prototemp$min <- 0
-        prototemp$max <- quantile(alltumVol, probs = b)
+        prototemp$min <- quantile(alltumVol, probs = quant)
+        prototemp$max <- quantile(alltumVol, probs = 1 - quant)
 
-        if(b == 0)  prototemp$max <-  prototemp$max *0.8
 
-                  self2 <- self$clone(deep = T) # create a copy of self
+        self2 <- self$clone(deep = T) # create a copy of self
         self2$set_targets(manual = prototemp) # use the new target
 
 
@@ -185,6 +154,37 @@ for(a in 1:5){ # For each number of varying parameter to try
     }
 
   }# end for pcttargets
+
+  if(a == 5){
+
+    for(b in pcttargets){ # for every percentage
+
+      for(d in 1:5){ # because each analyse repeated five time
+
+        newnames <- paste0(a,"_", b, "_", d, "_alt.RDS") # compute the name of the file (nparamvarying_pcttarget_iteration)
+
+        if(!file.exists(newnames)){ # If the file does not exist yet
+          # determine new targets◘
+          prototemp <- target # and apply the new min and max
+          prototemp$min <- 0
+          prototemp$max <- quantile(alltumVol, probs = b)
+
+          if(b == 0)  prototemp$max <-  prototemp$max *0.8
+
+          self2 <- self$clone(deep = T) # create a copy of self
+          self2$set_targets(manual = prototemp) # use the new target
+
+
+          # and do the computation ! With time_compteur activated for doing further analyses
+          self2$add_VP(time_compteur = T, cohort, use_green_filter = T, npersalve = 2000, pctActivGreen = 0, saveVPRej = F)
+
+
+          saveRDS(self2, file = newnames)
+        }
+
+      }
+
+    }# end for pcttargets
   } # end for a == 6
 
 }
@@ -272,7 +272,7 @@ str_split(toread, pattern = "_", simplify = T) %>%
   mutate(results = map(file, function(x){
 
     # x <- "1_0.5_3.RDS"
-# print(x)
+    # print(x)
     obj <- readRDS(x)
 
     timetable(obj) %>%
@@ -286,7 +286,7 @@ str_split(toread, pattern = "_", simplify = T) %>%
 
   })) %>%
   unnest() %>%
-saveRDS("full_analysis.RDS")
+  saveRDS("full_analysis.RDS")
 
 
 
@@ -389,8 +389,8 @@ saveRDS(mbref, "timeReference.RDS")
 setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni")
 
 allTimes <- readRDS("full_analysis.RDS") #%>%
-  # mutate(meth = if_else(meth == "", "", "alt")) %>%
-  # mutate(nparam = paste0(nparam, meth))
+# mutate(meth = if_else(meth == "", "", "alt")) %>%
+# mutate(nparam = paste0(nparam, meth))
 
 readRDS("timeReference.RDS") %>%
   as.data.frame() %>%
@@ -402,7 +402,7 @@ readRDS("timeReference.RDS") %>%
 allTimes %>%
   mutate(pcteffe = VPfound / 200000) %>%
   filter(pct != pcteffe) # note: 1 or 2 of differences can be explained by internal rounding
-                         # After check the additional/missing VP are from 1E-10 mm3 or similar
+# After check the additional/missing VP are from 1E-10 mm3 or similar
 
 # Main plot time benefice
 
@@ -476,10 +476,10 @@ normal
 allTimes %>%
   mutate(timeTotal= as.double(timeTotal)) %>%
   left_join(
-allTimes %>%
-  group_by(nparam, pct,meth) %>%
-  summarise(  timeTotal = median(as.double(timeTotal)) ) %>%
-  mutate(test = T)
+    allTimes %>%
+      group_by(nparam, pct,meth) %>%
+      summarise(  timeTotal = median(as.double(timeTotal)) ) %>%
+      mutate(test = T)
   ) %>%
   filter(test) %>%
   select(nparam, pct, meth,iteration,test) -> iteration_to_keep
@@ -567,19 +567,19 @@ for(a in 1:length(times_to_try)){
   for(b in 1:5){
 
 
-namefile <- paste0(a, "_", b,".RDS" )
+    namefile <- paste0(a, "_", b,".RDS" )
 
-if(!file.exists(namefile)){
+    if(!file.exists(namefile)){
 
-  self <- VP_proj_creator$new()
-  self$set_targets(manual = prototemp)
-  self$times <- times_to_try[[a]]
+      self <- VP_proj_creator$new()
+      self$set_targets(manual = prototemp)
+      self$times <- times_to_try[[a]]
 
-  self$add_VP(VP_df = cohort, use_green_filter = T, npersalve = 2000, pctActivGreen = 0, saveVPRej = F, time_compteur = T)
-  self$timeTrack$ttotal
+      self$add_VP(VP_df = cohort, use_green_filter = T, npersalve = 2000, pctActivGreen = 0, saveVPRej = F, time_compteur = T)
+      self$timeTrack$ttotal
 
-  saveRDS(object = self, namefile)
-  }
+      saveRDS(object = self, namefile)
+    }
 
 
 
@@ -746,7 +746,7 @@ plotD <- temp %>%
 
   geom_line(data = temp %>% filter(nparam != "5alt"), aes(nparam, nsimul, col =factor(1-pct), group = pct))+
   geom_line(data = temp %>% filter(nparam %in% c("5", "5alt")), aes(nparam, nsimul, col =factor(1-pct), group = pct), lty = 2)+
-   theme_bw()+
+  theme_bw()+
   geom_segment(aes(x = 5.5, xend = 5.1, y = 49000, yend = 47532), col = "red",  arrow = arrow(length = unit(0.2, "cm")))+
 
   scale_y_log10()+
@@ -835,13 +835,13 @@ for(a in 0:(sizeTotal/5E5 - 1) ){
 
 
   if(!file.exists(paste0("self_", a))){
-  self <- VP_proj_creator$new() # create a
-  self$set_targets(manual =target )
-  self$add_VP(cohort %>% slice((a * 500000+1):((a+1) * 500000)), use_green_filter = F, npersalve = 2000,timeSave = 48, keep = "tumVol")
+    self <- VP_proj_creator$new() # create a
+    self$set_targets(manual =target )
+    self$add_VP(cohort %>% slice((a * 500000+1):((a+1) * 500000)), use_green_filter = F, npersalve = 2000,timeSave = 48, keep = "tumVol")
 
-  self$poolVP %>%
-    unnest() %>%
-    saveRDS(paste0("self_", a))
+    self$poolVP %>%
+      unnest() %>%
+      saveRDS(paste0("self_", a))
   }
 
 }
@@ -855,147 +855,147 @@ toread <- files[grepl("^self_", files)]
 map(toread, ~ readRDS(.x)) %>%
   bind_rows() %>%
   select(-rowid, - id,- tumVol_BU,- tumVol_AL) %>%
-saveRDS( "alltumVol")
+  saveRDS( "alltumVol")
 
 rm(list = ls())
 
 # Step 2: sample different tumvol
 
-  allTumVol <- readRDS("alltumVol")
+allTumVol <- readRDS("alltumVol")
 
 
-  allSizeCohort <- c(10, 50 , 100,200,500,750,1000,2000,3000,4000) * 1000
+allSizeCohort <- c(10, 50 , 100,200,500,750,1000,2000,3000,4000) * 1000
 
-  for(a in allSizeCohort){
-print(a)
+for(a in allSizeCohort){
+  print(a)
 
-    for(b in 1){
+  for(b in 1){
     name <- paste0(a,"_", b,".RDS")
 
     if(!file.exists(name)){
 
-    set.seed(b)
+      set.seed(b)
 
-   cohort <- allTumVol %>%
-      sample_n(a) %>%
-      select(-time) %>%
-      mutate(k1 = 0.5, psi = 20, w0 = 50)
-
-
-    target <- tibble(protocol = "dose50", cmt  = "tumVol", time = 48, min =  quantile(cohort$tumVol  , probs = if_else(b == 2, 0.49, 0.25)),
-                        max =  quantile(   cohort$tumVol, probs =  if_else(b == 2, 0.51, 0.75) )) # and apply the new min and max
+      cohort <- allTumVol %>%
+        sample_n(a) %>%
+        select(-time) %>%
+        mutate(k1 = 0.5, psi = 20, w0 = 50)
 
 
-    self <- VP_proj_creator$new() # create a new VP project
-    self$set_targets(manual =target) # No
-    self$add_VP(VP_df = cohort, use_green_filter = T, time_compteur = T, npersalve = 2000, pctActivGreen = 0, saveVPRej = F)
+      target <- tibble(protocol = "dose50", cmt  = "tumVol", time = 48, min =  quantile(cohort$tumVol  , probs = if_else(b == 2, 0.49, 0.25)),
+                       max =  quantile(   cohort$tumVol, probs =  if_else(b == 2, 0.51, 0.75) )) # and apply the new min and max
 
-    self$n_filter_reduc()
-    saveRDS(self,name )
+
+      self <- VP_proj_creator$new() # create a new VP project
+      self$set_targets(manual =target) # No
+      self$add_VP(VP_df = cohort, use_green_filter = T, time_compteur = T, npersalve = 2000, pctActivGreen = 0, saveVPRej = F)
+
+      self$n_filter_reduc()
+      saveRDS(self,name )
     }
-    }# end for b
-  }
+  }# end for b
+}
 
 
 
-  self <- VP_proj_creator$new() # create a new VP project
-  self$set_targets(manual =tibble(protocol = "dose50", cmt = "tumVol", time = 48 , min = 0, max = 0)) #
-  self$add_VP(VP_df = allTumVol %>% select(-time, -tumVol), use_green_filter = T, time_compteur = T, npersalve = 2000, pctActivGreen = 0, saveVPRej = F)
-  # self$n_filter_reduc()
-  # Step 3: compute the stats
+self <- VP_proj_creator$new() # create a new VP project
+self$set_targets(manual =tibble(protocol = "dose50", cmt = "tumVol", time = 48 , min = 0, max = 0)) #
+self$add_VP(VP_df = allTumVol %>% select(-time, -tumVol), use_green_filter = T, time_compteur = T, npersalve = 2000, pctActivGreen = 0, saveVPRej = F)
+# self$n_filter_reduc()
+# Step 3: compute the stats
 
-  toread <- list.files()
-
-
-  toread <- toread[! grepl("(self)|(alltumVol)|(full_analysis)", toread)]
+toread <- list.files()
 
 
-  str_split(toread, pattern = "_", simplify = T) %>%
-    as_tibble() %>%
-    mutate(V2 = gsub("\\.RDS","", V2)) %>%
-    rename(nCohort = V1, iteration = V2) %>%
-    mutate(file = toread) %>%
-    mutate(nCohort = as.double(nCohort)) %>%
-    mutate(results = map(file, function(x){
-
-      # x <- "10000_1.RDS"
-      print(x)
-      obj <- readRDS(x)
-
-      obj$n_filter_reduc()
-      # saveRDS(obj, x)
-
-      timetable(obj) %>%
-        spread(step, sum) %>%
-        mutate(VPfound= obj$poolVP %>% nrow, nsimul = obj$timeTrack$poolVP_compteur %>% pull(nsimul) %>% sum,
-               timeTotal = obj$timeTrack$tTOTAL %>% as.double(), Tgreen1 = obj$timeTrack$poolVP_compteur %>%  slice(1) %>% pull(TimeTotalGreenFilter)%>% as.double(),
-               Tred1 = obj$timeTrack$poolVP_compteur %>%  slice(1) %>% pull(TimeTotalRedFilter)%>% as.double(),
-               nremRed1 = obj$timeTrack$poolVP_compteur %>%  slice(1) %>% pull(NremovedRedFilter)%>% as.double(),
-               ndoneGreen1 = obj$timeTrack$poolVP_compteur %>%  slice(1) %>% pull(nextrapoGreen)%>% as.double(),
-               nfilterabove=nrow(obj$filters_neg_above), nfilterbelow = nrow(obj$filters_neg_below),
-               sinuosity = nfilterabove + nfilterbelow)
+toread <- toread[! grepl("(self)|(alltumVol)|(full_analysis)", toread)]
 
 
-    })) %>%
-    unnest() %>%
-    saveRDS("full_analysis.RDS")
+str_split(toread, pattern = "_", simplify = T) %>%
+  as_tibble() %>%
+  mutate(V2 = gsub("\\.RDS","", V2)) %>%
+  rename(nCohort = V1, iteration = V2) %>%
+  mutate(file = toread) %>%
+  mutate(nCohort = as.double(nCohort)) %>%
+  mutate(results = map(file, function(x){
+
+    # x <- "10000_1.RDS"
+    print(x)
+    obj <- readRDS(x)
+
+    obj$n_filter_reduc()
+    # saveRDS(obj, x)
+
+    timetable(obj) %>%
+      spread(step, sum) %>%
+      mutate(VPfound= obj$poolVP %>% nrow, nsimul = obj$timeTrack$poolVP_compteur %>% pull(nsimul) %>% sum,
+             timeTotal = obj$timeTrack$tTOTAL %>% as.double(), Tgreen1 = obj$timeTrack$poolVP_compteur %>%  slice(1) %>% pull(TimeTotalGreenFilter)%>% as.double(),
+             Tred1 = obj$timeTrack$poolVP_compteur %>%  slice(1) %>% pull(TimeTotalRedFilter)%>% as.double(),
+             nremRed1 = obj$timeTrack$poolVP_compteur %>%  slice(1) %>% pull(NremovedRedFilter)%>% as.double(),
+             ndoneGreen1 = obj$timeTrack$poolVP_compteur %>%  slice(1) %>% pull(nextrapoGreen)%>% as.double(),
+             nfilterabove=nrow(obj$filters_neg_above), nfilterbelow = nrow(obj$filters_neg_below),
+             sinuosity = nfilterabove + nfilterbelow)
+
+
+  })) %>%
+  unnest() %>%
+  saveRDS("full_analysis.RDS")
 
 
 
- # Plot G -plot------------------------------------------------------------------
+# Plot G -plot------------------------------------------------------------------
 
 setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/ImpactSizeCohort")
 
 
-  datas <- readRDS("full_analysis.RDS") %>%
-    arrange(nCohort) %>%
-    mutate(timeTotal = case_when(nCohort %in% (c(10,50,100,200,2000,3000,1000,4000) * 1000 )& iteration == 1 ~ timeTotal /60,
-                                 T ~timeTotal))
+datas <- readRDS("full_analysis.RDS") %>%
+  arrange(nCohort) %>%
+  mutate(timeTotal = case_when(nCohort %in% (c(10,50,100,200,2000,3000,1000,4000) * 1000 )& iteration == 1 ~ timeTotal /60,
+                               T ~timeTotal))
 
 
- plotG <-  datas %>%
-    mutate(Old = 55 * nCohort / 2E5 / 60) %>%
-      rename(New = timeTotal) %>%
-     mutate(time =  round(New / Old,1)) %>%
-    {pregather <<- .} %>%
-    gather("Method", "value", Old, New) %>%
-   mutate(pctExtra = round((nCohort-nsimul)/ nCohort * 100 )) %>%
+plotG <-  datas %>%
+  mutate(Old = 55 * nCohort / 2E5 / 60) %>%
+  rename(New = timeTotal) %>%
+  mutate(time =  round(New / Old,1)) %>%
+  {pregather <<- .} %>%
+  gather("Method", "value", Old, New) %>%
+  mutate(pctExtra = round((nCohort-nsimul)/ nCohort * 100 )) %>%
 
-   mutate(label = if_else(Method == "Old", "",as.character(time))) %>%
-    ggplot()+
-   scale_y_log10()+
-   scale_x_log10()+
-   # stat_function(fun = function(x)55.1 * x / 2E5, aes(col = "Blue") , size = 2)+
-    geom_vline(aes(xintercept = 2E5, lty = "Used in\nmain\nanalysis"))+
-    # geom_segment(aes(x = 2.6E5, xend = 2.2E5, y = 35, yend = 42), col = "red",  arrow = arrow(length = unit(0.2, "cm")))+
-   # geom_text(aes(nCohort, value* 1E19, label = label), nudge_y = -20)+
-   geom_line(aes(nCohort, value, col = Method), size = 2) +
-    geom_ribbon(data = pregather, aes(x = nCohort, ymin = Old, ymax = New), alpha = 0.3)+
-    geom_point(aes(nCohort, value, col = Method), size = 3)+
-     theme_bw() +
-   # facet_wrap(~iteration)+
-   scale_linetype_manual(values = 2)+
+  mutate(label = if_else(Method == "Old", "",as.character(time))) %>%
+  ggplot()+
+  scale_y_log10()+
+  scale_x_log10()+
+  # stat_function(fun = function(x)55.1 * x / 2E5, aes(col = "Blue") , size = 2)+
+  geom_vline(aes(xintercept = 2E5, lty = "Used in\nmain\nanalysis"))+
+  # geom_segment(aes(x = 2.6E5, xend = 2.2E5, y = 35, yend = 42), col = "red",  arrow = arrow(length = unit(0.2, "cm")))+
+  # geom_text(aes(nCohort, value* 1E19, label = label), nudge_y = -20)+
+  geom_line(aes(nCohort, value, col = Method), size = 2) +
+  geom_ribbon(data = pregather, aes(x = nCohort, ymin = Old, ymax = New), alpha = 0.3)+
+  geom_point(aes(nCohort, value, col = Method), size = 3)+
+  theme_bw() +
+  # facet_wrap(~iteration)+
+  scale_linetype_manual(values = 2)+
   labs(x = "Number of VPs in original cohort", y = "Time of computation (minute)");plotG
 
 
 
- # datas %>%
- #   mutate(Old = 55.1 * nCohort / 2E5 / 60) %>%
- #   mutate(timeTotal = case_when(nCohort <= 200000 & iteration == 1 ~ timeTotal /60,
- #                                nCohort <= 1000000 & iteration == 2 ~ timeTotal /60,
- #                                T ~ timeTotal)) %>%
- #   rename(New = timeTotal) %>%
- #   mutate(New/Old) %>%
- #   mutate(TperID = RxODE / nsimul ) %>%
- #   select(TperID, everything()) %>%
- #   arrange(iteration, nCohort)
+# datas %>%
+#   mutate(Old = 55.1 * nCohort / 2E5 / 60) %>%
+#   mutate(timeTotal = case_when(nCohort <= 200000 & iteration == 1 ~ timeTotal /60,
+#                                nCohort <= 1000000 & iteration == 2 ~ timeTotal /60,
+#                                T ~ timeTotal)) %>%
+#   rename(New = timeTotal) %>%
+#   mutate(New/Old) %>%
+#   mutate(TperID = RxODE / nsimul ) %>%
+#   select(TperID, everything()) %>%
+#   arrange(iteration, nCohort)
 
 
- # Final merge for fig 4 ---------------------------------------------------
+# Final merge for fig 4 ---------------------------------------------------
 
- library(cowplot)
+library(cowplot)
 
- plot_grid(plotA, plotB, plotD, plotE, plotC, plotG, labels = LETTERS, nrow = 2)
+plot_grid(plotA, plotB, plotD, plotE, plotC, plotG, labels = LETTERS, nrow = 2)
 
 
 
@@ -1003,59 +1003,57 @@ setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/I
 
 
 
- setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/ImpactSizeCohort")
+setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/ImpactSizeCohort")
 
 
- datas <- readRDS("full_analysis.RDS") %>%
-   arrange(nCohort) %>%
-   mutate(timeTotal = case_when(nCohort %in% (c(10,50,100,200,2000,3000,1000,4000) * 1000 )& iteration == 1 ~ timeTotal /60,
-                                T ~timeTotal))
- plotSupA <- datas %>%
-   mutate( Old = 55.1 * nCohort / 2E5 / 60) %>%
+datas <- readRDS("full_analysis.RDS") %>%
+  arrange(nCohort) %>%
+  mutate(timeTotal = case_when(nCohort %in% (c(10,50,100,200,2000,3000,1000,4000) * 1000 )& iteration == 1 ~ timeTotal /60,
+                               T ~timeTotal))
+plotSupA <- datas %>%
+  mutate( Old = 55.1 * nCohort / 2E5 / 60) %>%
   mutate(New = timeTotal) %>%
   mutate(timeTotal=timeTotal*60) %>%
   mutate(time =  round(New / Old,1)) %>%
-   # filter(iteration == 1) %>%
-   select(-iteration) %>%
-   mutate(delta = nCohort - nsimul, Rxodeid =  RxODE /nsimul ) %>%
+  # filter(iteration == 1) %>%
+  select(-iteration) %>%
+  mutate(delta = nCohort - nsimul, Rxodeid =  RxODE /nsimul ) %>%
 
-   mutate(TodeSaved = delta * Rxodeid, deltaratio = delta/nCohort ) %>%
-   select(TodeSaved, Rxodeid,delta, deltaratio, everything()) %>%
-   gather("step", "value", TodeSaved, GreenFilter, Other, RedFilter,RxODE, timeTotal ) %>%
-   # filter(step == "t2") %>%
-   mutate(value = value / nCohort) %>%
-   # filter(nCohort >= 2E5) %>%
-   ggplot(aes(x = nCohort, y = value, col = step))+
-   geom_point()+
-   geom_line()+
-   scale_y_log10()+
-   scale_x_log10()+
-   theme_bw()+
-   labs(x= "Size cohort (VPs)", y = "Time per size cohort (sec / VP)"); plotSupA
-
-
- plot_grid(
-   plotSupA,
- datas %>%
-   ggplot()+
-   scale_x_log10()+
-   geom_point(aes(nCohort, sinuosity))+
-   geom_line(aes(nCohort, sinuosity))+
-   theme_bw()+
-   labs(x = "Size cohort (VPs)", y = "Sinuosity (number of filters)"),
+  mutate(TodeSaved = delta * Rxodeid, deltaratio = delta/nCohort ) %>%
+  select(TodeSaved, Rxodeid,delta, deltaratio, everything()) %>%
+  gather("step", "value", TodeSaved, GreenFilter, Other, RedFilter,RxODE, timeTotal ) %>%
+  # filter(step == "t2") %>%
+  mutate(value = value / nCohort) %>%
+  # filter(nCohort >= 2E5) %>%
+  ggplot(aes(x = nCohort, y = value, col = step))+
+  geom_point()+
+  geom_line()+
+  scale_y_log10()+
+  scale_x_log10()+
+  theme_bw()+
+  labs(x= "Size cohort (VPs)", y = "Time per size cohort (sec / VP)"); plotSupA
 
 
- datas %>%
-   mutate(ratioRxode =  nsimul/nCohort) %>%
-   ggplot()+
-   scale_x_log10()+
-   geom_point(aes(nCohort, ratioRxode * 100))+
-   geom_line(aes(nCohort, ratioRxode*100))+
-   theme_bw()+
-   labs(x = "Size cohort (VPs)", y=  "Percentage of VPs with ODE solved"),
-
- nrow = 1, labels = LETTERS, rel_widths = c(1.4,1,1)
-
- )
+plot_grid(
+  plotSupA,
+  datas %>%
+    ggplot()+
+    scale_x_log10()+
+    geom_point(aes(nCohort, sinuosity))+
+    geom_line(aes(nCohort, sinuosity))+
+    theme_bw()+
+    labs(x = "Size cohort (VPs)", y = "Sinuosity (number of filters)"),
 
 
+  datas %>%
+    mutate(ratioRxode =  nsimul/nCohort) %>%
+    ggplot()+
+    scale_x_log10()+
+    geom_point(aes(nCohort, ratioRxode * 100))+
+    geom_line(aes(nCohort, ratioRxode*100))+
+    theme_bw()+
+    labs(x = "Size cohort (VPs)", y=  "Percentage of VPs with ODE solved"),
+
+  nrow = 1, labels = LETTERS, rel_widths = c(1.4,1,1)
+
+)

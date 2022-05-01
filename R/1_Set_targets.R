@@ -63,7 +63,7 @@ VP_proj_creator$set("public", "set_targets", function(..., filter = NULL, ntime 
 
 
   # update targets
-  self$targets <- targets
+  self$targets <- targets %>% ungroup()
 
   # initialise filters
 

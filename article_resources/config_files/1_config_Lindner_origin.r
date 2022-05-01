@@ -5,8 +5,8 @@
 
 
 model_RxODE <-RxODE({
-  
-  
+
+
   ####### Fixed values #######
   kdeg_Bcl2 <- 0.139
   kprod_Bcl2 <- Bcl20 * kdeg_Bcl2
@@ -160,8 +160,8 @@ model_RxODE <-RxODE({
   kbackward_Mcl1I_Mcl1 <- 0.695
   kdeg_Mcl1I <- 0.0868
   ####### End fixed values #######
-  
-  
+
+
   ####### Initial conditions #######
   Bcl2(0) <- Bcl20
   Bclxl(0) <- Bclxl0
@@ -170,227 +170,227 @@ model_RxODE <-RxODE({
   BAK(0) <- BAK0
   VDAC2(0) <- BAK0
   ####### End initial conditions #######
-  
-  
-  
+
+
+
   ####### All rates #######
   R1_deg_Bcl2 <- - kdeg_Bcl2 * Bcl2
-  
+
   R2_prod_Bcl2 <- kprod_Bcl2
-  
+
   R3_deg_Bclxl <- - kdeg_Bclxl * Bclxl
-  
+
   R4_prod_Bclxl <- kprod_Bclxl
-  
+
   R5_deg_Mcl1 <- - kdeg_Mcl1 * Mcl1
-  
+
   R6_prod_Mcl1 <- kprod_Mcl1
-  
+
   R7_deg_BIM <- - kdeg_BIM * BIM
-  
+
   R8_deg_tBID <- - kdeg_tBID * tBID
-  
+
   R9_deg_PUMA <- - kdeg_PUMA * PUMA
-  
+
   R10_deg_NOXA <- - kdeg_NOXA * NOXA
-  
+
   R11_deg_Bcl2_BIM <- - kdeg_Bcl2_BIM * Bcl2_BIM
-  
+
   R12_complex_Bcl2_BIM <- kforward_Bcl2_BIM * Bcl2 * BIM - kbackward_Bcl2_BIM * Bcl2_BIM
-  
+
   R13_deg_Bclxl_BIM <- - kdeg_Bclxl_BIM * Bclxl_BIM
-  
+
   R14_complex_Bclxl_BIM <- kforward_Bclxl_BIM * Bclxl * BIM - kbackward_Bclxl_BIM * Bclxl_BIM
-  
+
   R15_deg_Mcl1_BIM <- - kdeg_Mcl1_BIM * Mcl1_BIM
-  
+
   R16_complex_Mcl1_BIM <- kforward_Mcl1_BIM * Mcl1 * BIM - kbackward_Mcl1_BIM * Mcl1_BIM
-  
+
   R17_deg_Bcl2_tBID <- - kdeg_Bcl2_tBID * Bcl2_tBID
-  
+
   R18_complex_Bcl2_tBID <- kforward_Bcl2_tBID * Bcl2 * tBID - kbackward_Bcl2_tBID * Bcl2_tBID
-  
+
   R19_deg_Bclxl_tBID <- - kdeg_Bclxl_tBID * Bclxl_tBID
-  
+
   R20_complex_Bclxl_tBID <- kforward_Bclxl_tBID * Bclxl * tBID - kbackward_Bclxl_tBID * Bclxl_tBID
-  
+
   R21_deg_Mcl1_tBID <- - kdeg_Mcl1_tBID * Mcl1_tBID
-  
+
   R22_complex_Mcl1_tBID <- kforward_Mcl1_tBID * Mcl1 * tBID - kbackward_Mcl1_tBID * Mcl1_tBID
-  
+
   R23_deg_Bcl2_PUMA <- - kdeg_Bcl2_PUMA * Bcl2_PUMA
-  
+
   R24_complex_Bcl2_PUMA <- kforward_Bcl2_PUMA * Bcl2 * PUMA - kbackward_Bcl2_PUMA * Bcl2_PUMA
-  
+
   R25_deg_Bclxl_PUMA <- - kdeg_Bclxl_PUMA * Bclxl_PUMA
-  
+
   R26_complex_Bclxl_PUMA <- kforward_Bclxl_PUMA * Bclxl * PUMA - kbackward_Bclxl_PUMA * Bclxl_PUMA
-  
+
   R27_deg_Mcl1_PUMA <- - kdeg_Mcl1_PUMA * Mcl1_PUMA
-  
+
   R28_complex_Mcl1_PUMA <- kforward_Mcl1_PUMA * Mcl1 * PUMA - kbackward_Mcl1_PUMA * Mcl1_PUMA
-  
+
   R29_deg_Bcl2_NOXA <- - kdeg_Bcl2_NOXA * Bcl2_NOXA
-  
+
   R30_complex_Bcl2_NOXA <- kforward_Bcl2_NOXA * Bcl2 * NOXA - kbackward_Bcl2_NOXA * Bcl2_NOXA
-  
+
   R31_deg_Bclxl_NOXA <- - kdeg_Bclxl_NOXA * Bclxl_NOXA
-  
+
   R32_complex_Bclxl_NOXA <- kforward_Bclxl_NOXA * Bclxl * NOXA - kbackward_Bclxl_NOXA * Bclxl_NOXA
-  
+
   R33_deg_Mcl1_NOXA <- - kdeg_Mcl1_NOXA * Mcl1_NOXA
-  
+
   R34_complex_Mcl1_NOXA <- kforward_Mcl1_NOXA * Mcl1 * NOXA - kbackward_Mcl1_NOXA * Mcl1_NOXA
-  
+
   R35_complex_Bcl2_BAKa <- kforward_Bcl2_BAKa * Bcl2 * BAKa - kbackward_Bcl2_BAKa * Bcl2_BAKa
-  
+
   R36_complex_Bcl2_BAXma <- kforward_Bcl2_BAXma * Bcl2 * BAXma - kbackward_Bcl2_BAXma * Bcl2_BAXma
-  
+
   R37_complex_Bclxl_BAKa <- kforward_Bclxl_BAKa * Bclxl * BAKa - kbackward_Bclxl_BAKa * Bclxl_BAKa
-  
+
   R38_complex_Bclxl_BAXma <- kforward_Bclxl_BAXma * Bclxl * BAXma - kbackward_Bclxl_BAXma * Bclxl_BAXma
-  
+
   R39_complex_Mcl1_BAKa <- kforward_Mcl1_BAKa * Mcl1 * BAKa - kbackward_Mcl1_BAKa * Mcl1_BAKa
-  
+
   R40_complex_Mcl1_BAXma <- kforward_Mcl1_BAXma * Mcl1 * BAXma - kbackward_Mcl1_BAXma * Mcl1_BAXma
-  
+
   R41_complex_BIM_BAXc <- kforward_BIM_BAXc * BIM * BAXc - kbackward_BIM_BAXc * BIM_BAXc
-  
+
   R42_complex_tBID_BAXc <- kforward_tBID_BAXc * tBID * BAXc - kbackward_tBID_BAXc * tBID_BAXc
-  
+
   R43_complex_PUMA_BAXc <- kforward_PUMA_BAXc * PUMA * BAXc - kbackward_PUMA_BAXc * PUMA_BAXc
-  
+
   R44_complex_BIM_BAK <- kforward_BIM_BAK * BIM * BAK - kbackward_BIM_BAK * BIM_BAK
-  
+
   R45_complex_tBID_BAK <- kforward_tBID_BAK * tBID * BAK - kbackward_tBID_BAK * tBID_BAK
-  
+
   R46_complex_PUMA_BAK <- kforward_PUMA_BAK * PUMA * BAK - kbackward_PUMA_BAK * PUMA_BAK
-  
+
   R47_disso_BIM_BAK <-  - k_BIM_BAK * BIM_BAK
-  
+
   R48_disso_tBID_BAK <-  - k_tBID_BAK * tBID_BAK
-  
+
   R49_disso_PUMA_BAK <-  - k_PUMA_BAK * PUMA_BAK
-  
+
   R50_disso_BIM_BAXc <-  - k_BIM_BAXc * BIM_BAXc
-  
+
   R51_disso_tBID_BAXc <-  - k_tBID_BAXc * tBID_BAXc
-  
+
   R52_disso_PUMA_BAXc <-  - k_PUMA_BAXc * PUMA_BAXc
-  
+
   R53_disso_BAXca <-  - k_BAXca * BAXca
-  
+
   R54_complex_BAK_VDAC2 <- kforward_BAK_VDAC2 * BAK * VDAC2 - kbackward_BAK_VDAC2 * BAK_VDAC2
-  
+
   R55_complex_BAK2 <- kforward_BAK2 * BAKa * BAKa - kbackward_BAK2 * BAK2
-  
+
   R56_complex_BAK4 <- kforward_BAK4 * BAK2 * BAK2 - kbackward_BAK4 * BAK4
-  
+
   R57_complex_BAK6 <- kforward_BAK6 * BAK2 * BAK4 - kbackward_BAK6 * BAK6
-  
+
   R58_complex_BAK8 <- kforward_BAK8 * BAK2 * BAK6 - kbackward_BAK8 * BAK8
-  
+
   R59_complex_BAK10 <- kforward_BAK10 * BAK2 * BAK8 - kbackward_BAK10 * BAK10
-  
+
   R60_complex_BAK12 <- kforward_BAK12 * BAK2 * BAK10 - kbackward_BAK12 * BAK12
-  
+
   R61_complex_BAK8 <- kforward_BAK8 * BAK4 * BAK4 - kbackward_BAK8 * BAK8
-  
+
   R62_complex_BAK10 <- kforward_BAK10 * BAK4 * BAK6 - kbackward_BAK10 * BAK10
-  
+
   R63_complex_BAK12 <- kforward_BAK12 * BAK4 * BAK8 - kbackward_BAK12 * BAK12
-  
+
   R64_complex_BAK12 <- kforward_BAK12 * BAK6 * BAK6 - kbackward_BAK12 * BAK12
-  
+
   R65_complex_BAX2 <- kforward_BAX2 * BAXma * BAXma - kbackward_BAX2 * BAX2
-  
+
   R66_complex_BAX4 <- kforward_BAX4 * BAX2 * BAX2 - kbackward_BAX4 * BAX4
-  
+
   R67_complex_BAX6 <- kforward_BAX6 * BAX2 * BAX4 - kbackward_BAX6 * BAX6
-  
+
   R68_complex_BAX8 <- kforward_BAX8 * BAX2 * BAX6 - kbackward_BAX8 * BAX8
-  
+
   R69_complex_BAX10 <- kforward_BAX10 * BAX2 * BAX8 - kbackward_BAX10 * BAX10
-  
+
   R70_complex_BAX12 <- kforward_BAX12 * BAX2 * BAX10 - kbackward_BAX12 * BAX12
-  
+
   R71_complex_BAX8 <- kforward_BAX8 * BAX4 * BAX4 - kbackward_BAX8 * BAX8
-  
+
   R72_complex_BAX10 <- kforward_BAX10 * BAX4 * BAX6 - kbackward_BAX10 * BAX10
-  
+
   R73_complex_BAX12 <- kforward_BAX12 * BAX4 * BAX8 - kbackward_BAX12 * BAX12
-  
+
   R74_complex_BAX12 <- kforward_BAX12 * BAX6 * BAX6 - kbackward_BAX12 * BAX12
-  
+
   R75_deg_ApoG2_Bcl2 <- - kdeg_ApoG2_Bcl2 * ApoG2_Bcl2
-  
+
   R76_complex_ApoG2_Bcl2 <- kforward_ApoG2_Bcl2 * ApoG2 * Bcl2 - kbackward_ApoG2_Bcl2 * ApoG2_Bcl2
-  
+
   R77_deg_ApoG2_Bclxl <- - kdeg_ApoG2_Bclxl * ApoG2_Bclxl
-  
+
   R78_complex_ApoG2_Bclxl <- kforward_ApoG2_Bclxl * ApoG2 * Bclxl - kbackward_ApoG2_Bclxl * ApoG2_Bclxl
-  
+
   R79_deg_ApoG2_Mcl1 <- - kdeg_ApoG2_Mcl1 * ApoG2_Mcl1
-  
+
   R80_complex_ApoG2_Mcl1 <- kforward_ApoG2_Mcl1 * ApoG2 * Mcl1 - kbackward_ApoG2_Mcl1 * ApoG2_Mcl1
-  
+
   R81_deg_ABT737_Bcl2 <- - kdeg_ABT737_Bcl2 * ABT737_Bcl2
-  
+
   R82_complex_ABT737_Bcl2 <- kforward_ABT737_Bcl2 * ABT737 * Bcl2 - kbackward_ABT737_Bcl2 * ABT737_Bcl2
-  
+
   R83_deg_ABT737_Bclxl <- - kdeg_ABT737_Bclxl * ABT737_Bclxl
-  
+
   R84_complex_ABT737_Bclxl <- kforward_ABT737_Bclxl * ABT737 * Bclxl - kbackward_ABT737_Bclxl * ABT737_Bclxl
-  
+
   R85_deg_ABT737_Mcl1 <- - kdeg_ABT737_Mcl1 * ABT737_Mcl1
-  
+
   R86_complex_ABT737_Mcl1 <- kforward_ABT737_Mcl1 * ABT737 * Mcl1 - kbackward_ABT737_Mcl1 * ABT737_Mcl1
-  
+
   R87_deg_ApoG2 <- - kdeg_ApoG2 * ApoG2
-  
+
   R88_deg_ABT737 <- - kdeg_ABT737 * ABT737
-  
+
   R89_deg_Bcl2I_Bcl2 <- - kdeg_Bcl2I_Bcl2 * Bcl2I_Bcl2
-  
+
   R90_complex_Bcl2I_Bcl2 <- kforward_Bcl2I_Bcl2 * Bcl2I * Bcl2 - kbackward_Bcl2I_Bcl2 * Bcl2I_Bcl2
-  
+
   R91_deg_Bcl2I <- - kdeg_Bcl2I * Bcl2I
-  
+
   R92_deg_Bclxl_Bclxl <- - kdeg_Bclxl_Bclxl * Bclxl_Bclxl
-  
+
   R93_complex_Bclxl_Bclxl <- kforward_Bclxl_Bclxl * Bclxl * Bclxl - kbackward_Bclxl_Bclxl * Bclxl_Bclxl
-  
+
   R94_deg_BclxlI <- - kdeg_BclxlI * BclxlI
-  
+
   R95_deg_Mcl1I_Mcl1 <- - kdeg_Mcl1I_Mcl1 * Mcl1I_Mcl1
-  
+
   R96_complex_Mcl1I_Mcl1 <- kforward_Mcl1I_Mcl1 * Mcl1I * Mcl1 - kbackward_Mcl1I_Mcl1 * Mcl1I_Mcl1
-  
+
   R97_deg_Mcl1I <- - kdeg_Mcl1I * Mcl1I
   ####### End All rates #######
-  
-  
+
+
   ## Brut addition of perfusion##
 
   if(t > 50 & t <62 ){
-    BIMperf <- BIM0 / 12 
-    PUMAperf <- PUMA0 / 12 
+    BIMperf <- BIM0 / 12
+    PUMAperf <- PUMA0 / 12
     NOXAperf <- NOXA0 / 12
-    
+
   }else{
-    
+
     BIMperf <- 0
     PUMAperf <- 0
     NOXAperf <- 0
-    
-  }
- ## End addition of perfusion 
-  
-  
 
-  
+  }
+ ## End addition of perfusion
+
+
+
+
   ####### All ODES #######
-  
+
   d/dt(Bcl2) <- R1_deg_Bcl2 + R2_prod_Bcl2 - R12_complex_Bcl2_BIM - R18_complex_Bcl2_tBID - R24_complex_Bcl2_PUMA - R30_complex_Bcl2_NOXA - R35_complex_Bcl2_BAKa - R36_complex_Bcl2_BAXma - R76_complex_ApoG2_Bcl2 - R82_complex_ABT737_Bcl2 - R90_complex_Bcl2I_Bcl2
   d/dt(Bclxl) <- R3_deg_Bclxl + R4_prod_Bclxl - R14_complex_Bclxl_BIM - R20_complex_Bclxl_tBID - R26_complex_Bclxl_PUMA - R32_complex_Bclxl_NOXA - R37_complex_Bclxl_BAKa - R38_complex_Bclxl_BAXma - R78_complex_ApoG2_Bclxl - R84_complex_ABT737_Bclxl - R93_complex_Bclxl_Bclxl - R93_complex_Bclxl_Bclxl
   d/dt(Mcl1) <- R5_deg_Mcl1 + R6_prod_Mcl1 - R16_complex_Mcl1_BIM - R22_complex_Mcl1_tBID - R28_complex_Mcl1_PUMA - R34_complex_Mcl1_NOXA - R39_complex_Mcl1_BAKa - R40_complex_Mcl1_BAXma - R80_complex_ApoG2_Mcl1 - R86_complex_ABT737_Mcl1 - R96_complex_Mcl1I_Mcl1
@@ -455,28 +455,28 @@ model_RxODE <-RxODE({
   d/dt(BclxlI) <- R94_deg_BclxlI
   d/dt(Mcl1I_Mcl1) <- R95_deg_Mcl1I_Mcl1 + R96_complex_Mcl1I_Mcl1
   d/dt(Mcl1I) <- -R96_complex_Mcl1I_Mcl1 + R97_deg_Mcl1I
-  
-  
-  
+
+
+
   pctBAX <- 100 * (6 * BAX6 + 8 * BAX8 + 10 * BAX10 + 12 * BAX12)/BAXc0
   pctBAK <- 100 * (6 * BAK6 + 8 * BAK8 + 10 * BAK10 + 12 * BAK12)/BAK0
   Pore <- 100 * (6 * BAK6 + 8 * BAK8 + 10 * BAK10 + 12 * BAK12 + 6 * BAX6 + 8 * BAX8 + 10 * BAX10 + 12 * BAX12)/(BAK0 + BAXc0)
-  
-  
+
+
   ## Add death signal
-  
+
   if(Pore > 10){
-    
+
     TimeAboveRate <- 1
   }else{
-    
+
     TimeAboveRate <- 0
-    
+
   }
-  
+
     d/dt(TimeAbove) <- TimeAboveRate
-  
-  
+
+
 })
 
 
@@ -493,18 +493,18 @@ model_RxODE <-RxODE({
 
 
 parameters_default_values <- c(
-  
+
   kforward_BAK10 = 0.0461
 )
 
 # Now the initial values, with can be parameter quoted
 
 initial_cmt_values <- c(
-  
+
   tBID_BAK = 0
 )
 
-times <- c(0:100) # times you want to see your observations
+times <-  c(0, 50:90) # times you want to see your observations
 
 
 protocols <- list( unique = tibble(cmt = "Bcl2", time = 0, amt = 0))
@@ -514,15 +514,15 @@ protocols <- list( unique = tibble(cmt = "Bcl2", time = 0, amt = 0))
 #### HELPER - TO COMMENT AFTER USE ############
 
 
-# Step1: launch the followind command (tribblecreator) 
+# Step1: launch the followind command (tribblecreator)
 #               tribblecreator(model_RxODE)
 
-# Step2 copy paste code printed in the console, then 
-# 1) fill the domain table, 
+# Step2 copy paste code printed in the console, then
+# 1) fill the domain table,
 # 2) replace your_output_without_quotes by your outputes (eg. tumVol, Conc, ...), and give a protocol
 # name provided in protocols
 
-### replace this line by the code procuded in step1 
+### replace this line by the code procuded in step1
 
 # domain <- tribble(~param, ~min, ~ref,  ~max,
 #                   "Bcl20",0,500,1000 ,
@@ -533,11 +533,11 @@ protocols <- list( unique = tibble(cmt = "Bcl2", time = 0, amt = 0))
 #                   "NOXA0", 0,500,1000,
 #                   "BAXc0",0,500,1000 ,
 #                   "BAK0", 0,500,1000)
-# 
+#
 # find_relative(Pore, protocol = "unique", model = model_RxODE, values = domain, sensitivity = 0.1)
-# 
+#
 # find_relative(Pore, protocol = "unique", model = model_RxODE, values = domain, sensitivity = 0.1, deepAnalysis = T)
-# 
+#
 # domain <- tribble(~param, ~min, ~ref,  ~max,
 #                   "Bcl20",0,500,1000 ,
 #                   "Bclxl0",0,500,1000 ,
@@ -547,9 +547,9 @@ protocols <- list( unique = tibble(cmt = "Bcl2", time = 0, amt = 0))
 #                   "NOXA0", 0,500,1000,
 #                   "BAXc0",0,500,1000 ,
 #                   "BAK0", 0,500,1000)
-# 
+#
 # find_relative(Pore, protocol = "unique", model = model_RxODE, values = domain, sensitivity = 0.1)
-# 
+#
 # find_relative(Pore, protocol = "unique", model = model_RxODE, values = domain, time_simul = 1:100, sensitivity = 0.1, deepAnalysis = T)
 
 # Step3: verify the plot, the table summarising the influence, and if you find it

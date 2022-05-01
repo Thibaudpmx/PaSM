@@ -20,68 +20,6 @@
 
 library(QSPVP)
 
-cohort_creator_Lindner <- function(nmodif){
-
-  base <- crossing( Bcl20 = 500,
-                    Bclxl0 = 200,
-                    Mcl10 = 50,
-                    BIM0 =  200,
-                    PUMA0 = 200,
-                    NOXA0 = 200 #*  seq(0.6,1.4,0.2),
-  ) %>% #c(0.8,1,1.2)) %>%
-    map_df(function(x){
-
-      if(is.character(x)) return(x)
-      round(x,3)
-
-    } )
-
-
-  nperparam <- ceiling(200000^(1/nmodif))
-
-  list <-   map(1:nmodif, function(x){
-
-    min <- base[[x]]/10
-    max <- base[[x]]*10
-    step <- (max - min)/(nperparam-1)
-
-    expr(seq( !!min,  !!max, !!step  ))
-  }
-  )
-
-  names(list) <- names(base[1:nmodif])
-
-  if(nmodif < length(base)){
-
-    output <- crossing(base[-c(1:nmodif)], !!!list)
-
-  }else{
-
-
-    output <- crossing(!!!list)
-  }
-
-
-  output %>%
-    slice(1:200000) %>%
-    mutate(BAXc0 = 1000, BAK0 = 1000)
-
-
-}
-
-self <-   VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
-
-self$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
-                                  "unique",90,"Pore", 10, 20
-
-))
-
-self$times <- c(0, 50:90)
-cohort <-  cohort_creator_Lindner(6)
-
-self$add_VP(VP_df = cohort, use_green_filter = T, npersalve = 2000, time_compteur = T, keep = "Pore", timeSave = 50:80)
-
-
 
 
 plotLindner <- function(obj, npatient = 2000, title = ""){
@@ -93,6 +31,7 @@ plotLindner <- function(obj, npatient = 2000, title = ""){
     filter(test) %>%
     mutate(protocol = case_when(protocol == "ABT737" ~ "ABT-737",
                                 protocol == "apog" ~ "ApoG2",
+                                protocol == "synergy" ~ "Combination",
                                 T~ protocol))-> temp
 
 
@@ -117,35 +56,16 @@ plotLindner <- function(obj, npatient = 2000, title = ""){
     labs(x = "Time (hours)", y = "Percentage Pore", title = title)+
     theme(plot.title = element_text(hjust = 0.5))
 }
-# Test Lindner normal ABT737-----------------------------------------------------
+# original configuration-----------------------------------------------------
 
 setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Lindner_article")
 
 
 
 protocols <- list( unique = tibble(cmt = "Bcl2", time = 0, amt = 0),
-                   apog = tibble(cmt = "ApoG2", time = 50, amt = 50),
-                   ABT737 = tibble(cmt = "ABT737", time = 50, amt = 50))
-
-
-protocols <- list( unique = tibble(cmt = "Bcl2", time = 0, amt = 0),
-                   apog = tibble(cmt = "ApoG2", time = 50, amt = 40),
-                   ABT737 = tibble(cmt = "ABT737", time = 50, amt = 4))
-
-
-
-self <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
-
-self$protocols <- protocols
-
-
-self$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
-                                  "unique",100,"TimeAbove", -Inf, 1E-1,
-                                  "apog",100,"TimeAbove", -Inf, 1E-1,
-                                  "ABT737",100,"TimeAbove", 1E-1, Inf
-))
-
-
+                   apog = tibble(cmt = "ApoG2", time = 50, amt = 2000),
+                   ABT737 = tibble(cmt = "ABT737", time = 50, amt = 2000),
+                   synergy = tibble(cmt = c("ABT737","ApoG2"), time = 50, amt = 2000))
 
 VP_df <- crossing(Bcl20 = seq(0,900,100),
                   Bclxl0 = seq(0,900,100),
@@ -154,124 +74,12 @@ VP_df <- crossing(Bcl20 = seq(0,900,100),
                   PUMA0 =seq(0,900,100),
                   NOXA0 =  seq(0,900,200),
                   BAXc0 = 500,
-                  BAK0 = 500) %>% #c(0.8,1,1.2)) %>%
-  map_df(function(x){
-
-    if(is.character(x)) return(x)
-    round(x,3)
-
-  } )
-
-
-self$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore")
-
-self$n_filter_reduc()
-
-self$poolVP %>%
-  arrange(id) %>%
-  unnest(simul) %>%
-  mutate(protocol = if_else(protocol == "unique", "No Drug" , protocol)) %>%
-  ggplot()+
-  geom_line(aes(time, Pore, group = id))+
-  facet_wrap(~protocol)+
-  geom_hline(yintercept = 10, col = "red")+
-  coord_cartesian(xlim = c(62,72))
-
-saveRDS(self,"Apo50_ABT25_APOGW.RDS")
-
-
-# Test Lindner normal APOG winner -----------------------------------------------------
-
-
-
-protocols <- list( unique = tibble(cmt = "Bcl2", time = 0, amt = 0),
-                   apog = tibble(cmt = "ApoG2", time = 50, amt = 40),
-                   ABT737 = tibble(cmt = "ABT737", time = 50, amt = 4))
-
-
-self <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
-
-self$protocols <- protocols
-
-
-
-self$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
-                                  "unique",100,"TimeAbove", -Inf, 1E-1,
-                                  "apog",100,"TimeAbove", 1E-1, Inf,
-                                  "ABT737",100,"TimeAbove", -Inf, 1E-1
-))
-
-
-VP_df <- crossing(Bcl20 = seq(0,900,100),
-                  Bclxl0 = seq(0,900,100),
-                  Mcl10 = c(0,50,100,150) ,#*  seq(0.6,1.4,0.2),
-                  BIM0 = seq(0,900,100),
-                  PUMA0 =seq(0,900,100),
-                  NOXA0 =  seq(0,900,200),
-                  BAXc0 = 500,
-                  BAK0 = 500) %>% #c(0.8,1,1.2)) %>%
-  map_df(function(x){
-
-    if(is.character(x)) return(x)
-    round(x,3)
-
-  } )
-
-
-self$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore", time_compteur = T)
-selfAPOG <- self
-
-selfAPOG$poolVP %>%
-  arrange(id) %>%
-  unnest(simul) %>%
-  mutate(protocol = if_else(protocol == "unique", "No Drug" , protocol)) %>%
-  ggplot()+
-  geom_line(aes(time, Pore, group = id))+
-  facet_wrap(~protocol)+
-  geom_hline(yintercept = 10, col = "red")+
-  coord_cartesian(xlim = c(62,72), ylim = c(7.5,12))
-
-self$timeTrack$poolVP_compteur[grepl("green", tolower(names(self$timeTrack$poolVP_compteur)))]
-
-timetable(self)
-
-
-
-saveRDS(selfAPOG, "80_2_APOGW.RDS")
-
-
-
-# Full analysis -----------------------------------------------------------
-
-
-
-VP_df <- crossing(Bcl20 = seq(0,900,100),
-                  Bclxl0 = seq(0,900,100),
-                  Mcl10 = c(0,50,100,150) ,#*  seq(0.6,1.4,0.2),
-                  BIM0 = seq(0,900,100),
-                  PUMA0 =seq(0,900,100),
-                  NOXA0 =  seq(0,900,200),
-                  BAXc0 = 500,
-                  BAK0 = 500) %>% #c(0.8,1,1.2)) %>%
-  map_df(function(x){
-
-    if(is.character(x)) return(x)
-    round(x,3)
-
-  } )
-
-protocols <- list( unique = tibble(cmt = "Bcl2", time = 0, amt = 0),
-                   apog = tibble(cmt = "ApoG2", time = 50, amt = 80),
-                   ABT737 = tibble(cmt = "ABT737", time = 50, amt = 40))
-
+                  BAK0 = 500)
 
 # Step1: Die anyways ------------------------------------------------------
 
 
 # Step 1: remove those who die anyway
-
-
-
 
 
 
@@ -301,27 +109,37 @@ VP_df %>%
 
 
 # Step2: Dead Both drugs ------------------------------------------------------
-protocols <- list( unique = tibble(cmt = "Bcl2", time = 0, amt = 0),
-                   apog = tibble(cmt = "ApoG2", time = 50, amt = 2000),
-                   ABT737 = tibble(cmt = "ABT737", time = 50, amt = 2000))
 
 
 BothDead <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
 
 BothDead$protocols <- protocols
 
+targetsBothDead <- tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+        "unique",100,"TimeAbove", -Inf, 1E-1,
+        "apog",100,"TimeAbove", 1E-1, Inf,
+        "ABT737",100,"TimeAbove",  1E-1, Inf
+)
 
-BothDead$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
-                                  # "unique",100,"TimeAbove", -Inf, 1E-1,
-                                  "apog",100,"TimeAbove", 1E-1, Inf,
-                                  "ABT737",100,"TimeAbove",  1E-1, Inf
-))
+BothDeadFull <- BothDead$clone(deep = T)
+
+BothDead$set_targets(manual = targetsBothDead %>% slice(-1))
+BothDeadFull$set_targets(manual = targetsBothDead)
 
 BothDead$add_VP(VP_df2, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore", time_compteur = T, keepRedFiltaftDis = T)
+if(nrow(BothDead$poolVP) >1) saveRDS(BothDead, "BothDead")
+# BothDead <- readRDS("BothDead")
+
+BothDead$add_VP(VP_df2, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore", time_compteur = T, keepRedFiltaftDis = T)
+if(nrow(BothDead$poolVP) >1) saveRDS(BothDead, "BothDead")
+
+
+BothDeadFull$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore", time_compteur = T, keepRedFiltaftDis = T)
+if(nrow(BothDeadFull$poolVP) >1) saveRDS(BothDeadFull, "BothDeadFull")
 
 plotLindner(obj = BothDead)
 
-saveRDS(BothDead, "BothDead")
+
 
 PrevRej <-
 
@@ -343,96 +161,76 @@ Previous <- PrevAcc %>%
   ) %>%
   rowid_to_column("id")
 
-
+saveRDS(Previous, "previousBothdead")
 
 BothDead$timeTrack$poolVP_compteur$nsimul %>% sum() # why not equal? Oh, because the one accepted for a proto but not the other...
 
 
-
-# Step3: Never good... ------------------------------------------------------
-
-protocols <- list( unique = tibble(cmt = "Bcl2", time = 0, amt = 0),
-                   apog = tibble(cmt = "ApoG2", time = 50, amt = 2000),
-                   ABT737 = tibble(cmt = "ABT737", time = 50, amt = 2000),
-                   synergy = tibble(cmt = c("ABT737","ApoG2"), time = 50, amt = 2000))
-
-
-
-NeverDead <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
-
-NeverDead$protocols <- protocols
-
-
-NeverDead$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
-                                      # "unique",100,"TimeAbove", -Inf, 1E-1,
-                                      "apog",100,"TimeAbove", -Inf, 1E-1,
-                                      "ABT737",100,"TimeAbove", -Inf, 1E-1
-))
-
-#
-# NeverDead$add_VP(VP_df2, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
-#                 time_compteur = T, keepRedFiltaftDis = T, PreviousResults = Previous)
-
-
-NeverDead$add_VP(VP_df2, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
-                 time_compteur = T, keepRedFiltaftDis = T)
-
-
-
-
-saveRDS(NeverDead, "NeverDead")
-
-plotLindner(obj = NeverDead)
-
-
-
-PrevRej <-
-
-  NeverDead$VP_rejected %>%
-  filter(!is.na(id)) %>%
-  rename(TimeAbove = value) %>%
-  select(time, protocol, TimeAbove, !!!NeverDead$param)
-
-PrevAcc <- NeverDead$poolVP %>%
-  unnest() %>%
-  filter(time == 100) %>%
-  select(time, protocol, TimeAbove, !!!NeverDead$param)
-
-
-Previous <-  bind_rows(Previous, PrevAcc, PrevRej) %>%
-    distinct()
-
-
-# Step 4 Only ApoG ------------------------------------------------------------------
+# Step 3 Only ApoG ------------------------------------------------------------------
 
 
 
 apoG <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
 
 apoG$protocols <- protocols
+apoGFull <- apoG$clone()
 
+protoApoG <- tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+        "unique",100,"TimeAbove", -Inf, 1E-1,
+        "apog",100,"TimeAbove",  1E-1, Inf,
+        "ABT737",100,"TimeAbove", -Inf, 1E-1
+)
 
-apoG$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
-                                       # "unique",100,"TimeAbove", -Inf, 1E-1,
-                                       "apog",100,"TimeAbove",  1E-1, Inf,
-                                       "ABT737",100,"TimeAbove", -Inf, 1E-1
-))
-
+apoG$set_targets(manual = protoApoG %>% slice(-1))
+apoGNoPrev <- apoG$clone(deep = T)
+apoGFull$set_targets(manual = protoApoG%>% slice(-1))
 
 
 
 apoG$add_VP(VP_df2, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
+            time_compteur = T, keepRedFiltaftDis = T, PreviousResults = Previous)
+
+
+
+apoGNoPrev$add_VP(VP_df2, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
             time_compteur = T, keepRedFiltaftDis = T)
 
 
-apoG$add_VP(VP_df2, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
-                 time_compteur = T, keepRedFiltaftDis = T, PreviousResults = Previous)
+if(nrow(apoG$poolVP) > 1 ) saveRDS(apoG, "apoG")
+
+if(nrow(apoGNoPrev$poolVP) > 1 ) saveRDS(apoGNoPrev, "apoGNoPrev")
 
 
-apoG
 
-saveRDS(apoG, "apoG")
-# Step 5 Only ABT737 ------------------------------------------------------------------
+apoGFull$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
+            time_compteur = T, keepRedFiltaftDis = T)
+
+if(nrow(apoGFull$poolVP) > 1 ) saveRDS(apoGFull, "apoGFull")
+
+apoGFull$timeTrack$tTOTAL/60
+
+
+
+PrevRej <-
+
+  apoG$VP_rejected %>%
+  filter(!is.na(id)) %>%
+  rename(TimeAbove = value) %>%
+  select(time, protocol, TimeAbove, !!!NeverDead$param)
+
+PrevAcc <- apoG$poolVP %>%
+  unnest() %>%
+  filter(time == 100) %>%
+  select(time, protocol, TimeAbove, !!!NeverDead$param)
+
+
+Previous <-  bind_rows(readRDS( "previousBothdead"), PrevAcc, PrevRej) %>%
+  distinct()
+
+saveRDS(Previous, "previousPostApoG")
+
+
+# Step 4 Only ABT737 ------------------------------------------------------------------
 
 
 
@@ -440,116 +238,186 @@ ABT737 <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling
 
 ABT737$protocols <- protocols
 
+ABT737Full <- ABT737$clone(deep = T)
+ABT737targets <- tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                         "unique",100,"TimeAbove", -Inf, 1E-1,
+                         "apog",100,"TimeAbove",  -Inf, 1E-1,
+                         "ABT737",100,"TimeAbove",  1E-1, Inf
+)
 
-ABT737$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
-                                  # "unique",100,"TimeAbove", -Inf, 1E-1,
-                                  "apog",100,"TimeAbove",  -Inf, 1E-1,
-                                  "ABT737",100,"TimeAbove",  1E-1, Inf
-))
+ABT737$set_targets(manual = ABT737targets %>% slice(-1) )
+ABT737NoPrev <- ABT737$clone(deep = T)
+ABT737Full$set_targets(manual = ABT737targets %>% slice(-1))
+
 
 
 ABT737$add_VP(VP_df2, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
+              time_compteur = T, keepRedFiltaftDis = T, PreviousResults = Previous)
+
+
+if(nrow(ABT737$poolVP) >1) saveRDS(ABT737, "ABT737")
+
+ABT737NoPrev$add_VP(VP_df2, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
               time_compteur = T, keepRedFiltaftDis = T)
 
-ABT737$add_VP(VP_df2, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
-            time_compteur = T, keepRedFiltaftDis = T, PreviousResults = Previous)
+if(nrow(ABT737NoPrev$poolVP) >1) saveRDS(ABT737NoPrev, "ABT737NoPrev")
 
+
+ABT737Full$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
+              time_compteur = T, keepRedFiltaftDis = T)
+
+if(nrow(ABT737Full$poolVP) >1) saveRDS(ABT737Full, "ABT737Full")
+ABT737Full$timeTrack$tTOTAL / 60
 
 plotLindner(obj = ABT737)
-saveRDS(ABT737, "ABT737")
+# saveRDS(ABT737, "ABT737")
 # Sum to verify
 
+# Cmopute last df ---------------------------------------------------------
+
+BothDead <- readRDS("BothDead")
+OnlyApoG <- readRDS( "apoG")
+onlyABT737 <- readRDS("ABT737")
 
 
-# Step 6 Synergi ------------------------------------------------------------------
+ResistantsMono <- VP_df2 %>%
+  left_join(BothDead$poolVP) %>%
+  filter(is.na(protocol)) %>%
+  select(1:8) %>%
+  left_join(OnlyApoG$poolVP) %>%
+  filter(is.na(protocol)) %>%
+  select(1:8) %>%
+  left_join(onlyABT737$poolVP) %>%
+  filter(is.na(protocol)) %>%
+  select(1:8)
+
+saveRDS(ResistantsMono, "ResistantsMono")
 
 
-
-synergy <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
-
-synergy$protocols <- protocols
-
-
-synergy$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
-                                  # "unique",100,"TimeAbove", -Inf, 1E-1,
-                                  "apog",100,"TimeAbove",  -Inf, 1E-1,
-                                  "ABT737",100,"TimeAbove", -Inf, 1E-1,
-                                  "synergy",100,"TimeAbove", 1E-1, Inf
-))
-
-
-
-
-synergy$add_VP(VP_df2, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
-            time_compteur = T, keepRedFiltaftDis = T)
-
-
-
-saveRDS(synergy, "synergy")
-
-# Step 6 Synergi from start------------------------------------------------------------------
+# Step 6 Synergy ------------------------------------------------------------------
 
 
 
 synergy <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
 
 synergy$protocols <- protocols
+synergyFull <- synergy$clone(deep = T)
+
+protocolSynergy <- tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                           "unique",100,"TimeAbove", -Inf, 1E-1,
+                           "apog",100,"TimeAbove",  -Inf, 1E-1,
+                           "ABT737",100,"TimeAbove", -Inf, 1E-1,
+                           "synergy",100,"TimeAbove", 1E-1, Inf
+)
+
+synergy$set_targets(manual = protocolSynergy %>% slice(-1))
+synergyFull$set_targets(manual = protocolSynergy %>% slice(-1))
 
 
-synergy$set_targets(manual = tribble(~protocol, ~time, ~cmt, ~ min, ~max,
-                                     "unique",100,"TimeAbove", -Inf, 1E-1,
-                                     "apog",100,"TimeAbove",  -Inf, 1E-1,
-                                     "ABT737",100,"TimeAbove", -Inf, 1E-1,
-                                     "synergy",100,"TimeAbove", 1E-1, Inf
-))
 
-
-
-
-synergy$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
+synergy$add_VP(ResistantsMono, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
                time_compteur = T, keepRedFiltaftDis = T)
 
 
-plotLindner(synergy)
-saveRDS(synergy, "synergy")
+if(nrow(synergy$poolVP) >1) saveRDS(synergy, "synergy")
+
+
+synergyFull$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
+               time_compteur = T, keepRedFiltaftDis = T)
+
+if(nrow(synergyFull$poolVP) >1) saveRDS(synergyFull, "synergy")
+
+synergy$timeTrack$tTOTAL / 60
+synergyFull$timeTrack$tTOTAL / 60
+
+# Step7: Single treatment therapy failure ------------------------------------------------------
 
 
 
-# Final -------------------------------------------------------------------
+NeverDead <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
+
+NeverDead$protocols <- protocols
+NeverDeadFull <- NeverDead$clone(deep = T)
+
+ProtNeverDead <- tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                     "unique",100,"TimeAbove", -Inf, 1E-1,
+                     "apog",100,"TimeAbove", -Inf, 1E-1,
+                     "ABT737",100,"TimeAbove", -Inf, 1E-1
+)
+
+NeverDead$set_targets(manual = ProtNeverDead %>% slice(-1) )
+NeverDeadFull$set_targets(manual = ProtNeverDead %>% slice(-1) )
+#
+NeverDead$add_VP(VP_df2, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
+                time_compteur = T, keepRedFiltaftDis = T, PreviousResults = Previous)
+
+
+# NeverDead$add_VP(VP_df2, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
+#                  time_compteur = T, keepRedFiltaftDis = T)
+
+
+NeverDeadFull$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
+                 time_compteur = T, keepRedFiltaftDis = T)
+
+
+if(nrow(NeverDead$poolVP) >1) saveRDS(NeverDead, "NeverDead")
+if(nrow(NeverDeadFull$poolVP) >1) saveRDS(NeverDead, "NeverDeadFull")
+NeverDeadFull$timeTrack$tTOTAL/60
+plotLindner(obj = NeverDead)
 
 
 
-NApoptose <- ApoptoWODrug$poolVP %>% nrow
-NBothDead <- BothDead$poolVP %>% nrow / 2
-NNeverDead <- NeverDead$poolVP %>% nrow /2
-NapoG <- apoG$poolVP %>% nrow /2
-NABT737 <- ABT737$poolVP %>% nrow /2
+# Step7: Combination treatment failure  ------------------------------------------------------
 
-NApoptose + NBothDead + NNeverDead + NapoG + NABT737
+
+
+CombinationResist <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config_Lindner_origin.r")
+
+CombinationResist$protocols <- protocols
+
+protocolCombinationResist <- tribble(~protocol, ~time, ~cmt, ~ min, ~max,
+                           "unique",100,"TimeAbove", -Inf, 1E-1,
+                           "apog",100,"TimeAbove",  -Inf, 1E-1,
+                           "ABT737",100,"TimeAbove", -Inf, 1E-1,
+                           "synergy",100,"TimeAbove",  -Inf, 1E-1
+)
+
+CombinationResist$set_targets(manual =protocolCombinationResist %>% slice(4))
+#
+CombinationResist$add_VP(VP_df, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
+                 time_compteur = T, keepRedFiltaftDis = T)
+
+saveRDS(CombinationResist, "CombinationResist")
+# NeverDead$add_VP(VP_df2, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
+#                  time_compteur = T, keepRedFiltaftDis = T)
+
+# Final Plot-------------------------------------------------------------------
+ApoptoWODrug <- readRDS("ApoptoWODrug")
+ABT737 <- readRDS("ABT737")
+apoG <- readRDS("apoG")
+BothDead <- readRDS("BothDead")
+Synergy <- readRDS("Synergy")
+CombinationResist <- readRDS("CombinationResist")
+
 
 
 nsim <- 100
 
 set.seed(23)
+
+# plotLindner(NeverDead, npatient = nsim, title = paste0("Both ineffective drugs (", nrow(NeverDead$poolVP)/2," VPs)")),
+
 cowplot::plot_grid(
 
-  plotLindner(ApoptoWODrug, npatient = nsim, title = paste0("Spontaneous Apoptosis (", nrow(ApoptoWODrug$poolVP)," VPs)")),
-  plotLindner(NeverDead, npatient = nsim, title = paste0("Both ineffective drugs (", nrow(NeverDead$poolVP)/2," VPs)")),
-  plotLindner(BothDead, npatient = nsim, title = paste0("Both effective drugs  (", nrow(BothDead$poolVP)/2," VPs)")),
-  plotLindner(apoG, npatient = nsim, title = paste0("Effective ApoG2 only (", nrow(apoG$poolVP)/2," VPs)")) ,
-  plotLindner(ABT737, npatient = nsim, title = paste0("Effective ABT-373 only (", nrow(ABT737$poolVP)/2," VPs)")),
-  plotLindner(synergy, npatient = nsim, title = paste0("Effective synergy only (", nrow(synergy$poolVP)/3," VPs)")),
+  plotLindner(ApoptoWODrug, npatient = nsim, title = paste0("Spontaneous Apoptosis (", length(unique(ApoptoWODrug$poolVP$id))," VPs)")),
+   plotLindner(BothDead, npatient = nsim, title = paste0("Both effective drugs  (", length(unique(BothDead$poolVP$id))," VPs)")),
+  plotLindner(apoG, npatient = nsim, title = paste0("Effective ApoG2 only (",length(unique(apoG$poolVP$id))  ," VPs)")) ,
+  plotLindner(ABT737, npatient = nsim, title = paste0("Effective ABT-373 only (", length(unique(ABT737$poolVP$id))," VPs)")),
+  plotLindner(Synergy, npatient = nsim, title = paste0("Effective combination only (", length(unique(Synergy$poolVP$id)) ," VPs)")),
+  plotLindner(CombinationResist, npatient = nsim, title = paste0("Combination resistance (", length(unique(CombinationResist$poolVP$id)) ," VPs)")),
   labels = LETTERS
 
 )
-
-# Total time
-
-(ApoptoWODrug$timeTrack$tTOTAL +
-  BothDead$timeTrack$tTOTAL +
-  ABT737$timeTrack$tTOTAL +
-  NeverDead$timeTrack$tTOTAL +
-  apoG$timeTrack$tTOTAL) / 60
 
 
 
