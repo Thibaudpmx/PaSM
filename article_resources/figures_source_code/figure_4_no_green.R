@@ -393,16 +393,11 @@ allTimes <- readRDS("full_analysis.RDS") #%>%
 # mutate(meth = if_else(meth == "", "", "alt")) %>%
 # mutate(nparam = paste0(nparam, meth))
 
-readRDS("timeReference.RDS") %>%
-  as.data.frame() %>%
-  mutate(time = time * 10E-10) %>%
-  summarise(min = min(time), max = max(time), median = median(time)) -> ref
+
+ref <- readRDS("../Simeoni_ref/timeReference.RDS")
 
 # Verifying the percentage
 
-allTimes %>%
-  mutate(pcteffe = VPfound / 200000) %>%
-  filter(pct != pcteffe) # note: 1 or 2 of differences can be explained by internal rounding
 # After check the additional/missing VP are from 1E-10 mm3 or similar
 
 
@@ -426,16 +421,14 @@ plotA <- allTimes %>%
   summarise(timeTotal = median(timeTotal)) %>%
   ungroup() %>%
   ggplot()+
-  # geom_rect(aes(xmin = 48, xmax = 52, ymin = 39, ymax = 41.5), col = "red",alpha = 0)+
-  # geom_segment(aes(x = 56, xend = 52, y = 45, yend = 42), col = "red",  arrow = arrow(length = unit(0.2, "cm")))+
-  # geom_text(aes(x = 62, y = 46, label = "next plots"), col = "red", size = 3)+ # Note: last 3 brut way, not reproducible
+  geom_line(data = ref, aes(x= (1- pct)*100, y = medianTotal ), lty = 2)+
+  geom_ribbon(data = ref, aes(x= (1- pct)*100, ymin = minTotal, ymax = maxTotal, fill = "Time of\nreference" ),alpha = 0.2)+
+  geom_line(data = ref, aes(x= (1- pct)*100, y = minTotal ))+
+  geom_line(data = ref, aes(x= (1- pct)*100, y = maxTotal ))+
   geom_point(aes(x = (1-pct) * 100, y = timeTotal, col = nparam))+
   geom_line(aes(x = (1-pct)* 100, y = timeTotal, col = nparam, lty = meth))+
   geom_line(data = allTimesWith_green , aes(x = (1-pct)* 100, y =  Yes, col = nparam, lty = meth), alpha = 0.5)+
-  geom_hline(data = ref, aes(yintercept = min), lty = 1)+
-  geom_hline(data = ref, aes(yintercept = max), lty = 1)+
-  geom_rect(data = ref, aes(xmin = -Inf, xmax = Inf, ymin = min, ymax =  max, fill = "Time of\nreference"), lty = 1,alpha = 0.15)+
-  geom_hline(data = ref, aes(yintercept = median), lty = 2)+
+
   theme_bw()+
   scale_linetype_manual(values = c(1,2))+
   scale_fill_manual(values = "grey")+
@@ -579,11 +572,13 @@ plotB <- allTimes %>%
   ggplot()+
   geom_line(aes(x = 5-nparam, y = timeTotal, col =   GreenFilterlab))+
   geom_point(aes(x = 5-nparam, y = timeTotal, col =   GreenFilterlab))+
-  geom_hline(data = ref, aes(yintercept = min), lty = 1)+
-  geom_hline(data = ref, aes(yintercept = max), lty = 1)+
-  geom_rect(data = ref, aes(xmin = -Inf, xmax = Inf, ymin = min, ymax =  max, fill = "Time of\nreference"), lty = 1,alpha = 0.15)+
-  geom_hline(data = ref, aes(yintercept = median), lty = 2)+
+   geom_rect(data = mtcars, aes(xmin = -Inf, xmax = Inf, ymin = ref$minTotal[ref$pct == 0.5], ymax =  ref$maxTotal[ref$pct == 0.5], fill = "Time of\nreference"), lty = 1,alpha = 0.15)+
+  geom_hline(data = mtcars, aes(yintercept = ref$medianTotal[ref$pct == 0.5]), lty = 2)+
+  geom_hline(data = mtcars, aes(yintercept = ref$minTotal[ref$pct == 0.5]), lty = 1)+
+  geom_hline(data = mtcars, aes(yintercept = ref$maxTotal[ref$pct == 0.5]), lty = 1)+
+
   scale_fill_manual(values = "grey")+
+  # scale_y_log10()
   theme_bw()+
   scale_x_continuous(labels = c(paste0(0:5, "/5")))+
   labs( x = "Number of parameters with monotonicity ",y = "Time of analysis (s)", fill = "", col = "Green Filter");plotB
@@ -591,13 +586,13 @@ plotB <- allTimes %>%
 
 plotC <- allTimes %>%
   filter(pct == 1) %>%
-  gather("param", "value", GreenFilter, RedFilter, RxODE) %>%
+  gather("param", "value", GreenFilter, RedFilter, RxODE,Other) %>%
   ggplot(aes(x = labelx, y = value, fill = param))+
   geom_col(aes(x = labelx, y = value, fill = param), alpha = 0.5)+
   geom_text(aes(x = labelx, y = value, label = paste0(round(value),"s"), group = param),       position = position_stack(vjust = .5))+
   theme_bw()+
-  scale_fill_manual(values = c("darkgreen", "red", "blue"))+
-  labs(x = "Number of parameters with monotonicity", y = "Cumulative time for each step (s)", fill = "Step"); plotC
+  scale_fill_manual(values = c("darkgreen", "grey", "red", "blue"))+
+  labs(x = "Number of parameters with monotonicity", y = "Cumulative time for each step (sec)", fill = "Step"); plotC
 
 
 cowplot::plot_grid(plotA, plotB, plotC, nrow = 1, labels = LETTERS)

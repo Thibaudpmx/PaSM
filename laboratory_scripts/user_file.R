@@ -295,7 +295,7 @@ self$set_targets(manual = tibble(protocol = "dose50", cmt = "tumVol", time = 40,
 VP_df <- crossing(k1 = c(0),
                   k2 = 0:8,
                   ke = 1 ,#*  seq(0.6,1.4,0.2),
-                  lambda0 = 0.64,
+                  lambda0 = 50,
                   lambda1 = c(20,100,1),
                   w0 = seq(20,400,1),
                   Vd =  40) %>% #c(0.8,1,1.2)) %>%

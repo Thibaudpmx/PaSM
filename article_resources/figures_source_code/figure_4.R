@@ -290,17 +290,25 @@ str_split(toread, pattern = "_", simplify = T) %>%
 
 
 
+# Time reference ----------------------------------------------------------
 
-manual <- function(target, cohort){
+# First, put where you want to save all the data (to heavy to put in GitHub, you will have to regenerate them yourself ! )
+setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni_ref")
 
-  cohort <- crossing(cohort,  proto  = unique(target$protocol))
+
+manual <- function(cohort, self){
+
+
+
+  t0 <- Sys.time()
+  cohort <- crossing(cohort,  proto  = unique(self$targets$protocol))
 
 
   self$protocols[] %>%
     bind_rows() %>%
     mutate(proto = names( self$protocols)) -> protocols
 
-  eventsadmin  <- crossing(id = 1:2000, proto  = unique(target$protocol)) %>%
+  eventsadmin  <- crossing(id = 1:2000, proto  = unique(self$targets$protocol)) %>%
     left_join(protocols, by = "proto" ) %>%
     mutate(evid = 1)
 
@@ -324,6 +332,8 @@ manual <- function(target, cohort){
 
   resultsap <- list()
 
+timeModel <- double()
+
 
   for(a in unique(demo$group)){
 
@@ -336,9 +346,10 @@ manual <- function(target, cohort){
       filter(!is.na(ids))
 
 
-
-    res <- self$model$solve(x %>% select(-proto), events , c(X2 = 0)) %>%
+    tmodel <- Sys.time()
+    res <- self$model$solve(x %>% select(-proto), events) %>%
       as_tibble
+    timeModel <- c(timeModel, difftime(Sys.time(),tmodel, units = 's' ) %>% as.double)
 
     if(max(x$id) == 1) res <- res %>% mutate(id = 1)
 
@@ -346,10 +357,10 @@ manual <- function(target, cohort){
       left_join(x %>% select(id, proto, ids), by = "id")
 
     res %>%
-      filter(time %in% target$time) %>%
+      filter(time %in% self$targets$time) %>%
       rename(protocol = proto) %>%
-      gather("cmt", "value", unique(target$cmt)) %>%
-      left_join(target, by = c("time", "protocol", "cmt")) %>%
+      gather("cmt", "value", unique(self$targets$cmt)) %>%
+      left_join(self$targets, by = c("time", "protocol", "cmt")) %>%
       filter(value > max | value < min) %>% pull(ids ) -> idtorem
 
     idtorems <- c(idtorems, idtorem)
@@ -368,22 +379,75 @@ manual <- function(target, cohort){
     left_join( resultsap, by = c("ids", "proto") )
 
 
-  # difftime(Sys.time(),t00, units = "s")
+  TTotal <- difftime(Sys.time(),t0, units = "s") %>% as.double
+
+
+  return(tibble(timeModel = sum(timeModel), timeTotal = TTotal))
+
+}
+
+
+targets <- c(0,0.5,1)
+cohort <- cohort_creator(nmodif = 5) # doesn't matter
+
+namepct <- paste0("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni/Ref_5.RDS")
+
+alltumVol <- readRDS(namepct)  %>% pull(tumVol)
+
+for(a in targets){
+
+  for(b in 1:5){
+
+
+# Name of all simulations file
+
+
+
+
+    newnames <- paste0(a,"_", b, ".RDS") # compute the name of the file (nparamvarying_pcttarget_iteration)
+
+    if(!file.exists(newnames)){ # If the file does not exist yet
+
+      self <- VP_proj_creator$new()
+      quant <- ( 1-a)/2
+      target <-  tibble(protocol = "dose50", cmt  = "tumVol", time = 48,
+                        min = quantile(alltumVol, probs = quant), max =  quantile(alltumVol, probs = 1 - quant))
+      self$set_targets(manual =target) # Note: can't use (-) Inf
+
+      res <- manual( cohort, self)
+      saveRDS(res, file = newnames)
+    }
+
+}
 
 }
 
 
 
-target <- tibble(protocol = "dose50", cmt = "tumVol", time = 48, min = -Inf, max = Inf)
+toread <- list.files()
 
-cohort <- cohort_creator(nmodif = 2)
+tibble(file = toread[!grepl("timeReference", toread)]) %>%
+  mutate(a = map(file, ~readRDS(.x))) %>%
+  unnest() %>%
+  mutate(pct = gsub("_.+", "", file)) %>%
+  group_by(pct) %>%
+  summarise(meanModel = mean(timeModel), medianModel = median(timeModel),minModel = min(timeModel),
+            maxModel = max(timeModel),
+            meanTotal = mean(timeTotal), medianTotal = median(timeTotal),minTotal = min(timeTotal),
+            maxTotal = max(timeTotal)) %>%
+  mutate(pct = as.double(pct)) %>%
+ saveRDS("timeReference.RDS")
 
-
-# Compute the reference
-
-mbref <- microbenchmark(ref <- manual(target, cohort), times = 5)
-
-saveRDS(mbref, "timeReference.RDS")
+#
+# ref <- manual( cohort, self)
+#
+# ref[[2]] %>% sum # for time RxODE
+# ref[[3]] - ref[[2]] %>% sum
+# # Compute the reference
+#
+# mbref <- microbenchmark(ref <- manual(target, cohort), times = 5)
+#
+# saveRDS(mbref, "timeReference.RDS")
 
 #  plot A - making: Simeoni analysis -----------------------------------------------
 setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni")
@@ -392,10 +456,7 @@ allTimes <- readRDS("full_analysis.RDS") #%>%
 # mutate(meth = if_else(meth == "", "", "alt")) %>%
 # mutate(nparam = paste0(nparam, meth))
 
-readRDS("timeReference.RDS") %>%
-  as.data.frame() %>%
-  mutate(time = time * 10E-10) %>%
-  summarise(min = min(time), max = max(time), median = median(time)) -> ref
+ref <- readRDS("../Simeoni_ref/timeReference.RDS")
 
 # Verifying the percentage
 
@@ -420,10 +481,10 @@ plotA <- allTimes %>%
   # geom_text(aes(x = 62, y = 46, label = "next plots"), col = "red", size = 3)+ # Note: last 3 brut way, not reproducible
   geom_point(aes(x = (1-pct) * 100, y = timeTotal, col = nparam))+
   geom_line(aes(x = (1-pct)* 100, y = timeTotal, col = nparam, lty = meth))+
-  geom_hline(data = ref, aes(yintercept = min), lty = 1)+
-  geom_hline(data = ref, aes(yintercept = max), lty = 1)+
-  geom_rect(data = ref, aes(xmin = -Inf, xmax = Inf, ymin = min, ymax =  max, fill = "Time of\nreference"), lty = 1,alpha = 0.2)+
-  geom_hline(data = ref, aes(yintercept = median), lty = 2)+
+  geom_line(data = ref, aes(x= (1- pct)*100, y = medianTotal ), lty = 2)+
+  geom_ribbon(data = ref, aes(x= (1- pct)*100, ymin = minTotal, ymax = maxTotal, fill = "Time of\nreference" ),alpha = 0.2)+
+  geom_line(data = ref, aes(x= (1- pct)*100, y = minTotal ))+
+  geom_line(data = ref, aes(x= (1- pct)*100, y = maxTotal ))+
   theme_bw()+
   scale_linetype_manual(values = c(1,2))+
   scale_fill_manual(values = "grey")+
@@ -487,8 +548,8 @@ allTimes %>%
 
 
 
-
-
+ref0.5 <- ref %>% filter(pct == 0.5)
+ref0.5 <- tibble(pct = "Old", time = c("Other", "RxODE"), value = c(ref0.5$medianTotal - ref0.5$medianModel,ref0.5$medianModel)) %>% crossing(nparam = 5)
 
 plotB <- allTimes %>%
   filter(nparam == 5 & pct == 0.5 & meth == "") %>%
@@ -496,7 +557,7 @@ plotB <- allTimes %>%
   filter(test) %>%
   gather("time", "value",GreenFilter, Other, RedFilter, RxODE) %>%
   mutate(pct = "New") %>%
-  bind_rows( tibble(pct = "Old", time = c("Other", "RxODE"), value = c(7.1,47.9)) %>% crossing(nparam = 5)) %>%
+  bind_rows(ref0.5 ) %>%
   group_by(pct) %>%
   mutate(total = sum(value)) %>%
   ungroup() %>%
@@ -699,17 +760,17 @@ temp <- readRDS("full_analysis.RDS") %>%
   ungroup() %>%
   mutate( n = map_dbl(times_to_try, ~ length(.x)) ) %>%
   mutate(timecomput =  map_dbl(allTimesRxODE, ~ as.double(.x)/ 100) ) %>%
-  mutate(Old = 10 + allTimesRxODE %>% reduce(c) %>% as.double()) %>%
+  mutate(Old = 7.4 + allTimesRxODE %>% reduce(c) %>% as.double()) %>%
   rename(New = timeTotal) %>%
   gather("method", "value", Old, New) %>%
   mutate(value= as.double(value))
 
 plotC <- temp %>%
   ggplot()+
-  geom_vline(aes(xintercept = 0.375, lty= "Used in\nmain\nanalysis"))+
+  geom_vline(aes(xintercept = (ref$medianModel/100) %>% median, lty= "Used in\nmain\nanalysis"))+
   geom_line(aes(timecomput, value, col = method), size = 2)+
   geom_point(aes(timecomput, value, col = method), size = 3)+
-  geom_segment(aes(x = 0.45, xend = 0.39, y = 35, yend = 39), col = "red",  arrow = arrow(length = unit(0.2, "cm")))+
+  geom_segment(aes(x = 0.52, xend = 0.45, y = 36, yend = 39), col = "red",  arrow = arrow(length = unit(0.2, "cm")))+
 
   # geom_line(aes(timecomput, value, col = method), size = 2)+
   geom_ribbon(data = temp %>% spread(method, value), aes(x = timecomput, ymin = New, ymax =  Old), alpha = 0.3)+
@@ -954,7 +1015,7 @@ datas <- readRDS("full_analysis.RDS") %>%
 
 
 plotG <-  datas %>%
-  mutate(Old = 55 * nCohort / 2E5 / 60) %>%
+  mutate(Old = 50.1 * nCohort / 2E5 / 60) %>%
   rename(New = timeTotal) %>%
   mutate(time =  round(New / Old,1)) %>%
   {pregather <<- .} %>%
@@ -973,6 +1034,8 @@ plotG <-  datas %>%
   geom_ribbon(data = pregather, aes(x = nCohort, ymin = Old, ymax = New), alpha = 0.3)+
   geom_point(aes(nCohort, value, col = Method), size = 3)+
   theme_bw() +
+  # geom_segment(aes(x = 2.6E5, xend = 2.2E5, y = 0.36, yend = 0.44), col = "red",  arrow = arrow(length = unit(0.2, "cm")))+
+
   # facet_wrap(~iteration)+
   scale_linetype_manual(values = 2)+
   labs(x = "Number of VPs in original cohort", y = "Time of computation (minute)");plotG
