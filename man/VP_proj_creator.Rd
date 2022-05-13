@@ -17,6 +17,7 @@ Thibaud Derippe
 \item \href{#method-new}{\code{VP_proj_creator$new()}}
 \item \href{#method-print}{\code{VP_proj_creator$print()}}
 \item \href{#method-add_VP}{\code{VP_proj_creator$add_VP()}}
+\item \href{#method-set_targets}{\code{VP_proj_creator$set_targets()}}
 \item \href{#method-algo2}{\code{VP_proj_creator$algo2()}}
 \item \href{#method-big_screening}{\code{VP_proj_creator$big_screening()}}
 \item \href{#method-compute_zone_maybe}{\code{VP_proj_creator$compute_zone_maybe()}}
@@ -25,10 +26,9 @@ Thibaud Derippe
 \item \href{#method-launch_programmed}{\code{VP_proj_creator$launch_programmed()}}
 \item \href{#method-make_filters}{\code{VP_proj_creator$make_filters()}}
 \item \href{#method-n_filter_reduc}{\code{VP_proj_creator$n_filter_reduc()}}
-\item \href{#method-plot_VP}{\code{VP_proj_creator$plot_VP()}}
 \item \href{#method-plot_2D}{\code{VP_proj_creator$plot_2D()}}
 \item \href{#method-plot_3D}{\code{VP_proj_creator$plot_3D()}}
-\item \href{#method-set_targets}{\code{VP_proj_creator$set_targets()}}
+\item \href{#method-plot_VP}{\code{VP_proj_creator$plot_VP()}}
 \item \href{#method-time_analyserr}{\code{VP_proj_creator$time_analyserr()}}
 \item \href{#method-clone}{\code{VP_proj_creator$clone()}}
 }
@@ -39,8 +39,7 @@ Thibaud Derippe
 \subsection{Method \code{new()}}{
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{VP_proj_creator$new(
- 
-    sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config.r"
+  sourcefile = file.path(find.package("QSPVP"), "config_Simeoni.r")
 )}\if{html}{\out{</div>}}
 }
 
@@ -71,13 +70,31 @@ Thibaud Derippe
   npersalve = 1000,
   use_green_filter = F,
   pctActivGreen = 0.1,
-  keepRedFiltaftDis = F,
+  keepRedFiltaftDis = T,
   methodFilter = 2,
   use_red_filter = T,
   cmtalwaysbelow = NULL,
   keep = NULL,
   saveVPRej = T,
-  timeSave = NULL
+  timeSave = NULL,
+  PreviousResults = tibble(),
+  RedFilterDisAllProt = F,
+  GreenFilterDisAllProt = F
+)}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-set_targets"></a>}}
+\if{latex}{\out{\hypertarget{method-set_targets}{}}}
+\subsection{Method \code{set_targets()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{VP_proj_creator$set_targets(
+  ...,
+  filter = NULL,
+  ntime = 3,
+  manual = NULL,
+  timeforce = NULL
 )}\if{html}{\out{</div>}}
 }
 
@@ -93,7 +110,8 @@ Thibaud Derippe
   npersalve = 2e+05,
   npersalveFinal = 1e+06,
   file = "",
-  save_every = 5
+  save_every = 5,
+  method = 1
 )}\if{html}{\out{</div>}}
 }
 
@@ -112,7 +130,11 @@ Thibaud Derippe
 \if{latex}{\out{\hypertarget{method-compute_zone_maybe}{}}}
 \subsection{Method \code{compute_zone_maybe()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{VP_proj_creator$compute_zone_maybe(zone_sure = F, keptSingleValue = T)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{VP_proj_creator$compute_zone_maybe(
+  zone_sure = F,
+  keptSingleValue = T,
+  limits = NULL
+)}\if{html}{\out{</div>}}
 }
 
 }
@@ -162,15 +184,6 @@ Thibaud Derippe
 
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-plot_VP"></a>}}
-\if{latex}{\out{\hypertarget{method-plot_VP}{}}}
-\subsection{Method \code{plot_VP()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{VP_proj_creator$plot_VP(nmax = Inf, rowids = NULL)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-plot_2D"></a>}}
 \if{latex}{\out{\hypertarget{method-plot_2D}{}}}
 \subsection{Method \code{plot_2D()}}{
@@ -198,17 +211,11 @@ Thibaud Derippe
 
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-set_targets"></a>}}
-\if{latex}{\out{\hypertarget{method-set_targets}{}}}
-\subsection{Method \code{set_targets()}}{
+\if{html}{\out{<a id="method-plot_VP"></a>}}
+\if{latex}{\out{\hypertarget{method-plot_VP}{}}}
+\subsection{Method \code{plot_VP()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{VP_proj_creator$set_targets(
-  ...,
-  filter = NULL,
-  ntime = 3,
-  manual = NULL,
-  timeforce = NULL
-)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{VP_proj_creator$plot_VP(nmax = Inf, rowids = NULL)}\if{html}{\out{</div>}}
 }
 
 }

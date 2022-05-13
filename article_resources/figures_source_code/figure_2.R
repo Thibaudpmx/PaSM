@@ -12,61 +12,61 @@
 ## GitHub: https://github.com/Thibaudpmx/QSPVP
 ## ---------------------------
 ##
-## Notes: Stochasticity in the algorithm, I put a seed
-## but results might vary on another machine
+## Notes: 1) Stochasticity in the algorithm, I put a seed for full
+## reproductibility in my machine, but results might vary on another one
+## (initial sampling of VP to perform RxODE)
 ##
-##
+## 2) Figure are linked one to another (progress throughout the algorithm)
+## such as it is necessar to launch the full script (no direct acces to plot H for instance)
 ## ---------------------------
 
 
-# Figure 2 ----------------------------------------------------------------
+library(QSPVP)
+library(RxODE)
+library(cowplot)
 
-# Use the same target as in Figure 1
-
-
-
-## One increase one decrease (k2 and lambda0)
-
+# First, lets create an object for the analysis
+# Creation of the project
 self <- VP_proj_creator$new()
 
-
+# Taret determine with data
 self$set_targets(filter = Dose==50 & cmt == "tumVol",timeforce = c(12,45))
 
+# Plot A ------------------------------------------------------------------
 
+# Productoin of the cohort of VP to analyse
 param <- crossing(k1 = 0.5, k2 = seq(0,6,0.2), ke = 1, lambda0 = seq(0,0.7,0.02), lambda1 = 12, Vd = 40, psi = 20, w0 = 50)
+
+# param %>% filter(k2 == 2.4) # Strange behavior, no line found...
 param$k2 <- round(param$k2, 1)
-# bind_rows(crossing(k1 = 0.5, k2 = c(0.8,0.9), ke = 1, lambda0 = c(0.05,0.03), lambda1 = 12, Vd = 40, psi = 20)) %>%
+# param %>% filter(k2 == 2.4) # solved by the above line. (impact plot E)
 
-# param <- crossing(k1 = 0.5, k2 = seq(2,6,2), ke = 1, lambda0 = seq(0.02,0.06,0.01), lambda1 = 12, Vd = 40, psi = 20) %>%
-#   bind_rows(crossing(k1 = 0.5, k2 = c(0.8,0.9), ke = 1, lambda0 = c(0.05,0.03), lambda1 = 12, Vd = 40, psi = 20)) %>%
-#   rowid_to_column("id")
+set.seed(1653) ### ATTENTION, HERE IS THE SEED, SO RESULT CAN BE DIFFERENT ON YOUR COMPUTER
 
-# param %>%
-# ggplot()+
-#   geom_point(aes(x = k2, y = lambda0))
 
-self$add_VP(param, use_green_filter = T)
-
-self$n_filter_reduc()
-self$plot_2D(k2, lambda0, plotMain = T, plotoreturn = 3)
-self$fill_simul()
-self$plot_VP()
-
-set.seed(1653)
+# Sample 20 patients among param
 param20 <-   param %>%
   sample_n(20) %>%
+  # Ok so this initial sampling did not create a full accepted extrapolated zone
+  # Therefore, I forced the creation of one by manually
+  # removing a useless profile ##"
   filter(!(k2 == 0.2 & lambda0 == 0.46)) %>%
-  bind_rows(
+  bind_rows(  param %>% filter(k2 == 3.6 & lambda0 == 0.44) ) # and adding a decisive one for having a green zone
 
-    param %>% filter(k2 == 3.6 & lambda0 == 0.44)
+# Note: this manual modification is dependent on my sampling / seed, therefore you can remove the two last line
+# as your seed will most proably not produce the same sampling anyway
 
-  )
-
+# Creation of the plot A
 plot1 <-  param20 %>%
   ggplot()+
   geom_point(aes(x = k2, y = lambda0, shape = "VP\nsampled\namong\ncohort"))+
   labs(shape = "")+
   theme_bw();plot1
+
+
+# Plot B ------------------------------------------------------------------
+
+# Manually compute all ids
 
 ids <-   param20 %>%
   rowid_to_column("id")
@@ -78,6 +78,8 @@ events <- self$protocols$dose50 %>% mutate(evid = 1) %>%
 
 simulations <- self$model$solve(ids, events, c(X1 = 50)) %>% as_tibble()
 
+# For each target, set values to  "accepted", "above" or "below".
+
 analysis <- simulations %>%
   filter(time %in% self$targets$time) %>%
   mutate(cmt = "tumVol") %>%
@@ -87,6 +89,9 @@ analysis <- simulations %>%
                           below & !above ~ "Above",
                           !below & above ~ "Below"))
 
+# Label patient as accepted if their two rows (targets) are accepted only
+# Of note, no patient were above and below, otherwise an additional
+# step would have been need to allocate them
 analysis <- analysis %>% distinct(id, type) %>%
   group_by(id) %>%
   nest() %>%
@@ -98,6 +103,8 @@ analysis <- analysis %>% distinct(id, type) %>%
   } ))
 
 
+
+# Produce the plot
 plot2 <- simulations %>%
   left_join(analysis %>%  select(id, label)) %>%
   ggplot()+
@@ -109,10 +116,17 @@ plot2 <- simulations %>%
   theme_bw(); plot2
 
 
+
+# Plot C ------------------------------------------------------------------
+
+# Lets add the label "below", "above" etc to the param values
+
 param20 <- param20 %>%
   rowid_to_column("id") %>%
   left_join(analysis %>%  select(id, label))
 
+
+# Compute the square with 0 or Inf limit according the parameter
 forsquare <- param20 %>%
   # filter(label) %>%
   mutate(k2min = if_else(label == "Above", 0, k2),
@@ -120,6 +134,7 @@ forsquare <- param20 %>%
          lambda0min = if_else(label == "Below", 0, lambda0),
          lambda0max = if_else(label == "Below", lambda0, Inf))
 
+# And compute the plot
 plot3 <-
   param20 %>%
   ggplot()+
@@ -132,12 +147,21 @@ plot3 <-
   scale_fill_manual(values = c("red", "chocolate"))+
   labs(col = "VPs", fill = "Filters"); plot3
 
+
+
+# plot D ------------------------------------------------------------------
+
+# Let's directly use the package fonction to reduce the filters before making the same plot
+
 filter_reduc(forsquare %>% filter(label == "Above"), filtre = self$make_filters()[1]) %>%
   bind_rows(
 
     filter_reduc(forsquare %>% filter(label == "Below"), filtre = self$make_filters()[2])
 
   ) ->filtersreduc
+
+
+
 
 plot4 <-
   param20 %>%
@@ -150,6 +174,13 @@ plot4 <-
   scale_color_manual(values = c("red", "darkgreen", "chocolate"))+
   scale_fill_manual(values = c("red", "chocolate"))+
   labs(col = "VPs", fill = "Filters"); plot4
+
+
+
+
+# Plot E ------------------------------------------------------------------
+
+# Lets compute the filters (right place to see how the main algorithm works !)
 
 filtersreduc %>%
   filter(k2max < Inf) %>%
@@ -169,9 +200,12 @@ pointsbelow <- paste0("(", pointsbelow, ")") %>% paste0(collapse = "|")
 plot5 <-
   param20 %>%
   ggplot()+
+  # Add point above thanks to the filter created above
   geom_point(data = param %>% filter(!!parse_expr(pointsabove)), aes(k2, lambda0,  col = "Above"))+
+  # same for point below
   geom_point(data = param %>% filter(!!parse_expr(pointsbelow)), aes(k2, lambda0,  col = "Below"))+
   geom_point(aes(x = k2, y = lambda0, col = label))+
+
   geom_rect(data = filtersreduc %>% filter(label != "Accepted"),
             aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax = lambda0max, fill = label ),
             alpha = 0.2)+
@@ -181,19 +215,23 @@ plot5 <-
   labs(col = "VPs", fill = "Filters"); plot5
 
 
+# Plot F ------------------------------------------------------------------
 
+
+# Compute the square
 
 forsquaregreen <-
-
+  # Consider accepted patient as above
   param20 %>%
   filter(label == "Accepted") %>%
   mutate(label = "Above") %>%
   bind_rows(
+    # Consider accepted patient as below
     param20 %>%
       filter(label == "Accepted") %>%
       mutate(label = "Below")
   ) %>%
-  # filter(label) %>%
+  # create the square as previously
   mutate(k2min = if_else(label == "Above", 0, k2),
          k2max = if_else(label == "Above", k2, Inf),
          lambda0min = if_else(label == "Below", 0, lambda0),
@@ -201,8 +239,7 @@ forsquaregreen <-
   mutate(label2 = if_else(label == "Above", "Above\nLower Limit", "Below\nUpper Limit"))
 
 
-forsquaregreen
-
+# perform te plot base of plot E
 plot6 <- plot5 +
   geom_rect(data = forsquaregreen %>% slice(-5, -8), aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax = lambda0max, fill = "Green"), alpha = 0.2)+
   geom_rect(data = forsquaregreen %>% slice(10), aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax = lambda0max, fill = "Green"), alpha = 0, col = "darkgreen",  lty= 3)+
@@ -216,15 +253,10 @@ plot6 <- plot5 +
   geom_segment(aes(x = 3.6, xend = 3.8, y= 0.4, yend = 0.4 ), col = "darkgreen")+
   geom_point(data = param %>% filter( k2>= 3.6 & k2<=3.8 & lambda0>= 0.4 &lambda0<=0.44), aes(k2, lambda0), col = "darkgreen", alpha = 0.2); plot6
 
-param %>%
-  left_join( param %>% filter(!!parse_expr(pointsabove)) %>% mutate(nop = T)) %>%
-  filter(is.na(nop)) %>%
-  select(-nop) %>%
-  left_join( param %>% filter(!!parse_expr(pointsbelow)) %>% mutate(nop = T)) %>%
-  filter(is.na(nop)) %>%
-  select(-nop) %>%
-  filter(!( k2>= 3.6 & k2<=3.8 & lambda0>= 0.4 &lambda0<=0.44)) %>%
-  sample_n(20) -> news
+
+# Plot G ------------------------------------------------------------------
+
+# nothing  need to be computed before, just a summary of the end of first algorithm loop
 
 plot7 <- param20 %>%
   ggplot()+
@@ -239,6 +271,23 @@ plot7 <- param20 %>%
 
 
 
+# plot H ------------------------------------------------------------------
+
+# Compute the new patient to sample
+param %>%
+  # remove patients already rejected
+  left_join( param %>% filter(!!parse_expr(pointsabove)) %>% mutate(nop = T)) %>%
+  filter(is.na(nop)) %>%
+  select(-nop) %>%
+  left_join( param %>% filter(!!parse_expr(pointsbelow)) %>% mutate(nop = T)) %>%
+  filter(is.na(nop)) %>%
+  select(-nop) %>%
+  # And already accepted
+  filter(!( k2>= 3.6 & k2<=3.8 & lambda0>= 0.4 &lambda0<=0.44)) %>%
+  # And then sampled them (seed is probably still one, but not important here anyway)
+  sample_n(20) -> news
+
+
 plot8 <- param20 %>%
   ggplot()+
   geom_point(aes(x = k2, y = lambda0, col = label))+
@@ -251,18 +300,19 @@ plot8 <- param20 %>%
   theme_bw()+
   geom_point(data = news, aes(k2, lambda0))
 
-# plot7 <-
-#   plot5 +
-#   geom_point(data = param %>% filter( k2>= 3.6 & k2<=3.8 & lambda0>= 0.4 &lambda0<=0.44), aes(k2, lambda0), col = "darkgreen")
-#              aes(xmin = 3.6, xmax = 3.8, ymin = 0.4, ymax = 0.44, fill = "Green"), alpha = 0.05)+
-#     scale_fill_manual(values = c("red", "chocolate", "darkgreen")))
-#   geom_
-# filtersreduc
 
 
+# Plot I ------------------------------------------------------------------
+
+
+# Perform the full analysis with our algorithm
+self$add_VP(param, use_green_filter = T)
+
+# Reduce the filter
 self$n_filter_reduc()
 
 
+# and perform the final plot
 plot9 <- ggplot()+
   geom_point(data = self$filters_neg_above, aes(k2, lambda0, col = "Above"))+
   geom_rect(data = self$filters_neg_above,aes(xmin = 0, xmax = k2, ymin = lambda0, ymax = Inf, fill = "Above" ), alpha = 0.1)+
@@ -274,6 +324,10 @@ plot9 <- ggplot()+
   scale_color_manual(values = c("red", "darkgreen", "chocolate"))+
   scale_fill_manual(values = c("red",  "chocolate"))+
   labs(col = "VPs", fill = "Filters"); plot9
+
+
+
+# Final grid --------------------------------------------------------------
 
 
 plot_grid(plot1, plot2, plot3, plot4, plot5, plot6,plot7, plot8,plot9, nrow = 3, labels = LETTERS)

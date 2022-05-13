@@ -53,7 +53,7 @@ VP_proj_creator <- R6Class("VT",
                                           algo2list = list(),
                                           action_programmed = list(),
 
-                                          initialize = function(sourcefile= "D:/these/Second_project/QSP/modeling_work/VT_simeoni/1_user_inputs/1_config.r"){
+                                          initialize = function(sourcefile= file.path( find.package("QSPVP"), "config_Simeoni.r")){
                                             myEnv <- new.env()
                                             source(sourcefile, local=myEnv)
                                             # attach(myEnv, name="sourced_scripts")

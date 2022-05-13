@@ -20,7 +20,6 @@
 
 library(QSPVP)
 
-# Data generation ---------------------------------------------------------
 
 
 # Several time points --------------------------------------------------------
@@ -223,22 +222,6 @@ res %>%
                         T ~ "Accepted")) %>%
   distinct(id, PD)-> PDID
 
-# res %>%
-#   left_join(PKID) %>%
-#   left_join(PDID) %>%
-#   mutate(PKPD = case_when(PK == "Accepted" & PD == "Accepted" ~ "Accepted",
-#                           PK == "Accepted" & PD != "Accepted" ~ "Rejected\nBy PD",
-#                           PK != "Accepted"  ~ "Rejected\nBy PK",
-#                           (PK == "Below" & PD == "Above")  ~ "Above and Below",
-#          T ~ "Other")) %>%
-#   # gather("cmt", "value", Conc, tumVol) %>%
-#   filter(time < 5) %>%
-#   ggplot()+
-#   geom_line(aes(time, Conc, group = id, col = PKPD))+
-#   geom_segment(data = pk_only$targets, aes(x = time, xend = time, y = min, yend= max), col = "red", size = 2)+
-#   scale_y_log10()+
-#   theme_bw() +
-  # labs(x = "Time", y = "Concentration", col = "Status") -> pkplot;pkplot
 
 
 res %>%

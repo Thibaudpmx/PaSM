@@ -1205,8 +1205,17 @@ if(PrevLoop == F){
     self$poolVP <- bind_rows(self$poolVP, poolVP )
   }
 
+  # Save Rej if needed
+  if(saveVPRej == T)   self$VP_rejected <-  VP_rej %>% left_join(
+
+    VP_df %>%
+      rowid_to_column("id_origin"), by = "id_origin"
+
+  )
 
 
+
+# Final total time saving
   if(time_compteur == T){
     timesaver$tTOTAL <- difftime(Sys.time(), tTOTAL, units = 's')
 
@@ -1218,13 +1227,7 @@ if(PrevLoop == F){
   }
 
 
-  # Save Rej if needed
-  if(saveVPRej == T)   self$VP_rejected <-  VP_rej %>% left_join(
 
-    VP_df %>%
-      rowid_to_column("id_origin"), by = "id_origin"
-
-  )
 
 
   # Fill missing profile if required
@@ -1234,6 +1237,7 @@ if(PrevLoop == F){
     self$fill_simul()
   }
 
+  # Filter reduce if asked
   if(reducefilteratend){
 
     print("filter reduction")

@@ -391,7 +391,7 @@ saveRDS(CombinationResist, "CombinationResist")
 # NeverDead$add_VP(VP_df2, fillatend = F, reducefilteratend = F, use_green_filter = T, keep = "Pore",
 #                  time_compteur = T, keepRedFiltaftDis = T)
 
-# Final Plot-------------------------------------------------------------------
+# Final Plot supplement-------------------------------------------------------------------
 ApoptoWODrug <- readRDS("ApoptoWODrug")
 ABT737 <- readRDS("ABT737")
 apoG <- readRDS("apoG")
