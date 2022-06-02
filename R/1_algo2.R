@@ -183,15 +183,27 @@ add_nvp_bloc <- function(blocs){
     filter(!is.na(by)) %>%
     mutate(how = pmap_dbl(list(from, to, by), function(from, to , by){
 
-      max(length(seq(from, to, by)) - 2,1) # ici -2 to avoid border?
+      max(length(seq(from, to, by))) # ici -2 to avoid border?
 
 
     })) %>%
     group_split(id) -> temp2
 
 
-  temp3 <-  temp2 %>%
-    map_dbl(~  .x %>% pull(how) %>%
+
+  nbrdless <-  temp2 %>%
+    map_dbl(function(x){
+
+
+   reduce2 <- x %>% mutate(how = how - 2) %>% pull(how)
+   reduce2[reduce2 == 0] <- 1
+
+   reduce2 %>%  reduce(`*`)
+
+    })
+
+  nbrd <-  temp2 %>%
+    map_dbl(~  .x  %>% pull(how) %>%
               reduce(`*`))
   # calcul bord ?
 
@@ -207,7 +219,7 @@ add_nvp_bloc <- function(blocs){
   #   })
 
   blocs %>%
-    mutate(temp3)
+    mutate(nbrdless, nbrd)
   # sum(temp3)
 }
 
@@ -278,7 +290,7 @@ add_nvp_bloc <- function(blocs){
 # self <- readRDS(file)
 # file <- ""
 # save_every = 2
-# Main functin ------------------------------------------------------------
+# Main function ------------------------------------------------------------
 
 #' Title
 #'
@@ -290,8 +302,10 @@ add_nvp_bloc <- function(blocs){
 #'
 #' @examples
 #'
-
-VP_proj_creator$set("public", "algo2", function(domain, fix = NULL, npersalve = 2E5, npersalveFinal = 1E6, file = "", save_every = 5, method = 1){
+npersalve = 2E5; npersalveFinal = 1E6; includeBorderZoom = F; save_every = 5; method = 1;
+RedFilterDisAllProt = F; GreenFilterDisAllProt = F; keepFilterNeg = F
+VP_proj_creator$set("public", "algo2", function(domain, fix = NULL, npersalve = 2E5, npersalveFinal = 1E6, file = "", includeBorderZoom = F, save_every = 5, method = 1,
+                                                RedFilterDisAllProt = F, GreenFilterDisAllProt = F, keepFilterNeg = F){
 
 
   nVP0s  <- ndomain(domain) - 2^nrow(domain) # Compute the number of VPs
@@ -348,7 +362,7 @@ algo1 <- function(obj = self, VPsparam ){
   # Compute the VPs using algo 1
   taddvp <- Sys.time()
 
-  obj$add_VP(newVPs, keepRedFiltaftDis = T, reducefilteratend = F, use_green_filter = T, pctActivGreen = 0.1)
+  obj$add_VP(newVPs, keepRedFiltaftDis = T, reducefilteratend = F, use_green_filter = T, pctActivGreen = 0.1,RedFilterDisAllProt = RedFilterDisAllProt, GreenFilterDisAllProt = GreenFilterDisAllProt)
 
   taddvp <- difftime(Sys.time() ,  taddvp, units = "s")
 
@@ -392,11 +406,16 @@ algo1 <- function(obj = self, VPsparam ){
 
   # maybeFinal[namesparam] %>% distinct()
 
-  if(file != "") saveRDS(self, file)
+  # if(file != "") saveRDS(self, file)
 
 
   # Now the deep dive
   nsave <- 0
+
+
+# While loop --------------------------------------------------------------
+
+
   while(sum( self$algo2list[["tree"]]$todo) > 0 | is.null( self$algo2list[["tree"]]) ){
 
 
@@ -406,7 +425,10 @@ algo1 <- function(obj = self, VPsparam ){
     if(is.null( self$algo2list[["tree"]])){
       maybe <- list()
       maybe$todo <- "First0"
+      first0 <- T
     }else{
+
+      first0 <- F
     nextstep <- self$algo2list[["tree"]] %>% filter(todo > 0) %>% slice(1)
 
     print(nextstep)
@@ -416,7 +438,7 @@ algo1 <- function(obj = self, VPsparam ){
 
     # if(nextstep$Name !="first") maybe <- maybe$algo2list[[1]]
 
-    nVP0s <- sum(maybe$temp3)
+    nVP0s <- sum(maybe$nbrdless)
     }
 
 
@@ -426,6 +448,7 @@ algo1 <- function(obj = self, VPsparam ){
     tempVP$filters_neg_above <- tibble()
     tempVP$filters_neg_below <- tibble()
     tempVP$algo2list  <- list()
+    tempVP$poolVP <- tibble()
     ### Here do differently wether we should cut a domain or completely explore it
 
 # Zoom --------------------------------------------------------------------
@@ -436,7 +459,7 @@ algo1 <- function(obj = self, VPsparam ){
 
 
 
-      if( unique(maybe$todo) == "First0"){
+      if( first0 == T){
         blocs <- domain
       }else{
 
@@ -532,9 +555,9 @@ algo1 <- function(obj = self, VPsparam ){
 
 
       to_do_final <-   maybe %>%
-        filter(temp3 < npersalveFinal)
+        filter(nbrdless  < npersalveFinal)
 
-      gatherblocsPool <- (npersalveFinal / median(to_do_final$temp3)) %>% floor()
+      gatherblocsPool <- (npersalveFinal / median(to_do_final$nbrdless)) %>% floor()
 
       to_do_final <- to_do_final %>%
         rowid_to_column("blocsPool") %>%
@@ -545,7 +568,7 @@ algo1 <- function(obj = self, VPsparam ){
 
 
       to_dive <-   maybe %>%
-        filter(temp3 >= npersalveFinal) %>%
+        filter(nbrdless >= npersalveFinal) %>%
         rowid_to_column("blocsPool") %>%
         mutate(blocsPool = max(to_do_final$blocsPool,0)+blocsPool) %>%
         mutate(todo = "dive")
@@ -553,7 +576,7 @@ algo1 <- function(obj = self, VPsparam ){
 
       maybeFinal <- bind_rows(to_do_final, to_dive)
 
-      nVPs <- sum(maybeFinal$temp3)
+      nVPs <- sum(maybeFinal$nbrdless)
       ntodo <- 1
       }else{ #if every blocs deleated
 
@@ -563,7 +586,7 @@ algo1 <- function(obj = self, VPsparam ){
     ntodo <- 0
       }
 
-if(unique(maybe$todo) == "First0"){
+if(first0 == T){
 
       self <- tempVP
 
@@ -574,6 +597,8 @@ if(unique(maybe$todo) == "First0"){
       self$algo2list[["domain"]] <- domain
 
       self$algo2list[["first"]] <- maybeFinal
+      self$algo2list[["first_timeTrak"]] <- timeTrak
+
 
 }else{
 
@@ -623,13 +648,20 @@ if(unique(maybe$todo) == "First0"){
       blocs %>%
         mutate(sampl = pmap(list(from, to, by), function(from, to, by){
 
-          # from = 0; to = 75; digits = 5
-          temp <- seq(from, to, (to-from)/(nperparam+1))
+          # from = 0.5; to = 0.6; by = 0.1
+          temp <- seq(from, to, by)
 
-          temp <- temp - temp %% by
+          # temp <- temp - temp %% by
+if(includeBorderZoom == F){
+         if(length(temp)>2){
+           temp <- temp[-c(1, length(temp))] %>% unique()
+         }else{
 
-          temp[-c(1, length(temp))] %>% unique()
+           temp <- temp[1]
+         }
+}
 
+         temp
         })) -> VPsparam
 
 
@@ -644,7 +676,8 @@ if(unique(maybe$todo) == "First0"){
           temp
         }) %>%
         bind_rows() %>%
-        add_column(DFfix)
+        add_column(DFfix) %>%
+        distinct()
 
 
       # newVPs <- newVPs %>% distinct()
@@ -661,7 +694,7 @@ if(unique(maybe$todo) == "First0"){
       # newVPs2 <- newVPs %>%
       # filter(group == a)
 
-      tempVP$add_VP(newVPs, keepRedFiltaftDis = T, reducefilteratend = F, use_green_filter = T, pctActivGreen = 0.1,npersalve = 2000)
+      tempVP$add_VP(newVPs, keepRedFiltaftDis = T, reducefilteratend = F, use_green_filter = T, pctActivGreen = 0.1,npersalve = 2000, RedFilterDisAllProt = RedFilterDisAllProt, GreenFilterDisAllProt = GreenFilterDisAllProt)
       #
       # }
 
@@ -673,11 +706,15 @@ if(unique(maybe$todo) == "First0"){
       newname <- paste0(nextstep$Name,"_", nextstep$todo)
 
 
-      tempVPstorage <- list("neg_above" = tempVP$filters_neg_above, "neg_below" = tempVP$filters_neg_below, "poolVP" = tempVP$poolVP)
+     if(keepFilterNeg == T){
+
+      tempVPstorage <- list("neg_above" = tempVP$filters_neg_above, "neg_below" = tempVP$filters_neg_below)
+      self$algo2list[[newname]] <- tempVPstorage
+       }
 
       if(nrow(tempVP$poolVP) > 0  ) self$poolVP <- bind_rows(self$poolVP, tempVP$poolVP %>% mutate(from = newname))
 
-      self$algo2list[[newname]] <- tempVPstorage
+
 
       self$algo2list$tree  <- self$algo2list$tree %>%
         add_row(Name = newname, size =  0, todo = 0, before = nrow(newVPs), after = nrow( tempVP$poolVP), ratio = 0, what = "Done",
@@ -716,8 +753,8 @@ if(unique(maybe$todo) == "First0"){
 
     nsave <- nsave + 1
 
-    cat(paste0("Nsave = ", nsave))
-    if(file != "" &   nsave == save_every){
+    # cat(paste0("Nsave = ", nsave))
+    if(file != "" &   (nsave == save_every | first0 == T)){
 
       cat(silver("Saving..."))
       saveRDS(self, file)
@@ -730,7 +767,9 @@ if(unique(maybe$todo) == "First0"){
   } # end while loop
 
 
-  saveRDS(self, file)
+ if(nsave != 0) saveRDS(self, file)
+self
+
 })
 
 # self$algo2list$tree  <- self$algo2list$tree %>%

@@ -22,8 +22,11 @@ library(QSPVP)
 
 # Data generation  VP to seek---------------------------------------------------------
 
+# Please provide the folder where you want the generated data to be stored
+root <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data"
 
-
+new_wd <- file.path(root, "algo2")
+if(!file.exists(new_wd))  dir.create(new_wd)
 
 
 # Step 1 create the hide and seek VP
@@ -31,7 +34,7 @@ library(QSPVP)
 self <- VP_proj_creator$new()
 
 
-VP <- tibble(k2 = 1.63, lambda0 = 0.85, ke = 0.6, Vd = 36, lambda1 = 72, w0 = 50, k1 = 0.5, id = 1:3, psi = 20)
+VP <- tibble(k2 = 1.63, lambda0 = 0.85, ke = 0.7, Vd = 37, lambda1 = 72, w0 = 50, k1 = 0.5, id = 1:3, psi = 20)
 
 events <- tibble(cmt = "Central", time = 0, amt = c(0,50,100), evid = 1, id = 1:3) %>%
           bind_rows(tibble(cmt = "tumVol", time = 0:52 , amt = 0, evid =  0) %>% crossing(id = 1:3)) %>%
@@ -40,14 +43,22 @@ events <- tibble(cmt = "Central", time = 0, amt = c(0,50,100), evid = 1, id = 1:
 
 
 ## just to verify he is still there
-maybe %>%
-  filter(kemin <= 0.6 & kemax >= 0.6, lambda0min <= 0.85, lambda0max >= 0.85, kemin <= 0.6, kemax >= 0.6,
-         lambda1min <=72 & lambda1max >= 72, Vdmin <= 36, Vdmax >=36)
+# newVPs %>%
+#   filter(k2 == 1.63, lambda0 == 0.85, ke == 0.7, Vd == 37, lambda1 == 72, w0 == 50, k1 == 0.5)
+#
+# maybe %>% rowid_to_column() %>%
+#   filter(k2min<= 1.63, k2max >= 1.63, kemin <= 0.7 & kemax >= 0.7, lambda0min <= 0.85, lambda0max >= 0.85,
+#          lambda1min <=72 & lambda1max >= 72, Vdmin <= 37, Vdmax >=37)
 
 ####
 
 simul <- self$model$solve(VP, events) %>%
   as_tibble
+
+
+# Plot 0 ------------------------------------------------------------------
+
+
 
 plot0 <- simul %>%
   # filter(time %in% c(8,30)) %>%
@@ -95,8 +106,13 @@ simul %>%
 
 
 self <- VP_proj_creator$new()
-
 self$set_targets(manual = prototiny)
+
+
+# selfmtd2 <- VP_proj_creator$new()
+
+# selfmtd2$set_targets(manual = prototiny)
+
 
 npersalve = 2E5
 npersalveFinal = 1E6
@@ -111,9 +127,14 @@ domain <- tribble(~param, ~from, ~to, ~by,
 )
 fix <-c(k1 = 0.5, w0 = 50)
 
-# filePD <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/fig5_data.RDS"
-self$algo2(domain, fix = fix,npersalve = 2E5, npersalveFinal = 1E6,save_every = 5, file = filePD )
 
+filePD <- file.path(root, "algo2", "pdonly.RDS")
+
+self$algo2(domain = domain, fix = fix,npersalve = 2E5, npersalveFinal = 1E6,save_every = 5, file = filePD,method = 1 )
+
+# Note: useless to finish the algorithm, just the first step count
+filePDmtd2 <- file.path(root, "algo2", "pdonly_mtd2.RDS")
+self$algo2(domain = domain, fix = fix,npersalve = 2E5, npersalveFinal = 1E6,save_every = 5, file = filePDmtd2,method = 2 )
 
 # Analyze PKPD ------------------------------------------------------------
 
@@ -121,29 +142,9 @@ self$algo2(domain, fix = fix,npersalve = 2E5, npersalveFinal = 1E6,save_every = 
 self <- VP_proj_creator$new()
 self$set_targets(manual = prototinypkpd)
 
-domain <- tribble(~param, ~from, ~to, ~by,
-                  "k2", 0, 6, 0.01 ,
-                  "lambda0", 0, 3.4, 0.01,
-                  "ke", 0, 5,0.1,
-                  "Vd", 1,40,0.1,
-                  "lambda1", 0,240,0.1
-)
 
-ndomain(domain)
-
-
-
-
-# filePKPD <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/fig5_data2.RDS"
-self$algo2(domain = domain, fix = fix,npersalve =  npersalve, npersalveFinal = npersalveFinal, method = 1, file = filePKPD, save_every = 2)
-
-
-# Big domain --------------------------------------------------------------
-
-
-
-self <- VP_proj_creator$new()
-self$set_targets(ntime = 6)
+selfwbdr <- VP_proj_creator$new()
+selfwbdr$set_targets(manual = prototinypkpd)
 
 domain <- tribble(~param, ~from, ~to, ~by,
                   "k2", 0, 6, 0.01 ,
@@ -153,19 +154,91 @@ domain <- tribble(~param, ~from, ~to, ~by,
                   "lambda1", 0,240,0.1
 )
 
+# ndomain(domain)
 
 
-ndomain(domain)
 
 
-filePKPD2 <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/toobig.RDS"
-self$algo2(domain = domain, fix = fix,npersalve =  npersalve, npersalveFinal = npersalveFinal, method = 1, file = filePKPD2, save_every = 2)
+filePKPD <- file.path(root, "algo2", "pkpd.RDS")
+self$algo2(domain = domain, fix = fix,npersalve =  npersalve,includeBorderZoom = F, npersalveFinal = npersalveFinal, method = 1, file = filePKPD, save_every = 2)
 
 
-# Plot making -------------------------------------------------------------
+filePKPDwbdr <- file.path(root, "algo2", "pkpdwbdr.RDS")
+self$algo2(domain = domain, fix = fix,npersalve =  npersalve,includeBorderZoom = T, npersalveFinal = npersalveFinal, method = 1, file = filePKPDwbdr, save_every = 2)
 
-  PDonly <-  readRDS("D:/these/Second_project/QSP/modeling_work/VT_simeoni/fig5_data.RDS")
-  PKPD <-  readRDS("D:/these/Second_project/QSP/modeling_work/VT_simeoni/fig5_data2.RDS")
+
+# Plot A -------------------------------------------------------------
+
+  PDonly <-  readRDS(filePD)
+  PDonlyMtd2 <-  readRDS(filePDmtd2)
+
+  # Just verify it provides the same results
+  PDonly$algo2list$tree %>% slice(1)
+  PDonlyMtd2$algo2list$tree %>% slice(1)
+
+  # and let's analyse
+ PDtree <-  PDonly$algo2list$tree %>% # used for workflow
+  mutate(round = map_dbl(Name,~ str_split(.x, "_")[[1]] %>% length))
+
+timetrackFirstAna <- PDonly$algo2list$first_timeTrak
+
+
+
+ # Labels
+ labels <-  c("Algo1", "Filter\nReduc", "Comput\nzone maybe", "Blocs\nreduction", "other")
+ stepname <- factor(x = labels, levels =
+                      labels)
+ # Time computations
+ algo1t <- timetrackFirstAna$round1$FirstAlgo1 %>% as.double()
+ filterreduc <- timetrackFirstAna$round1$FilterReduc %>% as.double()
+ zonemaybet <- timetrackFirstAna$round1$ZoneMaybe %>% as.double()
+ blocreducT <-  timetrackFirstAna$tMaybeReduce%>% as.double()
+ diffT <- as.double(PDtree$time[[1]]) - algo1t  -   filterreduc - zonemaybet -  blocreducT
+
+ timeMt2reducemaybe <- PDonlyMtd2$algo2list$first_timeTrak$tMaybeReduce %>% as.double()
+ diffTMT2  <- as.double(PDonlyMtd2$algo2list$tree$time[[1]] - timeMt2reducemaybe)
+
+ template <- tibble(step =stepname, time = c(algo1t,filterreduc,zonemaybet,blocreducT, diffT) ,method = "Full") %>%
+   bind_rows(
+
+     tibble(step = stepname, time = c(0,0,0,timeMt2reducemaybe, diffTMT2),method = "alt")
+
+   )
+
+
+
+ plotA <- template %>%
+   ggplot()+
+   geom_bar(aes(x = step,y= time, fill = method), stat="identity",col = "black", position = "dodge")+
+   geom_text(aes(x = step,y= time +5, label = paste0(round(time,0), "s"), group =  method),position = position_dodge(width = 0.9))+
+   labs(y = "Time(sec)")+
+   theme_bw(); plotA
+
+
+ # Plot B -------------------------------------------------------------
+
+ tree <- PDonly$algo2list$tree
+ plotB <- tree   %>%
+   slice(-1) %>%
+   mutate(time = as.double(time)) %>%
+   ggplot()+
+   geom_histogram(aes(time, fill = factor(after/3)),col = "black")+
+   scale_x_log10()+
+   theme_bw()+
+   labs(x = "Time (sec)", fill = "VP\nfound"); plotB
+
+
+
+
+
+
+
+# Analysis pkpd set -------------------------------------------------------
+
+
+ PKPD <-  readRDS(filePKPD)
+
+
 
 
 PKPDtree <-  PKPD$algo2list$tree %>% # used for workflow
@@ -191,49 +264,6 @@ PKPDtree %>%
 
 PKPDtree$time %>% sum
 
-
-
-# Just a template, to replace by tracking time inside the function
-labels <-  c("Algo1", "Filter\nReduc", "Comput\nzone maybe", "Blocs\nreduction", "other")
-stepname <- factor(x = labels, levels =
-                     labels)
-template <- tibble(step =stepname, time = c(21.7,15.19,42.6,75.5, 7) ,method = "Full") %>%
-  bind_rows(
-
-    tibble(step = stepname, time = c(0,0,0,168, 7),method = "alt")
-
-
-  )
-
-
-
-plotA <- template %>%
-  ggplot()+
-  geom_bar(aes(x = step,y= time, fill = method), stat="identity",col = "black", position = "dodge")+
-  geom_text(aes(x = step,y= time +5, label = paste0(round(time,0), "s"), group =  method),position = position_dodge(width = 0.9))+
-  labs(y = "Time(sec)")+
-  theme_bw(); plotA
-
-template %>%
-  ggplot()+
-  geom_bar(aes(x = method,y= time, fill = step), stat="identity",col = "black")+
-  labs(y = "Time(sec)")+
-  theme_bw()
-
-template %>%
-  ggplot()+
-  geom_bar(aes(x = fct_reorder(step, time, .desc = T),y= time), stat="identity")+
-  theme_bw()
-
-tree <- PDonly$algo2list$tree
-plotB <- tree   %>%
-  slice(-1) %>%
-  mutate(time = as.double(time)) %>%
-  ggplot()+
-  geom_histogram(aes(time, fill = factor(after/3)),col = "black")+
-  scale_x_log10()+
-  theme_bw()+
-  labs(x = "Time (sec)", fill = "VP\nfound"); plotB
 
 
 
@@ -278,7 +308,6 @@ cowplot::plot_grid(plot0,"3",  plotA, plotB, labels = LETTERS)
 
 cowplot::plot_grid(plot0,"3",  plotA, plotB,  "3","4", labels = c("A", "B", "C", "D", "", "E"))
 # Backup ------------------------------------------------------------------
-
 
 # file <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/fig5_data2.RDS"
 #
