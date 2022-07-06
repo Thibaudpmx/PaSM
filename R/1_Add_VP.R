@@ -17,11 +17,11 @@
 ##
 ## ---------------------------
 
- fix_df = NULL; saven = 50; drug = NULL; update_at_end = T; time_compteur = T;  fillatend = F; reducefilteratend = F; npersalve = 2000; use_green_filter = T;
+ fix_df = NULL; saven = 50; time_compteur = T;  fillatend = F; reducefilteratend = F; npersalve = 2000; use_green_filter = T;
 pctActivGreen = 0.1; keepRedFiltaftDis = T; methodFilter = 2; use_red_filter = T; cmtalwaysbelow = NULL; keep = NULL; saveVPRej = T; timeSave = NULL;PreviousResults = tibble()
 RedFilterDisAllProt = F; GreenFilterDisAllProt = F
 
-VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 50, drug = NULL, update_at_end = T, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F,
+VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 50, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F,
                                                  pctActivGreen = 0.1, keepRedFiltaftDis = T, methodFilter = 2, use_red_filter = T, cmtalwaysbelow = NULL, keep = NULL, saveVPRej = T, timeSave = NULL, PreviousResults = tibble(),
                                                  RedFilterDisAllProt = F, GreenFilterDisAllProt = F){
 

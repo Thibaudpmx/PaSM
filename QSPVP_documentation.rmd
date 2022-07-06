@@ -1,0 +1,306 @@
+---
+title: "QSPVP Documentation"
+author: "Thibaud Derippe"
+date: "`r format(Sys.time())`"
+output:
+  rmdformats::readthedown:
+    self_contained: true
+    thumbnails: false
+    lightbox: true
+    gallery: true
+    highlight: tango
+---
+
+
+```{r, include=F}
+library(peccary)
+library(QSPVP)
+library(RxODE)
+```
+
+
+```{r, eval=FALSE}
+library(QSPVP)
+library(RxODE)
+```
+
+
+
+[QSPVP](https://github.com/Thibaudpmx/QSPVP/) is a R package allowing to accelerate the generation of plausible VPs by replacing time-consuming ODE solving steps with simple mononotic parameter value comparisons. This package is used in two steps:
+
+1. creation of the model file containing notably the model structure and the repartition of the parameter among the monotonic spaces
+2. another file to perform the analyses, essentially by first creating a cohort of potential VP and OoI targets, second by launching the algorithms. 
+
+If you have any question, suggestion or bug reporting, please send it by email to thibaud.derippe@gmail.com, or  [create an issue on GitHub](https://github.com/Thibaudpmx/QSPVP/issues)
+
+
+# Creating the model file
+
+
+The model file should contains the following variable:
+
++ *model_RxODE*, results of the *RxODE()* function with the model encoded in RxODE syntax 
++ *parameters_default_values*, named atomic vector of default paramater value or *NA*
++ *initial_cmt_values*, named atomic vector of initial compartment value. At least of compartment should be provided, even if equal to 0
++ *times*, atomic vector of time for computing the observations 
++ *protocols*, a named **list**, each element of the list corresponding to a protocol dataframe ("cmt", "time", "amt",... see RxODE syntax)
++ *param_reduce*, a named **list**, each element having the name of an OoI and  an atomic vector of all the mononotic parameters for which an increase always decrease or unchange the correponding OoI 
++ *param_increase*, a named **list**, each element having the name of an OoI and an atomic vector of all the mononotic parameters for which an increase always increase or unchange the correponding OoI 
++ *param_no_impact*, , a named **list**, each element having the name of an OoI and an atomic vector of all the parameters strictly independent of the correponding OoI 
++ *data_VT*, an optional dataset of observations, used for automatically proposing some target values
+
+```{r}
+model_RxODE <-  RxODE({
+  d/dt(Central) <- -ke *  max(Central,0) 
+  Conc <- Central/Vd
+  
+  tumVol <- X1 + X2 + X3 + X4
+  growth <- lambda0 *  max(X1,0)/((1 + (lambda0 * max(tumVol,0)/lambda1)^psi)^(1/psi))
+  
+  X1(0) <- w0
+  
+  d/dt(X1) <- growth - X1 * max(Conc,0) * k2
+  d/dt(X2) <- X1 * max(Conc,0) * k2 - k1 * X2
+  d/dt(X3) <- k1 * (X2 - X3)
+  d/dt(X4) <- k1 * (X3 - X4)
+  
+})
+
+
+
+# paremeters value to be used by default (NA if you want to force providing value)
+parameters_default_values <- c(psi = 20) 
+
+# initial compartment values. At least one, and every missing cmt name would be set to 0
+initial_cmt_values <- c(X1 = 50) 
+
+# times you want to see your observations
+times <- seq(0,52, 1) 
+
+
+# Protocols ----------------------------------
+
+protocols <- list( dose0 = tibble(cmt = "Central", time = 0, amt = 0),
+                   dose50 = tibble(cmt = "Central", time = 0, amt = 50),
+                   dose100 = tibble(cmt = "Central", time = 0, amt = 100)
+  
+)
+
+##### Fill the parameter #####
+
+param_reduce<- list(tumVol = c("k2"), Conc = c("Vd", "ke")) #conc1 not here because....
+
+param_increase <- list(tumVol = c("lambda0", "lambda1", "Vd", "ke", "w0" ), Conc = character())
+
+param_no_impact <- list(tumVol = character(), Conc = c("lambda0", "lambda1", "k2", "k1" ))
+
+
+# Data used -------------------------------------
+
+# data shoud have at least ID, Value and concX columns, X being replace by drug number (one col by drug concentration)
+# Avoid any column starting with "conc" if it is not a drug concentration / dose column
+
+data_VT <- read.table("D:/Peccary_Annexe/Exemple_demo/DATA/Simeoni.txt", header = T, sep = ";", na.strings = ".") %>% 
+  mutate(protocol = paste0("dose", Dose), cmt = if_else(YTYPE == 2, "tumVol", "Conc")) %>% 
+  as_tibble %>% 
+  filter(!is.na(cmt))
+```
+
+
+# Find VP
+
+## Initiate an analyses
+
+To initiate an alayses, use the function *VP_proj_creator$new()*, with sourcefile argument being the path of the model file created at the previous step
+
+```{r}
+demo <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/test_tutorial/test_tutorial.R")
+```
+
+
+When printing demo, it shows us no VP has been found yet
+
+```{r, warning=F, message=F}
+demo
+```
+
+## Define target
+
+Targets are defined using the function *set_targets*.  
+
+This function can either use the observed data to create the target, either with manual input. A manual input looks like that:
+
+
+
+```{r}
+
+targets <- tribble(~protocol, ~cmt, ~time, ~min, ~max, 
+                   "dose50", "tumVol",  10 , 20, 50,
+                   "dose50", "tumVol",  2 , 10, 20,
+                   "dose100", "Conc",  8 ,  5,  10,
+                   "dose100", "Conc",  0 ,  40, 60)
+
+demo$set_targets(manual = targets )
+
+```
+
+
+
+If the manual argument is not used, the package will exploit the dataset that has been provided, 
+here by default with all protocols and YTYPE combination,  with 2 to three tragets time points.
+
+```{r}
+demo$set_targets()
+```
+
+
+To select a subset of the dataset, one can directly use the filter argument. *ntime* controls the number of target times.
+
+```{r}
+demo$set_targets(filter = Dose ==50  & cmt == "tumVol",ntime = 5)
+```
+
+
+While timeforce allows to manually select the times:
+```{r}
+demo$set_targets(filter = Dose ==50  & cmt == "tumVol",timeforce = c(12,19, 30,45))
+```
+
+At any time one can see the targets that has been registerd
+
+```{r}
+demo$targets
+```
+
+Of note, this targets can be modified as long as no analyses has been performed, but are frozen after that 
+
+
+## Algo 1
+
+### Define Cohort to analyze
+
+Create a dataframe with one row being one virtual patient. You can create this dataframe as you want, wether by distribution sampling or, in this case, using the crossing  function to have all the possible combinations between various parameters. 
+
+```{r}
+VP_df <- crossing(k1 = c(0.5),
+         k2 = seq(0,8,0.2),
+         ke =   seq(0.6,1.4,0.2),
+         lambda0 =seq(0,0.16,0.025),
+         lambda1 = 8:16,
+         Vd =  20:40,
+         w0 = 50)
+
+head(VP_df)
+```
+
+Of note, if one want to use rounded values, a quick way to modify all the columns in a single operation is to use a map function as follow
+
+```{r}
+# VP_df %>% 
+#   map_df(function(x){
+# 
+#     if(is.character(x)) return(x)
+#     round(x,3)
+# 
+#   } )
+```
+
+
+### Main analyses
+
+The function "add_VP" allows to generate the first agorithm. The most important arguments are:
+
++ VP_df: the data frame created above, only mandatory argument
++ use_green_filter (default = F): set to T to activate the green filter (acceptange extrapolation)
+
+
+The other potential interesting parameters are:
+
++ fix_df: an optionnal dataframe of non-mononotic parameter, allowing to loop the analyses for each row of this dataframe
++ RedFilterDisAllProt: is the red filter disabling common for every protocole (T) or independent (F)
++ GreenFilterDisAllProt: is the green filter disabling common for every protocole (T) or independent (F)
++ keep (default = NA): RxODE by default provide simulations of all variables which lead to very big dataset. Keep arguments allows to extract only some variables of interest to reduce memory issues. 
++ timeSave: same concept but with time: do we keep every rows or only some of them ? 
++ reducefilteratend: to reduce at the end the number of rejection filters (can also be performed in a second time, see after)
++ npersalve (default = 1000): number of patients sampled and ODE solved at each iteration step
++ fillatend (default = F): when using the greenfilter, some plausible VPs profiles will not be computed. Setting "fillatend" to true will automatically do it. 
++ saveVPRej (default = F): creates a dataset of every VPs rejected so far (so different of the filtered onces where only the most meaningfull ones are kept).
+
+
+
+
+Most anecdotical parameters are 
+
++ saven (default = 50): save the results (update the object) every X iterations, in case the user wants to stop the ongoing algorithm without loosing everything
++ keepRedFiltaftDis (default = T): when red filter is activated, keep or not the rejected patient (with ODE) in the final pool of red filters
++ pctActivGreen (default =  0.1), percentage of accepted VPs after ODe step needed to activate green filter (when toggled) during an iteration  
++ time_compteur (default = F): if True a detail time track system will measure the time of almost each substep, mostly used for the article
++ methodFilter: two ways to apply the filter, either rejected VP one by one (method 1) or by applying a single but bigger filter (method 2, by default because quicker). 
++ use_red_filter  (default = T): allows to disable red filter, but not used in practice because it looses the interest of the algorithm (used for exploring the green filter potency alone during the publication)
+
+
+
+```{r, warning=F, message=F}
+demo$add_VP(VP_df, reducefilteratend = F, use_green_filter = T)
+```
+
+
+By reprenting the object we can see how many VP were found as long as filter above and below
+
+```{r}
+demo
+```
+
+This number of filter above and below can be reduce using the function
+
+```{r, warning=F, message=F}
+demo$n_filter_reduc()
+demo
+```
+
+To plot the plausible VPs, use the functioni *plot_VP*. The argument nmax (def Inf) allows to reduce the number of VP printed by sampling randomly the corresponding number of VPs. 
+
+```{r}
+demo$plot_VP(nmax = 200)
+```
+
+Finally, to observe the plausible VP:
+
+```{r}
+demo$poolVP %>%
+  select(-simul) %>%  # contains the simulations
+  head
+```
+
+To see VPs rejected because above (in relation to compartment "cmt")
+
+```{r}
+demo$filters_neg_above %>% #or neg_below
+  head
+```
+
+
+Of note, new cohort of potential VPs can be added to the object, thus incrementing the pool of plausile VPs. By providing a "fix_df" argument, this first algorithm is iteratively performed for each value of non-monotonic parameter set. 
+
+If one want to compute the potential zone where VP can be found, he must use the *zone_maybe* function:
+
+
+
+## Algo 2
+
+The easiest way to learn how to use the algorithm 2 is by looking at the "hide and seek" code used to produce one of the article figure: https://github.com/Thibaudpmx/QSPVP/blob/main/article_resources/figures_source_code/figure_5.R 
+
+In practice the second algorithm seems not ready to be used with QSP model (need further improvment). However, its main idea of computing zone of plausibility or zone of certainty can be used manually directly after the first algorithm, here to compute zone of plausibility:
+
+```{r}
+demo$compute_zone_maybe()
+
+demo$zone_maybe %>% head
+
+```
+
+And here to compute zone of certitude 
+```{r, warning=F, message = F}
+demo$compute_zone_sure()
+demo$zone_sure  %>% head
+```

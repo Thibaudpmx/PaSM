@@ -517,7 +517,7 @@ allTimes %>%
 
 # Take as reference the 50% acceptation
 ref0.5 <- ref %>% filter(pct == 0.5)
-ref0.5 <- tibble(pct = "Old", time = c("Other", "RxODE"), value = c(ref0.5$medianTotal - ref0.5$medianModel,ref0.5$medianModel)) %>% crossing(nparam = 5)
+ref0.5 <- tibble(pct = "Ref", time = c("Other", "RxODE"), value = c(ref0.5$medianTotal - ref0.5$medianModel,ref0.5$medianModel)) %>% crossing(nparam = 5)
 
 plotB <- allTimes %>%
   filter(nparam == 5 & pct == 0.5 & meth == "") %>%
@@ -540,8 +540,69 @@ plotB <- allTimes %>%
 
 # cowplot::plot_grid(plotA, plotB, nrow =   1)
 
+# plot B alt --------------------------------------------------------------
+
+plotBAlt <- allTimes %>%
+  filter(nparam == 5 & pct %in% c(0.5,0.01,0.99) & meth == "") %>%
+  left_join(iteration_to_keep) %>%
+  filter(test) %>%
+  gather("time", "value",GreenFilter, Other, RedFilter, RxODE) %>%
+  mutate(pct0 = pct, pct = paste0(100- (pct * 100), "%")) %>% #if_else(pct == 0.5 ,"50% Rej", "1%Rej")) %>%
+  bind_rows(ref0.5 ) %>%
+  group_by(pct) %>%
+  mutate(total = sum(value)) %>%
+  ungroup() %>%
+  ggplot()+
+  #
+  geom_col(aes(fct_reorder(pct,  value), value, fill = fct_relevel(time,  "Other",  "RedFilter",  "GreenFilter","RxODE", after = T)), alpha = 0.5)+
+  theme_bw()+
+  # geom_segment(aes(x = "50%", xend = "50%", y = 53, yend = 50), col = "red",  arrow = arrow(length = unit(0.2, "cm")))+
+  # geom_segment(aes(x = "1%", xend = "1%", y = 30, yend = 27), col = "blue",  arrow = arrow(length = unit(0.2, "cm")))+
+  # geom_segment(aes(x = "50%", xend = "50%", y = 53, yend = 50), col = "red",  arrow = arrow(length = unit(0.2, "cm")))+
+  #
+  # scale_fill_manual(values = c("grey", "red", "darkgreen", "blue"))+
+  scale_fill_manual(values = c("grey", "red", "darkgreen", "blue"))+
+  labs(x = "Method (with % VP rejection)", y = "Time of analysis (sec)", fill = "Step")+
+  geom_text(aes(pct, value, fill = fct_relevel(time,  "Other",  "RedFilter",  "GreenFilter","RxODE", after = T), label = as.double(value) %>% round(1)), position = position_stack(vjust = .5))+
+  geom_label(aes(pct, total+ 5 ,  label = paste0("",as.double(total) %>% round(1), "s")));plotBAlt
 
 
+
+plotAalt <- allTimes %>%
+
+  mutate(pct = as.double(pct)) %>%
+  mutate(nparam = as.character(nparam)) %>%
+  mutate(meth = if_else(meth == "", "Centered", "Lowest")) %>%
+  group_by(nparam, pct, meth) %>% # compute the median times of computatoin  (from x5 analyses)
+  summarise(timeTotal = median(timeTotal)) %>%
+  ungroup() %>%
+  ggplot()+
+  geom_rect(aes(xmin = 48, xmax = 52, ymin = 39, ymax = 41.5), col = "black",alpha = 0)+
+  geom_rect(aes(xmin = -1, xmax = 3, ymin = 18, ymax = 20.5), col = "black",alpha = 0)+
+  geom_rect(aes(xmin = 97, xmax = 101, ymin = 24.5, ymax = 27), col = "black",alpha = 0)+
+  geom_rect(aes(xmin = 48, xmax = 52, ymin = 49, ymax = 51.5), col = "black",alpha = 0)+
+
+  # geom_segment(aes(x = 56, xend = 52, y = 45, yend = 42), col = "black",  arrow = arrow(length = unit(0.2, "cm")))+
+  # geom_segment(aes(x = 1, xend = 1, y = 24, yend = 21), col = "black",  arrow = arrow(length = unit(0.2, "cm")))+
+  # geom_segment(aes(x = 99, xend = 99, y = 31, yend = 28), col = "black",  arrow = arrow(length = unit(0.2, "cm")))+
+  # geom_segment(aes(x = 48, xend = 50, y = 46, yend = 49), col = "black",  arrow = arrow(length = unit(0.2, "cm")))+
+  geom_point(aes(x = 50, y = 50.1)) +
+  geom_point(aes(x = 0, y = 51.5)) +
+  geom_point(aes(x = 100, y = 48.9)) +
+  # geom_text(aes(x = 62, y = 46, label = "next plots"), col = "red", size = 3)+ # Note: last 3 brut way, not reproducible
+  geom_point(aes(x = (1-pct) * 100, y = timeTotal, col = nparam))+
+  geom_line(aes(x = (1-pct)* 100, y = timeTotal, col = nparam, lty = meth))+
+  geom_line(data = ref, aes(x= (1- pct)*100, y = medianTotal ), lty = 2)+
+  geom_ribbon(data = ref, aes(x= (1- pct)*100, ymin = minTotal, ymax = maxTotal, fill = "Time of\nreference" ),alpha = 0.2)+
+  geom_line(data = ref, aes(x= (1- pct)*100, y = minTotal ))+
+  geom_line(data = ref, aes(x= (1- pct)*100, y = maxTotal ))+
+  theme_bw()+
+  scale_linetype_manual(values = c(1,2))+
+  scale_fill_manual(values = "grey")+
+  labs(x = "Percentage of rejected VP", y = "Total Time analysis (sec)", col = "Number\nvarying\nparameters", fill = "",
+       lty = "Target\nmethod"); plotAalt
+
+plot_grid(plotAalt, plotBAlt, labels = c("A", "B"))
 # plot S A ----------------------------------------------------------------
 
 

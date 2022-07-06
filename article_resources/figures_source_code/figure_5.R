@@ -102,6 +102,29 @@ simul %>%
   prototinypkpd <- bind_rows( prototiny, prototinyPK)
 
 
+  plot0 <- simul %>%
+    # filter(time %in% c(8,30)) %>%
+    # select(id, time, tumVol) %>%
+    mutate(protocol = case_when(id == 1 ~ 0,
+                                id == 2 ~ 50,
+                                id == 3 ~ 100)) %>%
+
+    filter(time <=40) %>%
+
+    gather("OoI", "value", tumVol, Conc) %>%
+    filter(!(time >5 &  OoI == "Conc")) %>%
+    {temppoint <<- .} %>%
+    ggplot()+
+    geom_line(aes(time, value, col = factor(protocol))) +
+    scale_y_log10()+
+    facet_wrap(~OoI, scales = "free", ncol =1)+
+    theme_bw()+
+    labs( x = "Time (days)", y = "Tumor Volume (mm3)", col = "Dose", shape = "")+
+    geom_vline(data = tibble(OoI = "tumVol", x = c(8,30)), aes( xintercept = x), lty = 2)+
+    geom_vline(data = tibble(OoI = "Conc", x = c(0,1,2)), aes( xintercept = x), lty = 2)+
+    geom_point(data = temppoint %>% filter((time %in% c(8,30) & OoI == "tumVol") | (time %in% c(0,1,2) & OoI != "tumVol" & id != 1) ), aes( time, value, shape = "Target")); plot0
+
+
 # Analyze PD only--------------------------------------------
 
 
@@ -134,15 +157,19 @@ self$algo2(domain = domain, fix = fix,npersalve = 2E5, npersalveFinal = 1E6,save
 
 # Note: useless to finish the algorithm, just the first step count
 filePDmtd2 <- file.path(root, "algo2", "pdonly_mtd2.RDS")
+
+self <- VP_proj_creator$new(); self$set_targets(manual = prototiny)
 self$algo2(domain = domain, fix = fix,npersalve = 2E5, npersalveFinal = 1E6,save_every = 5, file = filePDmtd2,method = 2 )
+
+
 
 # Analyze PKPD ------------------------------------------------------------
 
-
+# without VPs in borders
 self <- VP_proj_creator$new()
 self$set_targets(manual = prototinypkpd)
 
-
+# with VPs in borders
 selfwbdr <- VP_proj_creator$new()
 selfwbdr$set_targets(manual = prototinypkpd)
 
@@ -167,10 +194,10 @@ filePKPDwbdr <- file.path(root, "algo2", "pkpdwbdr.RDS")
 self$algo2(domain = domain, fix = fix,npersalve =  npersalve,includeBorderZoom = T, npersalveFinal = npersalveFinal, method = 1, file = filePKPDwbdr, save_every = 2)
 
 
-# Plot A -------------------------------------------------------------
+# Plot C -------------------------------------------------------------
 
-  PDonly <-  readRDS(filePD)
-  PDonlyMtd2 <-  readRDS(filePDmtd2)
+  PDonly <-  readRDS(file.path(root, "algo2", "pdonly.RDS"))
+  PDonlyMtd2 <-  readRDS(file.path(root, "algo2", "pdonly_mtd2.RDS"))
 
   # Just verify it provides the same results
   PDonly$algo2list$tree %>% slice(1)
@@ -185,7 +212,7 @@ timetrackFirstAna <- PDonly$algo2list$first_timeTrak
 
 
  # Labels
- labels <-  c("Algo1", "Filter\nReduc", "Comput\nzone maybe", "Blocs\nreduction", "other")
+ labels <-  c("Algo1", "Filter\nReduc", "Comput\nplaus.zone", "Blocs\nreduction", "other")
  stepname <- factor(x = labels, levels =
                       labels)
  # Time computations
@@ -215,96 +242,132 @@ timetrackFirstAna <- PDonly$algo2list$first_timeTrak
    theme_bw(); plotA
 
 
- # Plot B -------------------------------------------------------------
+ # Plot D -------------------------------------------------------------
 
  tree <- PDonly$algo2list$tree
  plotB <- tree   %>%
    slice(-1) %>%
-   mutate(time = as.double(time)) %>%
+   mutate(time = as.double(time) / 60) %>%
    ggplot()+
    geom_histogram(aes(time, fill = factor(after/3)),col = "black")+
-   scale_x_log10()+
+   # scale_x_log10()+
    theme_bw()+
-   labs(x = "Time (sec)", fill = "VP\nfound"); plotB
+   labs(x = "Time (minutes)", fill = "VP\nfound"); plotB
 
 
 
+# "plot" B -------------------------------------------------------
+
+ tree$before[[1]] # number of total VPs
+ PDonly$n_filter_reduc() # number of filter
+ PDonly$algo2list$first_timeTrak$sizeMaybeBeforeReduc  # number of plausibility zones after algo1
+ PDonly$algo2list$first_timeTrak$sizeMaybeAfterReduc  # number of plausibility zones after reduction
+ tree$size[[1]] # number of blocs gathered
+ median(tree$before[-1]) # median size blocs
+ tree$time[[1]]/60 #Time in minutes first zoom
+ sum(tree$time[-1] / 60)  # Time final blocs explor
+ # min(tree$time[-1] / 60)
+ # max(tree$time[-1] / 60)
+ sum(tree$time / 60) # Time total
 
 
+ PDonly$algo2list$first$nbrdless %>% sum / 1.1E6
+ PDonly$algo2list$first$nbrd %>% sum/ 1.1E6
+# "plot" E Analysis pkpd set -------------------------------------------------------
 
 
-# Analysis pkpd set -------------------------------------------------------
+ PKPD <-  readRDS(file.path(root, "algo2", "pkpd.RDS"))
 
-
- PKPD <-  readRDS(filePKPD)
-
+ PKPDBrd <-  readRDS(file.path(root, "algo2", "pkpdwbdr.RDS"))
 
 
 
 PKPDtree <-  PKPD$algo2list$tree %>% # used for workflow
     mutate(round = map_dbl(Name,~ str_split(.x, "_")[[1]] %>% length))
 
+
+PKPDBrdtree <-  PKPDBrd$algo2list$tree %>% # used for workflow
+  mutate(round = map_dbl(Name,~ str_split(.x, "_")[[1]] %>% length))
+
+
+PKPDtree$time %>% sum()/60 #min
+PKPDBrdtree$time %>% sum()/60 #min
+
+
+
 PKPDtree$time[PKPDtree$round == 2][-1] %>% sum() / 60
 PKPDtree$time[PKPDtree$round == 2][-1] %>% min
 PKPDtree$time[PKPDtree$round == 2][-1] %>% max
 
-PKPD$poolVP$id %>% unique # why is there so many VPS. (oh I should have relaunch it.....)
 
+PKPDBrdtree$time[[1]] # fist full loop
+PKPDBrdtree$after[[1]] / 1E9 # number of Vps after
+PKPDBrdtree$size [[1]] # number of blocs
+
+PKPDBrdtree %>%
+  filter(round == 2) %>%
+    filter(after > 0) %>% # stop here to know number of previous blocs of interest
+    # nrow() # to know the number of blocs
+    pull(after ) %>% sum # end here number
+
+# time for the zooming with brd
+PKPDBrdtree %>%
+  filter(round == 2) %>%
+  summarise(sum(time), min(time), max(time))
+
+PKPDBrdtree %>%
+  filter(round == 3) %>%
+  summarise(sum(time), min(time), max(time))
+
+# time for the zooming without brd
 PKPDtree %>%
   filter(round == 2) %>%
-    # slice(-1) %>%
-    filter(after > 0) %>%
-    # nrow() # to know the number of blocs
-    pull(after ) %>% sum
+  summarise(sum(time), min(time), max(time))
+
 
 PKPDtree %>%
   filter(round == 3) %>%
   summarise(sum(time), min(time), max(time))
-  pull(time ) %>% sum
-
-PKPDtree$time %>% sum
 
 
+# to get the number of patient before dive
+PKPDBrdtree %>%
+  filter(round == 2) %>%
+  filter(after > 0) %>%
+  mutate(nptbdl = map_dbl(Name, function(x){
+
+    PKPDBrd$algo2list[[x]] %>%
+      pull(nbrd) %>% # vs nbrdless
+      sum()
+  })) %>%
+  summarise(sum(nptbdl), sum(after))
 
 
-
-self$algo2list$tree %>%
-  summarise(time = sum(time))
-
-2609.409 / 60
-
-self$algo2list$first %>%
-  group_by(blocsPool) %>%
-  summarise(sum = sum(temp3)) %>%
-  pull(sum) %>% median
-
-
-
-
-plot0 <- simul %>%
-  # filter(time %in% c(8,30)) %>%
-  # select(id, time, tumVol) %>%
-  mutate(protocol = case_when(id == 1 ~ 0,
-                              id == 2 ~ 50,
-                              id == 3 ~ 100)) %>%
-
-  filter(time <=40) %>%
-
-  gather("OoI", "value", tumVol, Conc) %>%
-  filter(!(time >5 &  OoI == "Conc")) %>%
-  {temppoint <<- .} %>%
-  ggplot()+
-  geom_line(aes(time, value, col = factor(protocol))) +
-  scale_y_log10()+
-  facet_wrap(~OoI, scales = "free", ncol =1)+
-  theme_bw()+
-  labs( x = "Time (days)", y = "Tumor Volume (mm3)", col = "Dose", shape = "")+
-  geom_vline(data = tibble(OoI = "tumVol", x = c(8,30)), aes( xintercept = x), lty = 2)+
-  geom_vline(data = tibble(OoI = "Conc", x = c(0,1,2)), aes( xintercept = x), lty = 2)+
-  geom_point(data = temppoint %>% filter((time %in% c(8,30) & OoI == "tumVol") | (time %in% c(0,1,2) & OoI != "tumVol" & id != 1) ), aes( time, value, shape = "Target")); plot0
+# Manual verification every VPs were in a border
+# PKPDBrdtree %>%
+#   filter(round == 2) %>%
+#   filter(after > 0) %>%
+#   mutate(notinbrd = map_dbl(Name, function(x){
+#
+#     PKPDBrd$algo2list[[x]] %>%
+#       filter(!(k2min == 1.63 | k2max == 1.63 | lambda0min == 0.85 |lambda0max == 0.85 |
+#                  kemin == 0.7 | kemax == 0.7 | Vdmin == 37 | Vdmax == 37 | lambda1min == 72 | lambda1max == 72)) %>%
+#       filter(k2min<= 1.63, k2max >= 1.63, kemin <= 0.7 & kemax >= 0.7, lambda0min <= 0.85, lambda0max >= 0.85,
+#                              lambda1min <=72 & lambda1max >= 72, Vdmin <= 37, Vdmax >=37) %>%
+#       nrow()
+#   })) %>%
+#   summarise(sum(notinbrd))
 
 
-cowplot::plot_grid(plot0,"3",  plotA, plotB, labels = LETTERS)
+PKPDBrd$poolVP %>%
+  filter(protocol == "dose0") %>% #26 rows
+  group_by( k2, lambda0,    ke ,   Vd, lambda1  ,  k1  ,  w0) %>%
+  tally #only 12
+
+
+PKPDBrdtree$time %>% sum/60
+# Final plot with empty ssqure --------------------------------------------
+
 
 cowplot::plot_grid(plot0,"3",  plotA, plotB,  "3","4", labels = c("A", "B", "C", "D", "", "E"))
 # Backup ------------------------------------------------------------------

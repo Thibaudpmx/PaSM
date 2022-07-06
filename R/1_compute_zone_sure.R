@@ -122,7 +122,6 @@ VP_proj_creator$set("public", "compute_zone_sure", function(domain, keptSingleVa
     if(nrow(above) > 0){
       for(a in 1:nrow(above)){
 
-        print(a)
         ref <- above %>% slice(a)
 
         allsquares %>%
