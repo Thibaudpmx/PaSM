@@ -4,7 +4,7 @@ PaSM is a package created to accelerate the creation of plausible Virtual Patien
 
 # Manuscript
 
-A manuscript detailing the methodology is currently under peer-review for publication. All the source code of the models and figures are available in the [article_resources subfolder](https://github.com/Thibaudpmx/PaSM/tree/main/article_resources).
+A manuscript detailing the methodology and evaluating PaSM performance is currently under peer-review for publication. All the source code used in the paper (model equations, figure scripts...) are available in the [article_resources subfolder](https://github.com/Thibaudpmx/PaSM/tree/main/article_resources).
 
 # Installation:
 
