@@ -20,6 +20,7 @@
  fix_df = NULL; saven = 50; time_compteur = T;  fillatend = F; reducefilteratend = F; npersalve = 2000; use_green_filter = T;
 pctActivGreen = 0.1; keepRedFiltaftDis = T; methodFilter = 2; use_red_filter = T; cmtalwaysbelow = NULL; keep = NULL; saveVPRej = T; timeSave = NULL;PreviousResults = tibble()
 RedFilterDisAllProt = F; GreenFilterDisAllProt = F
+npersalve = 10
 
 VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 50, time_compteur = F,  fillatend = F, reducefilteratend = F, npersalve = 1000, use_green_filter = F,
                                                  pctActivGreen = 0.1, keepRedFiltaftDis = T, methodFilter = 2, use_red_filter = T, cmtalwaysbelow = NULL, keep = NULL, saveVPRej = T, timeSave = NULL, PreviousResults = tibble(),
@@ -333,7 +334,7 @@ VP_proj_creator$set("public", "add_VP", function(VP_df, fix_df = NULL, saven = 5
     b <- Sys.time()
 
     res <- simulations2(ind_param = line, add_events = protocol, returnSim = T,
-                        icmt = self$initial_cmt_values, time_vec =self$times,
+                        icmt = self$initial_cmt_values, time_vec = self$times,
                         pardf = self$parameters_default_values, model = self$model) %>%
       as_tibble() # %>%
     # get back the real id
