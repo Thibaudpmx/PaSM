@@ -58,6 +58,9 @@ The model file should contains the following variable:
 + *param_no_impact*, , a named **list**, each element having the name of an OoI and an atomic vector of all the parameters strictly independent of the correponding OoI 
 + *data_VT*, an optional dataset of observations, used for automatically proposing some target values
 
+
+Here is an example of such model file, futher copy/paste in a file called "config_Simeoni.R"
+
 ```{r}
 model_RxODE <-  RxODE({
   d/dt(Central) <- -ke *  max(Central,0) 
@@ -120,7 +123,7 @@ data_VT <- read.table(file.path(find.package("PaSM"), "Simeoni.txt"), header = T
 
 ## Initiate an analyses
 
-To initiate an alayses, use the function *VP_proj_creator$new()*, with sourcefile argument being the path of the model file created at the previous step (here copy/paste on the file config_Simeoni.R)
+To initiate an alayses, use the function *VP_proj_creator$new()*, with sourcefile argument being the path of the model file created at the previous step:
 
 ```{r}
 demo <- VP_proj_creator$new(sourcefile = file.path(find.package("PaSM"), "config_Simeoni.r"))
