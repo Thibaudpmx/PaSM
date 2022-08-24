@@ -17,7 +17,6 @@ Thibaud Derippe
 \item \href{#method-new}{\code{VP_proj_creator$new()}}
 \item \href{#method-print}{\code{VP_proj_creator$print()}}
 \item \href{#method-add_VP}{\code{VP_proj_creator$add_VP()}}
-\item \href{#method-set_targets}{\code{VP_proj_creator$set_targets()}}
 \item \href{#method-algo2}{\code{VP_proj_creator$algo2()}}
 \item \href{#method-big_screening}{\code{VP_proj_creator$big_screening()}}
 \item \href{#method-compute_zone_maybe}{\code{VP_proj_creator$compute_zone_maybe()}}
@@ -26,9 +25,10 @@ Thibaud Derippe
 \item \href{#method-launch_programmed}{\code{VP_proj_creator$launch_programmed()}}
 \item \href{#method-make_filters}{\code{VP_proj_creator$make_filters()}}
 \item \href{#method-n_filter_reduc}{\code{VP_proj_creator$n_filter_reduc()}}
+\item \href{#method-plot_VP}{\code{VP_proj_creator$plot_VP()}}
 \item \href{#method-plot_2D}{\code{VP_proj_creator$plot_2D()}}
 \item \href{#method-plot_3D}{\code{VP_proj_creator$plot_3D()}}
-\item \href{#method-plot_VP}{\code{VP_proj_creator$plot_VP()}}
+\item \href{#method-set_targets}{\code{VP_proj_creator$set_targets()}}
 \item \href{#method-time_analyserr}{\code{VP_proj_creator$time_analyserr()}}
 \item \href{#method-clone}{\code{VP_proj_creator$clone()}}
 }
@@ -62,8 +62,6 @@ Thibaud Derippe
   VP_df,
   fix_df = NULL,
   saven = 50,
-  drug = NULL,
-  update_at_end = T,
   time_compteur = F,
   fillatend = F,
   reducefilteratend = F,
@@ -85,21 +83,6 @@ Thibaud Derippe
 
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-set_targets"></a>}}
-\if{latex}{\out{\hypertarget{method-set_targets}{}}}
-\subsection{Method \code{set_targets()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{VP_proj_creator$set_targets(
-  ...,
-  filter = NULL,
-  ntime = 3,
-  manual = NULL,
-  timeforce = NULL
-)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-algo2"></a>}}
 \if{latex}{\out{\hypertarget{method-algo2}{}}}
 \subsection{Method \code{algo2()}}{
@@ -110,8 +93,12 @@ Thibaud Derippe
   npersalve = 2e+05,
   npersalveFinal = 1e+06,
   file = "",
+  includeBorderZoom = F,
   save_every = 5,
-  method = 1
+  method = 1,
+  RedFilterDisAllProt = F,
+  GreenFilterDisAllProt = F,
+  keepFilterNeg = F
 )}\if{html}{\out{</div>}}
 }
 
@@ -184,6 +171,15 @@ Thibaud Derippe
 
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-plot_VP"></a>}}
+\if{latex}{\out{\hypertarget{method-plot_VP}{}}}
+\subsection{Method \code{plot_VP()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{VP_proj_creator$plot_VP(nmax = Inf, rowids = NULL)}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-plot_2D"></a>}}
 \if{latex}{\out{\hypertarget{method-plot_2D}{}}}
 \subsection{Method \code{plot_2D()}}{
@@ -211,11 +207,17 @@ Thibaud Derippe
 
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-plot_VP"></a>}}
-\if{latex}{\out{\hypertarget{method-plot_VP}{}}}
-\subsection{Method \code{plot_VP()}}{
+\if{html}{\out{<a id="method-set_targets"></a>}}
+\if{latex}{\out{\hypertarget{method-set_targets}{}}}
+\subsection{Method \code{set_targets()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{VP_proj_creator$plot_VP(nmax = Inf, rowids = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{VP_proj_creator$set_targets(
+  ...,
+  filter = NULL,
+  ntime = 3,
+  manual = NULL,
+  timeforce = NULL
+)}\if{html}{\out{</div>}}
 }
 
 }

@@ -9,7 +9,7 @@
 ##
 ## Under GPL-3 License
 ## Email: thibaud.derippe@gmail.com
-## GitHub: https://github.com/Thibaudpmx/QSPVP
+## GitHub: https://github.com/Thibaudpmx/PaSM
 ## ---------------------------
 ##
 ## Notes: No intermediate results; script can be launched to
@@ -19,15 +19,14 @@
 ## ---------------------------
 
 
-library(QSPVP)
-library(RxODE)
+library(PaSM)
 library(cowplot)
 # Demo rejection ----------------------------------------------------------
 
 
 # Create a project
 self <- VP_proj_creator$new() # note: by default, the path of the source file read is
-                              # file.path( find.package("QSPVP"), "config_Simeoni.r")
+                              # file.path( find.package("PaSM"), "config_Simeoni.r")
 
 # Determine some targets
 self$set_targets(manual = tibble(protocol = "dose50", cmt = "tumVol", time = c(12,45), min = c(21,50), max = c(62,200)))

@@ -9,7 +9,7 @@
 ##
 ## Under GPL-3 License
 ## Email: thibaud.derippe@gmail.com
-## GitHub: https://github.com/Thibaudpmx/QSPVP
+## GitHub: https://github.com/Thibaudpmx/PaSM
 ## ---------------------------
 ##
 ## For plot A: first a script to generate the data, stored into various RDS files
@@ -18,7 +18,7 @@
 ##
 ## ---------------------------
 
-library(QSPVP)
+library(PaSM)
 
 
 
@@ -34,7 +34,7 @@ library(QSPVP)
 
 
 # First, put where you want to save all the data (to heavy to put in GitHub, you will have to regenerate them yourself ! )
-setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni")
+setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data/Simeoni")
 
 # We first need a function to automatically create the 200.000 VPs according the number of varying parameters, so here it is
 
@@ -387,7 +387,7 @@ mbref <- microbenchmark(ref <- manual(target, cohort), times = 5)
 saveRDS(mbref, "timeReference.RDS")
 
 #  plot A - making: Simeoni analysis -----------------------------------------------
-setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni_no_green")
+setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data/Simeoni_no_green")
 
 allTimes <- readRDS("full_analysis.RDS") #%>%
 # mutate(meth = if_else(meth == "", "", "alt")) %>%
@@ -402,7 +402,7 @@ ref <- readRDS("../Simeoni_ref/timeReference.RDS")
 
 
 
-allTimesWith_green <- readRDS("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni/full_analysis.RDS") %>%
+allTimesWith_green <- readRDS("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data/Simeoni/full_analysis.RDS") %>%
   mutate(pct = as.double(pct)) %>%
   mutate(nparam = as.character(nparam)) %>%
   mutate(meth = if_else(meth == "", "Centered", "Lowest")) %>%
@@ -466,9 +466,9 @@ plotA <- allTimes %>%
 # Plot B DATA generation -------------------------------------------------------
 
 # Changing the number of  dimension
-setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni_less_usable_param")
+setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data/Simeoni_less_usable_param")
 
-alltumVol <- readRDS("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni_no_green/Ref_5.RDS") %>%
+alltumVol <- readRDS("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data/Simeoni_no_green/Ref_5.RDS") %>%
    pull(tumVol)
 
 
@@ -559,7 +559,7 @@ str_split(toread, pattern = "_", simplify = T) %>%
 
 # Plot B  and C generation -------------------------------------------------------
 
-setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni_less_usable_param")
+setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data/Simeoni_less_usable_param")
 
 
 allTimes <- readRDS("full_analysis.RDS") %>%

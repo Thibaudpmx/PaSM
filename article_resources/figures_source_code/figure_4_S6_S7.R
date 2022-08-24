@@ -9,7 +9,7 @@
 ##
 ## Under GPL-3 License
 ## Email: thibaud.derippe@gmail.com
-## GitHub: https://github.com/Thibaudpmx/QSPVP
+## GitHub: https://github.com/Thibaudpmx/PaSM
 ## ---------------------------
 ##
 ## Plots require first to generate data, which in total
@@ -19,11 +19,11 @@
 ##
 ## ---------------------------
 
-library(QSPVP)
+library(PaSM)
 library(cowplot)
 
 # Please provide the folder where you want the generated data to be stored
-root <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data"
+root <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data"
 
 #  plot A - data generation: Simeoni analysis -----------------------------------------------
 
@@ -1060,7 +1060,7 @@ plot_grid(plotA, plotB, plotC, plotD, plotE, plotF, labels = LETTERS, nrow = 2)
 
 
 
-setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/ImpactSizeCohort")
+setwd(file.path(root,"ImpactSizeCohort"))
 
 
 datas <- readRDS("full_analysis.RDS") %>%

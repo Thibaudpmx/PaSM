@@ -9,7 +9,7 @@
 ##
 ## Under GPL-3 License
 ## Email: thibaud.derippe@gmail.com
-## GitHub: https://github.com/Thibaudpmx/QSPVP
+## GitHub: https://github.com/Thibaudpmx/PaSM
 ## ---------------------------
 ##
 ## Notes: 1) Stochasticity in the algorithm, I put a seed for full
@@ -21,8 +21,7 @@
 ## ---------------------------
 
 
-library(QSPVP)
-library(RxODE)
+library(PaSM)
 library(cowplot)
 
 # First, lets create an object for the analysis

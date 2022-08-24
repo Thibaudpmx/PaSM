@@ -1,5 +1,5 @@
 
-library(QSPVP)
+library(PaSM)
 
 # first producing two patients
 

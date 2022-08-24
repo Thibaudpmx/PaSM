@@ -1,18 +1,14 @@
-Package: QSPVP
-Title: What the Package Does (One Line, Title Case)
+Package: PaSM
+Title: Parameter Space Mapping algorithms to accelerate the creation of plausible Virtual Patients
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
+    person("Thibaud", "Derippe", , "Thibaud.Derippe@gmail.com", role = c("aut", "cre"))
 Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+License:  `use_gpl3_license()`
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.1
-Imports: 
-    RxODE
 Depends: 
     dplyr,
     crayon,
@@ -25,4 +21,5 @@ Depends:
     stringr,
     tibble,
     tidyr,
-    rlang
+    rlang,
+    RxODE

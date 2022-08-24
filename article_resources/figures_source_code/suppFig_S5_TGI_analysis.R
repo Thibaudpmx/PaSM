@@ -1,5 +1,4 @@
-library(QSPVP)
-library(RxODE)
+library(PaSM)
 
 
 model  <-  RxODE({

@@ -9,7 +9,7 @@
 ##
 ## Under GPL-3 License
 ## Email: thibaud.derippe@gmail.com
-## GitHub: https://github.com/Thibaudpmx/QSPVP
+## GitHub: https://github.com/Thibaudpmx/PaSM
 ## ---------------------------
 ##
 ##
@@ -18,7 +18,7 @@
 ##
 ## ---------------------------
 
-library(QSPVP)
+library(PaSM)
 
 
 
@@ -58,7 +58,7 @@ plotLindner <- function(obj, npatient = 2000, title = ""){
 }
 # original configuration-----------------------------------------------------
 
-setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Lindner_article")
+setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data/Lindner_article")
 
 
 

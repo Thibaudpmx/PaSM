@@ -1,9 +1,5 @@
 
-# Model ---------------------------------------
-
-#### Write the equations of your model, followng RxODE format
-
-model <- model_RxODE <-  RxODE({
+model_RxODE <-  RxODE({
   d/dt(Central) <- -ke *  max(Central,0)
   Conc <- Central/Vd
 
@@ -19,11 +15,16 @@ model <- model_RxODE <-  RxODE({
 
 })
 
-# Various ---------------------------------------
 
-parameters_default_values <- c(psi = 20) # paremeters value to be used by default. Use character() if empty
-initial_cmt_values <- c(X1 = 50) # initial compartment values (even if set to 0). At least one, and every missing cmt name would be set to 0.
-times <- seq(0,52, 1) # times you want to see your observations
+
+# paremeters value to be used by default (NA if you want to force providing value)
+parameters_default_values <- c(psi = 20)
+
+# initial compartment values. At least one, and every missing cmt name would be set to 0
+initial_cmt_values <- c(X1 = 50)
+
+# times you want to see your observations
+times <- seq(0,52, 1)
 
 
 # Protocols ----------------------------------
@@ -33,39 +34,6 @@ protocols <- list( dose0 = tibble(cmt = "Central", time = 0, amt = 0),
                    dose100 = tibble(cmt = "Central", time = 0, amt = 100)
 
 )
-
-
-# Parameter influence -----------------------------------------------------
-
-
-#### HELPER - TO COMMENT AFTER USE ############
-
-
-# Step1: launch the followind command (tribblecreator)
-#               tribblecreator(model_RxODE)
-
-# Step2 copy paste code printed in the console, then
-# 1) fill the domain table,
-# 2) replace your_output_without_quotes by your outputes (eg. tumVol, Conc, ...), and give a protocol
-# name provided in protocols
-
- ### replace this line by the code procuded in step1
-
-# domain <- tribble(~param, ~min, ~ref,  ~max,
-#                   "ke", 0.1,0.5,2,
-#                   "Vd", 10,30,50 ,
-#                   "lambda0", 0.02,0.05,1 ,
-#                   "lambda1", 20,50,100,
-#                   "psi", 10,20,30 ,
-#                   "k2", 0.05, 1,2,
-#                   "k1", 0.1,1,2 )
-#
-# find_relative(tumVol, Conc, protocol = "dose50", model = model_RxODE, values = domain)
-
-# Step3: verify the plot, the table summarising the influence, and if you find it
-# plausible copy paste the three line (param_reduce, param_increase, param_no_impact)
-# in the next bloc. Feel free to modify manually if needed
-#### END HELPER - Please comment the full bloc above ############
 
 ##### Fill the parameter #####
 
@@ -85,5 +53,6 @@ data_VT <- read.table("D:/Peccary_Annexe/Exemple_demo/DATA/Simeoni.txt", header 
   mutate(protocol = paste0("dose", Dose), cmt = if_else(YTYPE == 2, "tumVol", "Conc")) %>%
   as_tibble %>%
   filter(!is.na(cmt))
+
 
 

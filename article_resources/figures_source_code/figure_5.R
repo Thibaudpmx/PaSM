@@ -9,7 +9,7 @@
 ##
 ## Under GPL-3 License
 ## Email: thibaud.derippe@gmail.com
-## GitHub: https://github.com/Thibaudpmx/QSPVP
+## GitHub: https://github.com/Thibaudpmx/PaSM
 ## ---------------------------
 ##
 ##
@@ -18,12 +18,12 @@
 ##
 ## ---------------------------
 
-library(QSPVP)
+library(PaSM)
 
 # Data generation  VP to seek---------------------------------------------------------
 
 # Please provide the folder where you want the generated data to be stored
-root <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data"
+root <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data"
 
 new_wd <- file.path(root, "algo2")
 if(!file.exists(new_wd))  dir.create(new_wd)

@@ -9,7 +9,7 @@
 ##
 ## Under GPL-3 License
 ## Email: thibaud.derippe@gmail.com
-## GitHub: https://github.com/Thibaudpmx/QSPVP
+## GitHub: https://github.com/Thibaudpmx/PaSM
 ## ---------------------------
 ##
 ##
@@ -18,13 +18,13 @@
 ##
 ## ---------------------------
 
-library(QSPVP)
+library(PaSM)
 
 
 
 # Several time points --------------------------------------------------------
 
-# source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+# source("D:/these/Second_project/QSP/PaSM/R/R6object.R")
 twozone <- VP_proj_creator$new()
 above_or_below <- VP_proj_creator$new()
 above_or_below2 <- VP_proj_creator$new()
@@ -151,7 +151,7 @@ plotSeveralTimepoint <- plot_grid(subplotA, subplotB,subplotD,  subplotC, nrow =
 
 # Several YTYPE --------------------------------------------------------
 
-# source("D:/these/Second_project/QSP/QSPVP/R/R6object.R")
+# source("D:/these/Second_project/QSP/PaSM/R/R6object.R")
 pk_only <- VP_proj_creator$new()
 pd_only <- VP_proj_creator$new()
 pk_pd <- VP_proj_creator$new()

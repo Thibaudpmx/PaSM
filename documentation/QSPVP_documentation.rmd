@@ -1,5 +1,5 @@
 ---
-title: "QSPVP Documentation"
+title: "PaSM (Parameter Space Mapping) Documentation"
 author: "Thibaud Derippe"
 date: "`r format(Sys.time())`"
 output:
@@ -12,27 +12,36 @@ output:
 ---
 
 
-```{r, include=F}
-library(peccary)
-library(QSPVP)
-library(RxODE)
-```
-
-
-```{r, eval=FALSE}
-library(QSPVP)
-library(RxODE)
-```
 
 
 
-[QSPVP](https://github.com/Thibaudpmx/QSPVP/) is a R package allowing to accelerate the generation of plausible VPs by replacing time-consuming ODE solving steps with simple mononotic parameter value comparisons. This package is used in two steps:
+
+[PaSM (Parameter Space Mapping)](https://github.com/Thibaudpmx/PaSM/) is a R package allowing to accelerate the generation of plausible VPs by replacing time-consuming ODE solving steps with simple mononotic parameter value comparisons. This package is used in two steps:
 
 1. creation of the model file containing notably the model structure and the repartition of the parameter among the monotonic spaces
 2. another file to perform the analyses, essentially by first creating a cohort of potential VP and OoI targets, second by launching the algorithms. 
 
-If you have any question, suggestion or bug reporting, please send it by email to thibaud.derippe@gmail.com, or  [create an issue on GitHub](https://github.com/Thibaudpmx/QSPVP/issues)
+If you have any question, suggestion or bug reporting, please send it by email to thibaud.derippe@gmail.com, or  [create an issue on GitHub](https://github.com/Thibaudpmx/PaSM/issues)
 
+# Install and load PaSM
+
+To install PaSM, please use the following code in your R session:
+
+```{r, eval=FALSE}
+devtools::install_github("Thibaudpmx/PaSM")
+```
+
+
+As every R package, PaSM need to be called before its use:
+
+```{r, include=F}
+library(PaSM)
+```
+
+
+```{r, eval=FALSE}
+library(PaSM)
+```
 
 # Creating the model file
 
@@ -100,7 +109,7 @@ param_no_impact <- list(tumVol = character(), Conc = c("lambda0", "lambda1", "k2
 # data shoud have at least ID, Value and concX columns, X being replace by drug number (one col by drug concentration)
 # Avoid any column starting with "conc" if it is not a drug concentration / dose column
 
-data_VT <- read.table("D:/Peccary_Annexe/Exemple_demo/DATA/Simeoni.txt", header = T, sep = ";", na.strings = ".") %>% 
+data_VT <- read.table(file.path(find.package("PaSM"), "Simeoni.txt"), header = T, sep = ";", na.strings = ".") %>% 
   mutate(protocol = paste0("dose", Dose), cmt = if_else(YTYPE == 2, "tumVol", "Conc")) %>% 
   as_tibble %>% 
   filter(!is.na(cmt))
@@ -111,10 +120,10 @@ data_VT <- read.table("D:/Peccary_Annexe/Exemple_demo/DATA/Simeoni.txt", header 
 
 ## Initiate an analyses
 
-To initiate an alayses, use the function *VP_proj_creator$new()*, with sourcefile argument being the path of the model file created at the previous step
+To initiate an alayses, use the function *VP_proj_creator$new()*, with sourcefile argument being the path of the model file created at the previous step (here copy/paste on the file config_Simeoni.R)
 
 ```{r}
-demo <- VP_proj_creator$new(sourcefile = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/test_tutorial/test_tutorial.R")
+demo <- VP_proj_creator$new(sourcefile = file.path(find.package("PaSM"), "config_Simeoni.r"))
 ```
 
 
@@ -288,7 +297,7 @@ If one want to compute the potential zone where VP can be found, he must use the
 
 ## Algo 2
 
-The easiest way to learn how to use the algorithm 2 is by looking at the "hide and seek" code used to produce one of the article figure: https://github.com/Thibaudpmx/QSPVP/blob/main/article_resources/figures_source_code/figure_5.R 
+The easiest way to learn how to use the algorithm 2 is by looking at the "hide and seek" code used to produce one of the article figure: https://github.com/Thibaudpmx/PaSM/blob/main/article_resources/figures_source_code/figure_5.R 
 
 In practice the second algorithm seems not ready to be used with QSP model (need further improvment). However, its main idea of computing zone of plausibility or zone of certainty can be used manually directly after the first algorithm, here to compute zone of plausibility:
 

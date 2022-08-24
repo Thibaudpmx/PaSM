@@ -9,7 +9,7 @@
 ##
 ## Under GPL-3 License
 ## Email: thibaud.derippe@gmail.com
-## GitHub: https://github.com/Thibaudpmx/QSPVP
+## GitHub: https://github.com/Thibaudpmx/PaSM
 ## ---------------------------
 ##
 ## Description of the second algorithm
@@ -17,8 +17,7 @@
 ##
 ##
 ## ---------------------------
-library(QSPVP)
-library(RxODE)
+library(PaSM)
 library(cowplot)
 library(ggforce)
 
