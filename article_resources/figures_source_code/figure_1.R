@@ -112,6 +112,8 @@ plot1 <-
   geom_label(aes(x = 70, y = 80, label = "Step II: Rejection by\nextrapolation"))+
   geom_segment(aes(x = 70, xend = 70, y = 50, yend = 30), arrow = arrow(length=unit(0.30,"cm"), ends="last", type = "closed"))+
   geom_label(aes(x = 67, y = 300, label = "Step I: Rejection after RxODE"), col = "red")+
+  geom_segment(aes(x = 70, xend = 50, y = 200, yend = 100), arrow = arrow(length=unit(0.30,"cm"), ends="last", type = "closed"), col = "red")+
+
   geom_text(aes(x = 70, y = c(0.07), label = "(all other parameters strictly equal)"), size = 3)+
   theme_bw();plot1
 
@@ -186,4 +188,4 @@ plot2 <-
 
 # Final grid plot ---------------------------------------------------------
 
-plot_grid(plot1, plot2, labels = c("A", "B"))
+plot_grid(plot1, plot2, labels = c("a", "b"))

@@ -1,7 +1,7 @@
 ## ---------------------------
 ## Script name: Figure R article
 ##
-## Purpose of script: production of figure 6
+## Purpose of script: production of figure 3
 ##c
 ## Author: Thibaud Derippe
 ##
@@ -20,241 +20,397 @@
 
 library(PaSM)
 
+# Data generation  VP to seek---------------------------------------------------------
+
+# Please provide the folder where you want the generated data to be stored
+root <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data"
+
+new_wd <- file.path(root, "algo2")
+if(!file.exists(new_wd))  dir.create(new_wd)
 
 
-# Several time points --------------------------------------------------------
+# Step 1 create the hide and seek VP
 
-# source("D:/these/Second_project/QSP/PaSM/R/R6object.R")
-twozone <- VP_proj_creator$new()
-above_or_below <- VP_proj_creator$new()
-above_or_below2 <- VP_proj_creator$new()
-
-twozone$set_targets(filter = Dose==50 & cmt == "tumVol",timeforce = c(12,45))
-
-above_or_below$set_targets(filter = Dose==50 & cmt == "tumVol",timeforce = c(45))
-above_or_below2$set_targets(filter = Dose==50 & cmt == "tumVol",timeforce = c(12))
-
-twozone$targets <- twozone$targets  %>% mutate(max = c(93,300))
-above_or_below$targets <- twozone$targets  %>% slice(2)
-above_or_below2$targets <- twozone$targets  %>% slice(1)
-
-VP_df_twozone <- crossing(k1 = c(0.5),
-                          k2 = seq(0,3,0.05),
-                          ke = 1 ,#*  seq(0.6,1.4,0.2),
-                          lambda0 =seq(0,1,0.02),
-                          lambda1 = c(12),
-                          w0 = 50,
-                          Vd =  40) %>% #c(0.8,1,1.2)) %>%
-  map_df(function(x){
-
-    if(is.character(x)) return(x)
-    round(x,3)
-
-  } )
-
-twozone$add_VP(VP_df_twozone, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F)
-above_or_below$add_VP(VP_df_twozone, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F)
-above_or_below2$add_VP(VP_df_twozone, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F)
-
-twozone$plot_2D(x = k2, y = lambda0, plotoreturn = 1,add_point = T)
+self <- VP_proj_creator$new()
 
 
-subplotA <- above_or_below2$plot_2D(x = k2, y = lambda0, plotoreturn = 1,add_point = T)+ ggtitle("Time 12 only"); subplotA
-subplotB <- above_or_below$plot_2D(x = k2, y = lambda0, plotoreturn = 1,add_point = T) + ggtitle("Time 45 only"); subplotB
-subplotC <-  twozone$plot_2D(x = k2, y = lambda0, plotoreturn = 1,add_point = T) + ggtitle("Time 12 and 45"); subplotC
-  scale_y_continuous(limits = c(0,0.2));
+VP <- tibble(k2 = 1.63, lambda0 = 0.85, ke = 0.7, Vd = 37, lambda1 = 72, w0 = 50, k1 = 0.5, id = 1:3, psi = 20)
+
+events <- tibble(cmt = "Central", time = 0, amt = c(0,50,100), evid = 1, id = 1:3) %>%
+          bind_rows(tibble(cmt = "tumVol", time = 0:52 , amt = 0, evid =  0) %>% crossing(id = 1:3)) %>%
+  arrange(id, time)
 
 
 
-# Computa patient
+## just to verify he is still there
+# newVPs %>%
+#   filter(k2 == 1.63, lambda0 == 0.85, ke == 0.7, Vd == 37, lambda1 == 72, w0 == 50, k1 == 0.5)
+#
+# maybe %>% rowid_to_column() %>%
+#   filter(k2min<= 1.63, k2max >= 1.63, kemin <= 0.7 & kemax >= 0.7, lambda0min <= 0.85, lambda0max >= 0.85,
+#          lambda1min <=72 & lambda1max >= 72, Vdmin <= 37, Vdmax >=37)
+
+####
+
+simul <- self$model$solve(VP, events) %>%
+  as_tibble
+
+
+# Plot 0 ------------------------------------------------------------------
 
 
 
-line <- VP_df_twozone %>%
-  rowid_to_column("id") %>%
-  mutate(protocol = "dose50")
-
-
-protocol <-  line %>%
-  mutate(protocol2 = map(protocol, ~ above_or_below2$protocols[[.x]])) %>%
-  select(id, protocol2) %>%
-  unnest(protocol2)
-
-res <- simulations2(ind_param = line, add_events = protocol, returnSim = T,
-                    icmt = twozone$initial_cmt_values, time_vec =twozone$times,
-                    pardf = twozone$parameters_default_values, model = twozone$model) %>%
-  as_tibble()#;res
-
-
-# Id above and below
-
-res %>%
-  filter(time == 45 & tumVol > 300 ) %>% pull(id) -> idtem
-
-res %>%
-  filter(id %in% idtem) %>%
-  filter(time == 12 & tumVol < 21.3) %>% pull(id) %>% unique() -> idbothbelowabove
-
-
-
-res <- res %>%
-  mutate(abovebelow = if_else(id == idbothbelowabove, T, F))
-
-
-res %>%
-  filter(time == 45 & (tumVol > 300 | tumVol <  50.3)) %>%
-  mutate(forwrap = if_else(tumVol > 300, "Strictly above", "Strictly below")) %>%
-  select(id, forwrap) -> idtemp45
-
-res %>%
-  filter(time == 12 & (tumVol > 92.98855 | tumVol <   21.34172)) %>%
-  mutate(forwrap = if_else(tumVol > 92.98855, "Strictly above", "Strictly below")) %>%
-  distinct(id, forwrap) -> idtemp12
-
-
-
-res2 <- res %>%
-  left_join(idtemp45) %>%
-  rename(t45 = forwrap) %>%
-  mutate(t45 = if_else(is.na(t45), "Accepted", t45)) %>%
-  left_join(idtemp12) %>%
-  rename(t12 = forwrap) %>%
-  mutate(t12 = if_else(is.na(t12), "Accepted", t12))
-
-
-res2 %>%
-  mutate(finalwrap = case_when( t45 == "Strictly above" & t12 == "Strictly above" ~ "Both Above",
-                                (t45 == "Strictly above" & t12 == "Strictly below")|(t12 == "Strictly above" & t45 == "Strictly below") ~ "Above and Below",
-                                t45 == "Strictly below" & t12 == "Strictly below" ~ "Both Below",
-                                t45 == "Accepted" & t12 == "Accepted" ~ "Accepted both",
-                                t45 == "Accepted" & t12 != "Accepted" ~ "Accepted T45 only",
-                                T ~"Accepted T12 only"
-                                )) %>%
-  # mutate(finalwrap = if_else(finalwrap %in% c("Both Below", "Both Above" ), "Both Above or Below", finalwrap)) %>%
-  # filter(finalwrap == "Above and Below") %>% filter(time %in% c(12,45)) %>% filter(tumVol > 100 &  time == 12)
+plot0 <- simul %>%
+  # filter(time %in% c(8,30)) %>%
+  # select(id, time, tumVol) %>%
+  mutate(protocol = case_when(id == 1 ~ 0,
+                              id == 2 ~ 50,
+                              id == 3 ~ 100)) %>%
+                              {temppoint <<- .} %>%
+  filter(time <=40) %>%
   ggplot()+
-  # geom_point(aes(tume, tumVol, group = id))+
-  geom_line(aes(time, tumVol, group = id))+
+  geom_line(aes(time, tumVol, col = factor(protocol))) +
   scale_y_log10()+
-  facet_wrap(~finalwrap)+
-  geom_segment(data = above_or_below$targets, aes(x = time, xend =  time, y = min, yend = max), col = "red", size = 2)+
-  geom_segment(data = above_or_below2$targets, aes(x = time, xend =  time, y = min, yend = max), col = "red", size = 2)+
-  theme_bw() -> subplotD;subplotD
+  theme_bw()+
+  labs( x = "Time (days)", y = "Tumor Volume (mm3)", col = "Dose", shape = "")+
+  geom_vline(xintercept = c(8,30), lty = 2)+
+  geom_point(data = temppoint %>% filter(time %in% c(8,30)), aes( time, tumVol, shape = "Target")); plot0
 
-plotSeveralTimepoint <- plot_grid(subplotA, subplotB,subplotD,  subplotC, nrow = 1, labels = LETTERS); plotSeveralTimepoint
-
-
-
-
-
-# Several OoI -------------------------------------------------------------
-
-# Several YTYPE --------------------------------------------------------
-
-# source("D:/these/Second_project/QSP/PaSM/R/R6object.R")
-pk_only <- VP_proj_creator$new()
-pd_only <- VP_proj_creator$new()
-pk_pd <- VP_proj_creator$new()
-
-pk_pd$set_targets(filter = Dose==50 , timeforce = c(2, 20))
-pk_pd$targets <- pk_pd$targets %>% ungroup %>%  slice(2,3 )
-pk_pd$targets$min[[2]] <- 0.02
-pk_pd$targets$max[[1]] <- 80
-
-pk_only$targets <- pk_pd$targets %>% slice(2)
-
-pd_only$targets <- pk_pd$targets %>% slice(1)
-
-VP_df_pkpd <- crossing(k1 = c(0.5),
-                       k2 = seq(0,3,0.2),
-                       ke = seq(0,4,0.2) ,#*  seq(0.6,1.4,0.2),
-                       lambda0 = 0.05,
-                       lambda1 = c(12),
-                       w0 = 50,
-                       Vd =  40) %>% #c(0.8,1,1.2)) %>%
-  map_df(function(x){
-
-    if(is.character(x)) return(x)
-    round(x,3)
-
-  } )
+simul %>%
+  filter(time %in% c(8,30)) %>%
+  select(id, time, tumVol) %>%
+  mutate(protocol = case_when(id == 1 ~ "dose0",
+                              id == 2 ~ "dose50",
+                              id == 3 ~ "dose100")) %>%
+  select(-id) %>%
+  mutate(cmt = "tumVol", min = ceiling(tumVol) - 1, max = floor(tumVol) + 1 ) %>%
+  select(protocol, cmt, time, min, max) ->  prototiny
 
 
+simul %>%
+  filter(time %in% c(0, 1, 2)) %>%
+  select(id, time, Conc) %>%
+  filter(id != 1) %>%
+  mutate(protocol = case_when(id == 1 ~ "dose0",
+                              id == 2 ~ "dose50",
+                              id == 3 ~ "dose100")) %>%
+  select(-id) %>%
+  mutate(cmt = "Conc", min = Conc *0.95, max = Conc *1.05 ) %>%
+  # slice(-1) %>%
+  select(protocol, cmt, time, min, max) ->  prototinyPK
 
-pk_only$add_VP(VP_df_pkpd, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F)
-pd_only$add_VP(VP_df_pkpd, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F)
-pk_pd$add_VP(VP_df_pkpd, fillatend = F, reducefilteratend = T,  npersalve = 2000,  time_compteur = F)
-
-
-
-line <- VP_df_pkpd %>%
-  rowid_to_column("id") %>%
-  mutate(protocol = "dose50")
-
-
-protocol <-  line %>%
-  mutate(protocol2 = map(protocol, ~ pk_only$protocols[[.x]])) %>%
-  select(id, protocol2) %>%
-  unnest(protocol2)
-
-res <- simulations2(ind_param = line, add_events = protocol, returnSim = T,
-                    icmt = twozone$initial_cmt_values, time_vec =seq(0,25,0.1),
-                    pardf = twozone$parameters_default_values, model = twozone$model) %>%
-  as_tibble()#;res
-
-res %>%
-  filter(time == 20)
-  ggplot()+
-  geom_line(aes(time, tumVol, group = id))
-
-res %>%
-  filter(time ==  pk_only$targets$time ) %>%
-  mutate(PK = case_when(Conc < pk_only$targets$min ~ "Below",
-                      Conc > pk_only$targets$max ~ "Above",
-                      T ~ "Accepted")) %>%
-  distinct(id, PK)-> PKID
+  prototinypkpd <- bind_rows( prototiny, prototinyPK)
 
 
-res %>%
-  filter(time == pd_only$targets$time ) %>%
-  mutate(PD = case_when(tumVol < pd_only$targets$min ~ "Below",
-                        tumVol > pd_only$targets$max ~ "Above",
-                        T ~ "Accepted")) %>%
-  distinct(id, PD)-> PDID
+  plot0 <- simul %>%
+    # filter(time %in% c(8,30)) %>%
+    # select(id, time, tumVol) %>%
+    mutate(protocol = case_when(id == 1 ~ 0,
+                                id == 2 ~ 50,
+                                id == 3 ~ 100)) %>%
+
+    filter(time <=40) %>%
+
+    gather("OoI", "value", tumVol, Conc) %>%
+    filter(!(time >5 &  OoI == "Conc")) %>%
+    {temppoint <<- .} %>%
+    ggplot()+
+    geom_line(aes(time, value, col = factor(protocol))) +
+    scale_y_log10()+
+    facet_wrap(~OoI, scales = "free", ncol =1)+
+    theme_bw()+
+    labs( x = "Time (days)", y = "Tumor Volume (mm3)", col = "Dose", shape = "")+
+    geom_vline(data = tibble(OoI = "tumVol", x = c(8,30)), aes( xintercept = x), lty = 2)+
+    geom_vline(data = tibble(OoI = "Conc", x = c(0,1,2)), aes( xintercept = x), lty = 2)+
+    geom_point(data = temppoint %>% filter((time %in% c(8,30) & OoI == "tumVol") | (time %in% c(0,1,2) & OoI != "tumVol" & id != 1) ), aes( time, value, shape = "Target")); plot0
+
+
+# Analyze PD only--------------------------------------------
+
+
+self <- VP_proj_creator$new()
+self$set_targets(manual = prototiny)
+
+
+# selfmtd2 <- VP_proj_creator$new()
+
+# selfmtd2$set_targets(manual = prototiny)
+
+
+npersalve = 2E5
+npersalveFinal = 1E6
+
+
+domain <- tribble(~param, ~from, ~to, ~by,
+                  "k2", 0, 3, 0.01 ,
+                  "lambda0", 0, 1.4, 0.01,
+                  "ke", 0, 2,0.1,
+                  "Vd", 1,40,1,
+                  "lambda1", 0,240,1
+)
+fix <-c(k1 = 0.5, w0 = 50)
+
+
+filePD <- file.path(root, "algo2", "pdonly.RDS")
+
+self$algo2(domain = domain, fix = fix,npersalve = 2E5, npersalveFinal = 1E6,save_every = 5, file = filePD,method = 1 )
+
+# Note: useless to finish the algorithm, just the first step count
+filePDmtd2 <- file.path(root, "algo2", "pdonly_mtd2.RDS")
+
+self <- VP_proj_creator$new(); self$set_targets(manual = prototiny)
+self$algo2(domain = domain, fix = fix,npersalve = 2E5, npersalveFinal = 1E6,save_every = 5, file = filePDmtd2,method = 2 )
 
 
 
-res %>%
-  left_join(PKID) %>%
-  left_join(PDID) %>%
-  mutate(PKPD = case_when(PK == "Accepted" & PD == "Accepted" ~ "Accepted",
-                          PK != "Accepted" & PD == "Accepted" ~ "PK rejection",
-                          PK == "Accepted" & PD != "Accepted" ~ "PD rejection",
-                          T ~ "both rejection")) %>%
-  mutate(straightforward = if_else(PK == "Accepted" & PD == "Accepted", "Accepted", "Rejected")) %>%
-  gather("cmt", "value", Conc, tumVol) %>%
-  filter(!(time > 5 & cmt == "Conc")) %>%
-  ggplot()+
-  geom_line(aes(time, value, group = id, col = straightforward), alpha = 0.3)+
-  geom_segment(data = pd_only$targets, aes(x = 0, xend = 0, y = 0, yend= 0, col = "Accepted"))+ # just to have legend with alpha1
-  geom_segment(data = pd_only$targets, aes(x = time, xend = time, y = min, yend= max), col = "red", size = 2)+
-  geom_segment(data = pk_only$targets, aes(x = time, xend = time, y = min, yend= max), col = "red", size = 2)+
+# Analyze PKPD ------------------------------------------------------------
 
-  facet_wrap(~cmt, scales = "free", ncol = 1)+
-  scale_y_log10()+
-  theme_bw() +
-  labs(x = "Time", y = "Output of Interest", col = NULL) +
-  theme(legend.position = c(0.2,0.2))-> pdplot;pdplot
+# without VPs in borders
+self <- VP_proj_creator$new()
+self$set_targets(manual = prototinypkpd)
 
-plotSeveralYTYPE <- plot_grid(
+# with VPs in borders
+selfwbdr <- VP_proj_creator$new()
+selfwbdr$set_targets(manual = prototinypkpd)
 
-
-  pk_only$plot_2D(x = k2, y = ke, plotoreturn = 1,add_point = T)+ ggtitle("PK only"),
-  pd_only$plot_2D(x = k2, y = ke, plotoreturn = 1,add_point = T)+ ggtitle("PD only"),
-  pdplot,
-  pk_pd$plot_2D(x = k2, y = ke, plotoreturn = 1,add_point = T)+ ggtitle("PK-PD"), nrow = 1,labels = LETTERS[-(1:4)]
-
-
+domain <- tribble(~param, ~from, ~to, ~by,
+                  "k2", 0, 6, 0.01 ,
+                  "lambda0", 0, 3.4, 0.01,
+                  "ke", 0, 5,0.1,
+                  "Vd", 1,40,0.1,
+                  "lambda1", 0,240,0.1
 )
 
-plot_grid(plotSeveralTimepoint , plotSeveralYTYPE,  ncol = 1)
+# ndomain(domain)
+
+
+
+
+filePKPD <- file.path(root, "algo2", "pkpd.RDS")
+self$algo2(domain = domain, fix = fix,npersalve =  npersalve,includeBorderZoom = F, npersalveFinal = npersalveFinal, method = 1, file = filePKPD, save_every = 2)
+
+
+filePKPDwbdr <- file.path(root, "algo2", "pkpdwbdr.RDS")
+self$algo2(domain = domain, fix = fix,npersalve =  npersalve,includeBorderZoom = T, npersalveFinal = npersalveFinal, method = 1, file = filePKPDwbdr, save_every = 2)
+
+
+# Plot C -------------------------------------------------------------
+
+  PDonly <-  readRDS(file.path(root, "algo2", "pdonly.RDS"))
+  PDonlyMtd2 <-  readRDS(file.path(root, "algo2", "pdonly_mtd2.RDS"))
+
+  # Just verify it provides the same results
+  PDonly$algo2list$tree %>% slice(1)
+  PDonlyMtd2$algo2list$tree %>% slice(1)
+
+  # and let's analyse
+ PDtree <-  PDonly$algo2list$tree %>% # used for workflow
+  mutate(round = map_dbl(Name,~ str_split(.x, "_")[[1]] %>% length))
+
+timetrackFirstAna <- PDonly$algo2list$first_timeTrak
+
+
+
+ # Labels
+ labels <-  c("Algo1", "Filter\nReduc", "Comput\nplaus.zone", "Blocs\nreduction", "other")
+ stepname <- factor(x = labels, levels =
+                      labels)
+ # Time computations
+ algo1t <- timetrackFirstAna$round1$FirstAlgo1 %>% as.double()
+ filterreduc <- timetrackFirstAna$round1$FilterReduc %>% as.double()
+ zonemaybet <- timetrackFirstAna$round1$ZoneMaybe %>% as.double()
+ blocreducT <-  timetrackFirstAna$tMaybeReduce%>% as.double()
+ diffT <- as.double(PDtree$time[[1]]) - algo1t  -   filterreduc - zonemaybet -  blocreducT
+
+ timeMt2reducemaybe <- PDonlyMtd2$algo2list$first_timeTrak$tMaybeReduce %>% as.double()
+ diffTMT2  <- as.double(PDonlyMtd2$algo2list$tree$time[[1]] - timeMt2reducemaybe)
+
+ template <- tibble(step =stepname, time = c(algo1t,filterreduc,zonemaybet,blocreducT, diffT) ,method = "Full") %>%
+   bind_rows(
+
+     tibble(step = stepname, time = c(0,0,0,timeMt2reducemaybe, diffTMT2),method = "alt")
+
+   )
+
+
+
+ plotA <- template %>%
+   ggplot()+
+   geom_bar(aes(x = step,y= time, fill = method), stat="identity",col = "black", position = "dodge")+
+   geom_text(aes(x = step,y= time +5, label = paste0(round(time,0), "s"), group =  method),position = position_dodge(width = 0.9))+
+   labs(y = "Time(sec)")+
+   theme_bw(); plotA
+
+
+ # Plot D -------------------------------------------------------------
+
+ tree <- PDonly$algo2list$tree
+ plotB <- tree   %>%
+   slice(-1) %>%
+   mutate(time = as.double(time) / 60) %>%
+   ggplot()+
+   geom_histogram(aes(time, fill = factor(after/3)),col = "black")+
+   # scale_x_log10()+
+   theme_bw()+
+   labs(x = "Time (minutes)", fill = "VP\nfound"); plotB
+
+
+
+# "plot" B -------------------------------------------------------
+
+ tree$before[[1]] # number of total VPs
+ PDonly$n_filter_reduc() # number of filter
+ PDonly$algo2list$first_timeTrak$sizeMaybeBeforeReduc  # number of plausibility zones after algo1
+ PDonly$algo2list$first_timeTrak$sizeMaybeAfterReduc  # number of plausibility zones after reduction
+ tree$size[[1]] # number of blocs gathered
+ median(tree$before[-1]) # median size blocs
+ tree$time[[1]]/60 #Time in minutes first zoom
+ sum(tree$time[-1] / 60)  # Time final blocs explor
+ # min(tree$time[-1] / 60)
+ # max(tree$time[-1] / 60)
+ sum(tree$time / 60) # Time total
+
+
+ PDonly$algo2list$first$nbrdless %>% sum / 1.1E6
+ PDonly$algo2list$first$nbrd %>% sum/ 1.1E6
+# "plot" E Analysis pkpd set -------------------------------------------------------
+
+
+ PKPD <-  readRDS(file.path(root, "algo2", "pkpd.RDS"))
+
+ PKPDBrd <-  readRDS(file.path(root, "algo2", "pkpdwbdr.RDS"))
+
+
+
+PKPDtree <-  PKPD$algo2list$tree %>% # used for workflow
+    mutate(round = map_dbl(Name,~ str_split(.x, "_")[[1]] %>% length))
+
+
+PKPDBrdtree <-  PKPDBrd$algo2list$tree %>% # used for workflow
+  mutate(round = map_dbl(Name,~ str_split(.x, "_")[[1]] %>% length))
+
+
+PKPDtree$time %>% sum()/60 #min
+PKPDBrdtree$time %>% sum()/60 #min
+
+
+
+PKPDtree$time[PKPDtree$round == 2][-1] %>% sum() / 60
+PKPDtree$time[PKPDtree$round == 2][-1] %>% min
+PKPDtree$time[PKPDtree$round == 2][-1] %>% max
+
+
+PKPDBrdtree$time[[1]] # fist full loop
+PKPDBrdtree$after[[1]] / 1E9 # number of Vps after
+PKPDBrdtree$size [[1]] # number of blocs
+
+PKPDBrdtree %>%
+  filter(round == 2) %>%
+    filter(after > 0) %>% # stop here to know number of previous blocs of interest
+    # nrow() # to know the number of blocs
+    pull(after ) %>% sum # end here number
+
+# time for the zooming with brd
+PKPDBrdtree %>%
+  filter(round == 2) %>%
+  summarise(sum(time), min(time), max(time))
+
+PKPDBrdtree %>%
+  filter(round == 3) %>%
+  summarise(sum(time), min(time), max(time))
+
+# time for the zooming without brd
+PKPDtree %>%
+  filter(round == 2) %>%
+  summarise(sum(time), min(time), max(time))
+
+
+PKPDtree %>%
+  filter(round == 3) %>%
+  summarise(sum(time), min(time), max(time))
+
+
+# to get the number of patient before dive
+PKPDBrdtree %>%
+  filter(round == 2) %>%
+  filter(after > 0) %>%
+  mutate(nptbdl = map_dbl(Name, function(x){
+
+    PKPDBrd$algo2list[[x]] %>%
+      pull(nbrd) %>% # vs nbrdless
+      sum()
+  })) %>%
+  summarise(sum(nptbdl), sum(after))
+
+
+# Manual verification every VPs were in a border
+# PKPDBrdtree %>%
+#   filter(round == 2) %>%
+#   filter(after > 0) %>%
+#   mutate(notinbrd = map_dbl(Name, function(x){
+#
+#     PKPDBrd$algo2list[[x]] %>%
+#       filter(!(k2min == 1.63 | k2max == 1.63 | lambda0min == 0.85 |lambda0max == 0.85 |
+#                  kemin == 0.7 | kemax == 0.7 | Vdmin == 37 | Vdmax == 37 | lambda1min == 72 | lambda1max == 72)) %>%
+#       filter(k2min<= 1.63, k2max >= 1.63, kemin <= 0.7 & kemax >= 0.7, lambda0min <= 0.85, lambda0max >= 0.85,
+#                              lambda1min <=72 & lambda1max >= 72, Vdmin <= 37, Vdmax >=37) %>%
+#       nrow()
+#   })) %>%
+#   summarise(sum(notinbrd))
+
+
+PKPDBrd$poolVP %>%
+  filter(protocol == "dose0") %>% #26 rows
+  group_by( k2, lambda0,    ke ,   Vd, lambda1  ,  k1  ,  w0) %>%
+  tally #only 12
+
+
+PKPDBrdtree$time %>% sum/60
+# Final plot with empty ssqure --------------------------------------------
+
+
+cowplot::plot_grid(plot0,"3",  plotA, plotB,  "3","4", labels = c("a", "b", "c", "d", "", "e"))
+# Backup ------------------------------------------------------------------
+
+# file <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/fig5_data2.RDS"
+#
+# self$algo2list <- test$algo2list
+# self$poolVP <- test$poolVP
+# self$targets <- test$targets
+#
+# self <- test
+# test <- readRDS(file)
+# test$algo2list
+# # Just to confirm after first analyse there is still a bloc containing our VPs
+# maybeFinal %>%
+#   filter(k2min <= VP$k2[[1]], k2max >= VP$k2[[1]],
+#          kemin <= VP$ke[[1]], kemax >= VP$ke[[1]],
+#          Vdmin <= VP$Vd[[1]], Vdmax >= VP$Vd[[1]],
+#          lambda0min <= VP$lambda0[[1]], lambda0max >= VP$lambda0[[1]],
+#          lambda1min <= VP$lambda1[[1]], lambda1max >= VP$lambda1[[1]]
+#   )
+#
+#
+# # It woooooooorks
+#
+# map(1:7, function(x){
+#
+#   self$algo2list[[paste0("first_",x)]]$poolVP
+# }) %>%
+#   bind_rows() -> allVPs
+#
+# allVPs %>%
+#   arrange(id)
+# unnest() %>%
+#   ggplot()+
+#   geom_line(aes(time, tumVol, col = factor(id)))+
+#   facet_wrap(~protocol)+
+#   scale_y_log10()
+#
+#
+# self$algo2list$tree %>%
+#   pull(time) %>%
+  # sum() / 60
+#
+
+

@@ -507,7 +507,12 @@ initial_cmt_values <- c(
 times <-  c(0, 50:90) # times you want to see your observations
 
 
-protocols <- list( unique = tibble(cmt = "Bcl2", time = 0, amt = 0))
+# protocols <- list( unique = tibble(cmt = "Bcl2", time = 0, amt = 0))
+
+protocols <- list( unique = tibble(cmt = "Bcl2", time = 0, amt = 0),
+                   apog = tibble(cmt = "ApoG2", time = 50, amt = 2000),
+                   ABT737 = tibble(cmt = "ABT737", time = 50, amt = 2000),
+                   synergy = tibble(cmt = c("ABT737","ApoG2"), time = 50, amt = 2000))
 
 ## Verification: perform verification number2
 
