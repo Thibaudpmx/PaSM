@@ -262,9 +262,9 @@ plot7 <- param20 %>%
   # geom_point(aes(x = k2, y = lambda0, col = label))+
   geom_point(data = param %>% filter(!!parse_expr(pointsabove)), aes(k2, lambda0,  col = "Extrap. Above"))+
   geom_point(data = param %>% filter(!!parse_expr(pointsbelow)), aes(k2, lambda0,  col = "Extrap. Below"))+
-  geom_point(data = param %>% filter( k2>= 3.6 & k2<=3.8 & lambda0>= 0.4 &lambda0<=0.44), aes(k2, lambda0, col = "Extrap. Accepted"))+
-  geom_point(data = param20, aes(x = k2, y = lambda0, col = "From RxODE"))+
-  scale_color_manual(values = c("red", "darkgreen", "chocolate", "black"))+
+  geom_point(data = param %>% filter( k2>= 3.6 & k2<=3.8 & lambda0>= 0.4 &lambda0<=0.44), aes(k2, lambda0, col = "Interp. Accepted"))+
+  geom_point(data = param20, aes(x = k2, y = lambda0, col = "Simulated\n(original sampling)"))+
+  scale_color_manual(values = c("red", "chocolate",   "darkgreen", "black"))+
   labs(col = "   VPs")+
   theme_bw() ; plot7
 
@@ -329,6 +329,22 @@ plot9 <- ggplot()+
 # Final grid --------------------------------------------------------------
 
 
-plot_grid(plot1, plot2, plot3, plot4, plot5, plot6,plot7, plot8,plot9, nrow = 3, labels = LETTERS)
+plot_grid(plot1, plot2, plot3, plot4, plot5, plot6,plot7, plot8,plot9, nrow = 3, labels = letters)
 
+
+
+# Save 300 dip for article
+them <- theme(plot.title = element_text(hjust = 0.5))
+tiff(width = 3500, height = 2300,filename = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/fig2.tiff", res = 300)
+plot_grid(plot1 + ggtitle("Parameter sampling")+them,
+          plot2 + ggtitle("Simulations")+them,
+          plot3 + ggtitle("Computation of rejection zones")+them,
+          plot4 + ggtitle("Reduction of rejection zones")+them,
+          plot5 + ggtitle("Rejection extrapolations")+them,
+          plot6 + ggtitle("Computation and reduction\n of acceptance zones")+them,
+          plot7 + ggtitle("Acceptance interpolations\nand first iteration summary")+them,
+          plot8 + ggtitle("New parameter sampling")+them,
+          plot9 + ggtitle("Final parameter space mapping"), labels = letters[1:9])
+dev.off()
+shell.exec( "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/fig2.tiff")
 

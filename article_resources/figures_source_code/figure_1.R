@@ -189,3 +189,10 @@ plot2 <-
 # Final grid plot ---------------------------------------------------------
 
 plot_grid(plot1, plot2, labels = c("a", "b"))
+
+# Save 300 dip for article
+
+tiff(width = 4500, height = 1500,filename = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/fig1.tiff", res = 300)
+plot_grid(plot1, plot2, labels = c("a", "b"))
+dev.off()
+shell.exec( "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/fig1.tiff")

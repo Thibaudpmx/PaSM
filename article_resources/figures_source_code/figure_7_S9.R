@@ -58,7 +58,7 @@ plotLindner <- function(obj, npatient = 2000, title = ""){
 }
 # original configuration-----------------------------------------------------
 
-setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data/Lindner_article")
+setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Lindner_article")
 
 
 
@@ -415,9 +415,16 @@ cowplot::plot_grid(
   plotLindner(ABT737, npatient = nsim, title = paste0("Effective ABT-373 only (", length(unique(ABT737$poolVP$id))," VPs)")),
   plotLindner(Synergy, npatient = nsim, title = paste0("Effective combination only (", length(unique(Synergy$poolVP$id)) ," VPs)")),
   plotLindner(CombinationResist, npatient = nsim, title = paste0("Combination resistance (", length(unique(CombinationResist$poolVP$id)) ," VPs)")),
-  labels = LETTERS
+  labels = letters
 
-)
+) -> finaloutput
+
+# Save 300 dip for article
+them <- theme(plot.title = element_text(hjust = 0.5))
+tiff(width = 3500, height = 2300,filename = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/figS9.tiff", res = 300)
+finaloutput
+dev.off()
+shell.exec( "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/figS9.tiff")
 
 
 

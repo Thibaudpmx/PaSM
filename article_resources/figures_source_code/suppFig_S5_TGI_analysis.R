@@ -70,7 +70,7 @@ plot1 <- simulations %>%
 
 idsw0 <- tibble(k1 = c(0, 0), k2 = c(7.3, 7.3), ke = c(0.3, 0.3), lambda0 = c(0.64, 0.64), lambda1 = c(87.6, 87.6), psi = c(20, 20), Vd = c(184, 184), w0 = c(320, 500), id = 1:2)
 
-idsw0 <- tibble(k1 = 0, k2 = 7.3, ke = 1, lambda0 = 0.64, lambda1 = 87.6, Vd = 184, w0 = c(320,500))
+# idsw0 <- tibble(k1 = 0, k2 = 7.3, ke = 1, lambda0 = 0.64, lambda1 = 87.6, Vd = 184, w0 = c(320,500))
 
 protocolw0 <- tibble(time = 0, cmt = "Central", amt = 50, evid = 1) %>%
   bind_rows(crossing(time = 0:60, cmt = "Central", amt = 0, evid = 0)) %>%
@@ -117,8 +117,12 @@ plot3 <- model$solve(idsk1, protocolw0 ) %>%
 
 
 # Final plot --------------------------------------------------------------
+tiff(width = 3500, height = 2300,filename = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/figS5.tiff", res = 300)
 
-cowplot::plot_grid(plot1, plot2, plot3, nrow =1, labels = LETTERS, rel_widths = c(2,1,1))
+cowplot::plot_grid(plot1, plot2, plot3, nrow =1, labels = letters, rel_widths = c(2,1,1))
+
+dev.off()
+shell.exec( "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/figS5.tiff")
 
 # Optimizing number of patients per salve
 

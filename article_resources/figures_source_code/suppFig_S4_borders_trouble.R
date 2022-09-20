@@ -38,6 +38,12 @@ VPuseless <- bind_rows(
   tibble(x =6, y = seq(0,4,0.5))
 )
 
+
+
+tiff(width = 1800, height = 1500,filename = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/figS4.tiff", res = 300)
+
+
+
 ggplot()+
   geom_segment(data = segmv, aes(x = x, xend = x, y = ymin, yend = ymax), lty = 1)+
   geom_segment(data = segmh, aes(x = xmin, xend = xmax, y = y, yend = y), lty = 1)+
@@ -51,6 +57,10 @@ ggplot()+
   scale_shape_manual(values = 8)+
   scale_fill_manual(values = c("red", "darkgreen"))+
   labs(x  = "param X", y = "param Y", shape = "Useless", fill = "Same VPs in")
+
+dev.off()
+
+shell.exec( "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/figS4.tiff")
 
 
 crossing(x = seq(0,10,0.5), y = seq(0,10,0.5)) %>%  # 441 en tout

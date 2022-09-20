@@ -23,7 +23,7 @@ library(PaSM)
 library(cowplot)
 
 # Please provide the folder where you want the generated data to be stored
-root <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data"
+root <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data"
 
 #  plot A - data generation: Simeoni analysis -----------------------------------------------
 
@@ -462,7 +462,7 @@ allTimes %>%
 
 # Main plot time benefice
 
-plotA <- allTimes %>%
+plotAbef <- allTimes %>%
 
   mutate(pct = as.double(pct)) %>%
   mutate(nparam = as.character(nparam)) %>%
@@ -484,7 +484,44 @@ plotA <- allTimes %>%
   scale_linetype_manual(values = c(1,2))+
   scale_fill_manual(values = "grey")+
   labs(x = "Percentage of rejected VP", y = "Total Time analysis (sec)", col = "Number\nvarying\nparameters", fill = "",
-       lty = "Target\nmethod"); plotA
+       lty = "Target\nmethod"); plotAbef
+
+
+
+# plot A with range - for first reviewer ----------------------------------
+
+
+plotA <- allTimes %>%
+
+  mutate(pct = as.double(pct)) %>%
+  mutate(nparam = as.character(nparam)) %>%
+  mutate(meth = if_else(meth == "", "Centered", "Lowest")) %>%
+  group_by(nparam, pct, meth) %>% # compute the median times of computatoin  (from x5 analyses)
+  summarise(min = min(timeTotal), max = max(timeTotal), timeTotal = median(timeTotal)) %>%
+  ungroup() %>%
+{temp <<- . } %>%
+  ggplot()+
+  geom_rect(aes(xmin = 48, xmax = 52, ymin = 39, ymax = 41.5), col = "red",alpha = 0)+
+  geom_segment(aes(x = 56, xend = 52, y = 45, yend = 42), col = "red",  arrow = arrow(length = unit(0.2, "cm")))+
+  # geom_text(aes(x = 62, y = 46, label = "next plots"), col = "red", size = 3)+ # Note: last 3 brut way, not reproducible
+  geom_point(aes(x = (1-pct) * 100, y = timeTotal, col = nparam))+
+
+  geom_ribbon(data = temp %>% filter(meth == "Centered"), aes(x= (1- pct)*100, ymin = min, ymax = max, fill = nparam ),alpha = 0.2)+
+  geom_ribbon(data = temp %>% filter(meth != "Centered"), aes(x= (1- pct)*100, ymin = min, ymax = max, fill = nparam ),alpha = 0.2)+
+
+  geom_line(aes(x = (1-pct)* 100, y = timeTotal, col = nparam, lty = meth))+
+  geom_line(data = ref, aes(x= (1- pct)*100, y = medianTotal ), lty = 1)+
+  geom_ribbon(data = ref, aes(x= (1- pct)*100, ymin = minTotal, ymax = maxTotal, alpha = "Time of \nreference"))+
+  scale_alpha_manual(values = 0.2)+
+  # geom_line(data = ref, aes(x= (1- pct)*100, y = minTotal ))+
+  # geom_line(data = ref, aes(x= (1- pct)*100, y = maxTotal ))+
+  theme_bw()+
+  scale_linetype_manual(values = c(1,2))+
+  guides(fill = F)+
+  # scale_fill_manual(values = "grey")+
+  labs(x = "Percentage of rejected VP", y = "Total Time analysis (sec)", col = "Number\nvarying\nparameters", fill = "",
+       lty = "Target\nmethod", alpha = ""); plotA
+
 
 
 
@@ -603,7 +640,7 @@ plotAalt <- allTimes %>%
        lty = "Target\nmethod"); plotAalt
 
 plot_grid(plotAalt, plotBAlt, labels = c("A", "B"))
-# plot S A ----------------------------------------------------------------
+# plot S6 ----------------------------------------------------------------
 
 
 suplementA <- allTimes %>%
@@ -622,6 +659,16 @@ suplementA <- allTimes %>%
   scale_fill_manual(values = c("grey", "blue", "red", "darkgreen"))+
   labs( x= "Percentage of rejected VP", y = "Time of analysis (sec)", fill = "Step")+
   geom_text(aes(pct, value, fill = fct_reorder(time, value, .desc = F), label = as.double(label) %>% round(1)), position = position_stack(vjust = .5)); suplementA
+
+
+them <- theme(plot.title = element_text(hjust = 0.5))
+tiff(width = 3000, height =2000,filename = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/figS6.tiff", res = 300)
+
+suplementA
+
+dev.off()
+shell.exec( "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/figS6.tiff")
+
 
 
 
@@ -1052,11 +1099,24 @@ plotF <-  datas %>%
 
 library(cowplot)
 
-plot_grid(plotA, plotB, plotC, plotD, plotE, plotF, labels = LETTERS, nrow = 2)
+plot_grid(plotA, plotB, plotC, plotD, plotE, plotF, labels = letters, nrow = 2)
+
+# Save 300 dip for article
+them <- theme(plot.title = element_text(hjust = 0.5))
+tiff(width = 4500, height = 2300,filename = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/fig4.tiff", res = 300)
+plot_grid(plotA, plotB, plotC, plotD, plotE, plotF, labels = letters, nrow = 2)
+dev.off()
+shell.exec( "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/fig4.tiff")
+
+# Save 300 dip for article
+them <- theme(plot.title = element_text(hjust = 0.5))
+tiff(width = 4500, height = 2300,filename = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/fig4alt.tiff", res = 300)
+plot_grid(plotAbef, plotB, plotC, plotD, plotE, plotF, labels = letters, nrow = 2)
+dev.off()
+shell.exec( "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/fig4alt.tiff")
 
 
-
-# Supplemental Graph ------------------------------------------------------
+# plot S7 Supplemental Graph ------------------------------------------------------
 
 
 
@@ -1115,6 +1175,12 @@ plot_grid(
     theme_bw()+
     labs(x = "Size cohort (VPs)", y=  "Percentage of VPs with ODE solved"),
 
-  nrow = 1, labels = LETTERS, rel_widths = c(1.4,1,1)
+  nrow = 1, labels = letters, rel_widths = c(1.4,1,1)
 
-)
+) -> plotS7
+
+tiff(width = 3000, height =1200,filename = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/figS7.tiff", res = 300)
+
+plotS7
+dev.off()
+shell.exec( "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/figS7.tiff")

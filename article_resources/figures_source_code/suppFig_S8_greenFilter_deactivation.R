@@ -34,7 +34,7 @@ library(PaSM)
 
 
 # First, put where you want to save all the data (to heavy to put in GitHub, you will have to regenerate them yourself ! )
-setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data/Simeoni")
+setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni_no_green")
 
 # We first need a function to automatically create the 200.000 VPs according the number of varying parameters, so here it is
 
@@ -282,7 +282,8 @@ str_split(toread, pattern = "_", simplify = T) %>%
              timeTotal = obj$timeTrack$tTOTAL %>% as.double(), Tgreen1 = obj$timeTrack$poolVP_compteur %>%  slice(1) %>% pull(TimeTotalGreenFilter)%>% as.double(),
              Tred1 = obj$timeTrack$poolVP_compteur %>%  slice(1) %>% pull(TimeTotalRedFilter)%>% as.double(),
              nremRed1 = obj$timeTrack$poolVP_compteur %>%  slice(1) %>% pull(NremovedRedFilter)%>% as.double(),
-             ndoneGreen1 = obj$timeTrack$poolVP_compteur %>%  slice(1) %>% pull(nextrapoGreen)%>% as.double())
+             ndoneGreen1 = obj$timeTrack$poolVP_compteur %>%  slice(1) %>% pull(nextrapoGreen)%>% as.double()
+             )
 
 
   })) %>%
@@ -387,7 +388,7 @@ mbref <- microbenchmark(ref <- manual(target, cohort), times = 5)
 saveRDS(mbref, "timeReference.RDS")
 
 #  plot A - making: Simeoni analysis -----------------------------------------------
-setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data/Simeoni_no_green")
+setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni_no_green")
 
 allTimes <- readRDS("full_analysis.RDS") #%>%
 # mutate(meth = if_else(meth == "", "", "alt")) %>%
@@ -402,7 +403,7 @@ ref <- readRDS("../Simeoni_ref/timeReference.RDS")
 
 
 
-allTimesWith_green <- readRDS("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data/Simeoni/full_analysis.RDS") %>%
+allTimesWith_green <- readRDS("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni/full_analysis.RDS") %>%
   mutate(pct = as.double(pct)) %>%
   mutate(nparam = as.character(nparam)) %>%
   mutate(meth = if_else(meth == "", "Centered", "Lowest")) %>%
@@ -413,18 +414,17 @@ allTimesWith_green <- readRDS("D:/these/Second_project/QSP/modeling_work/VT_sime
 # Main plot time benefice
 
 plotA <- allTimes %>%
-
   mutate(pct = as.double(pct)) %>%
   mutate(nparam = as.character(nparam)) %>%
   mutate(meth = if_else(meth == "", "Centered", "Lowest")) %>%
   group_by(nparam, pct, meth) %>%
-  summarise(timeTotal = median(timeTotal)) %>%
+  summarise(min = min(timeTotal), max= max(timeTotal), timeTotal = median(timeTotal)) %>%
   ungroup() %>%
   ggplot()+
-  geom_line(data = ref, aes(x= (1- pct)*100, y = medianTotal ), lty = 2)+
+  geom_line(data = ref, aes(x= (1- pct)*100, y = medianTotal ), lty = 1)+
   geom_ribbon(data = ref, aes(x= (1- pct)*100, ymin = minTotal, ymax = maxTotal, fill = "Time of\nreference" ),alpha = 0.2)+
-  geom_line(data = ref, aes(x= (1- pct)*100, y = minTotal ))+
-  geom_line(data = ref, aes(x= (1- pct)*100, y = maxTotal ))+
+  # geom_line(data = ref, aes(x= (1- pct)*100, y = minTotal ))+
+  # geom_line(data = ref, aes(x= (1- pct)*100, y = maxTotal ))+
   geom_point(aes(x = (1-pct) * 100, y = timeTotal, col = nparam))+
   geom_line(aes(x = (1-pct)* 100, y = timeTotal, col = nparam, lty = meth))+
   geom_line(data = allTimesWith_green , aes(x = (1-pct)* 100, y =  Yes, col = nparam, lty = meth), alpha = 0.5)+
@@ -466,9 +466,9 @@ plotA <- allTimes %>%
 # Plot B DATA generation -------------------------------------------------------
 
 # Changing the number of  dimension
-setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data/Simeoni_less_usable_param")
+setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni_less_usable_param")
 
-alltumVol <- readRDS("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data/Simeoni_no_green/Ref_5.RDS") %>%
+alltumVol <- readRDS("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni_no_green/Ref_5.RDS") %>%
    pull(tumVol)
 
 
@@ -495,7 +495,7 @@ for(a in 0:5){ # For each number of varying parameter to try
 
 for(b in 0:1){ #activatio greenfilter
 
-    for(d in 1:1){ # because each analyse repeated five time
+    for(d in 1:5){ # because each analyse repeated five time
 
       newnames <- paste0(a,"_", b, "_", d, ".RDS") # compute the name of the file (nparamvarying_pcttarget_iteration)
 
@@ -559,8 +559,9 @@ str_split(toread, pattern = "_", simplify = T) %>%
 
 # Plot B  and C generation -------------------------------------------------------
 
-setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_PaSM/data/Simeoni_less_usable_param")
+setwd("D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/data/Simeoni_less_usable_param")
 
+ref <- readRDS("../Simeoni_ref/timeReference.RDS")
 
 allTimes <- readRDS("full_analysis.RDS") %>%
   mutate(labelx = paste0( 5- nparam, "/5")) %>%
@@ -568,24 +569,47 @@ allTimes <- readRDS("full_analysis.RDS") %>%
 
 
 
-plotB <- allTimes %>%
-  ggplot()+
-  geom_line(aes(x = 5-nparam, y = timeTotal, col =   GreenFilterlab))+
-  geom_point(aes(x = 5-nparam, y = timeTotal, col =   GreenFilterlab))+
-   geom_rect(data = mtcars, aes(xmin = -Inf, xmax = Inf, ymin = ref$minTotal[ref$pct == 0.5], ymax =  ref$maxTotal[ref$pct == 0.5], fill = "Time of\nreference"), lty = 1,alpha = 0.15)+
-  geom_hline(data = mtcars, aes(yintercept = ref$medianTotal[ref$pct == 0.5]), lty = 2)+
-  geom_hline(data = mtcars, aes(yintercept = ref$minTotal[ref$pct == 0.5]), lty = 1)+
-  geom_hline(data = mtcars, aes(yintercept = ref$maxTotal[ref$pct == 0.5]), lty = 1)+
+# plotB <- allTimes %>%
+#    group_by(nparam, pct,GreenFilterlab ) %>%
+#   ggplot()+
+#   geom_line(aes(x = 5-nparam, y = timeTotal, col =   GreenFilterlab))+
+#   geom_point(aes(x = 5-nparam, y = timeTotal, col =   GreenFilterlab))+
+#    geom_rect(data = mtcars, aes(xmin = -Inf, xmax = Inf, ymin = ref$minTotal[ref$pct == 0.5], ymax =  ref$maxTotal[ref$pct == 0.5], fill = "Time of\nreference"), lty = 1,alpha = 0.15)+
+#   geom_hline(data = mtcars, aes(yintercept = ref$medianTotal[ref$pct == 0.5]), lty =1)+
+#   # geom_hline(data = mtcars, aes(yintercept = ref$minTotal[ref$pct == 0.5]), lty = 1)+
+#   # geom_hline(data = mtcars, aes(yintercept = ref$maxTotal[ref$pct == 0.5]), lty = 1)+
+#
+#   scale_fill_manual(values = "grey")+
+#   # scale_y_log10()
+#   theme_bw()+
+#   scale_x_continuous(labels = c(paste0(0:5, "/5")))+
+#   labs( x = "Number of parameters with monotonicity ",y = "Time of analysis (s)", fill = "", col = "Green Filter");plotB
 
-  scale_fill_manual(values = "grey")+
-  # scale_y_log10()
-  theme_bw()+
-  scale_x_continuous(labels = c(paste0(0:5, "/5")))+
-  labs( x = "Number of parameters with monotonicity ",y = "Time of analysis (s)", fill = "", col = "Green Filter");plotB
+allTimesSummary <- allTimes %>%
+  group_by(nparam, pct,GreenFilterlab ) %>%
+  summarise(min = min(timeTotal), max = max(timeTotal), timeTotal = median(timeTotal))
+
+  plotB <- allTimesSummary %>%
+  ggplot()+
+    geom_rect(data = mtcars, aes(xmin = -Inf, xmax = Inf, ymin = ref$minTotal[ref$pct == 0.5], ymax =  ref$maxTotal[ref$pct == 0.5], alpha = "Time of\nreference"), lty = 1, fill = "grey")+
+    scale_alpha_manual(values = 0.25)+
+    geom_hline(data = mtcars, aes(yintercept = ref$medianTotal[ref$pct == 0.5]), lty =1)+
+
+    geom_line(aes(x = 5-nparam, y = timeTotal, col =   GreenFilterlab))+
+    geom_ribbon(aes(x = 5-nparam, ymin = min, ymax = max, fill =   GreenFilterlab), alpha = 0.3)+
+
+    geom_point(aes(x = 5-nparam, y = timeTotal, col =   GreenFilterlab))+
+       # scale_fill_manual(values = "grey")+
+    # scale_y_log10()
+    theme_bw()+
+    scale_x_continuous(labels = c(paste0(0:5, "/5")))+
+    labs(alpha = "",  x = "Number of parameters with monotonicity ",y = "Time of analysis (s)", fill = "Green Filter", col = "Green Filter");plotB
 
 
 plotC <- allTimes %>%
   filter(pct == 1) %>%
+  left_join(allTimesSummary) %>%
+  filter(!is.na(min)) %>%
   gather("param", "value", GreenFilter, RedFilter, RxODE,Other) %>%
   ggplot(aes(x = labelx, y = value, fill = param))+
   geom_col(aes(x = labelx, y = value, fill = param), alpha = 0.5)+
@@ -594,5 +618,9 @@ plotC <- allTimes %>%
   scale_fill_manual(values = c("darkgreen", "grey", "red", "blue"))+
   labs(x = "Number of parameters with monotonicity", y = "Cumulative time for each step (sec)", fill = "Step"); plotC
 
+tiff(width = 4000, height = 1200,filename = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/figS8.tiff", res = 300)
 
-cowplot::plot_grid(plotA, plotB, plotC, nrow = 1, labels = LETTERS)
+cowplot::plot_grid(plotA, plotB, plotC, nrow = 1, labels = letters)
+dev.off()
+shell.exec( "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/figS8.tiff")
+

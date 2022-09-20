@@ -48,6 +48,8 @@ bind_rows(model$solve(below, proto3, c(X1 = 50))%>% as.tibble() %>%  mutate( ste
   mutate(pos = if_else(pos == "above", "\nAbove\nk2 = 2.93\nlbd0 = 1\nlbd1 = 86.1", "\nBelow\nk2 = 3.4\nlbd0 = 0.85\nlbd1 = 63.4\n"))
 
 
+tiff(width = 2500, height = 1500,filename = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/figS10.tiff", res = 300)
+
 res %>%
   filter(step != "0.1") %>%
    ggplot()+
@@ -58,4 +60,7 @@ res %>%
   facet_wrap(~paste0("step = ", step))+
   theme_bw()+
   labs(x = "Time (days)", y = "Tumor Volume (mm3)", col = "Theoretical\nPosition")
+
+dev.off()
+shell.exec( "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/figS10.tiff")
 

@@ -113,15 +113,17 @@ simul %>%
 
     gather("OoI", "value", tumVol, Conc) %>%
     filter(!(time >5 &  OoI == "Conc")) %>%
+
+    mutate(label = if_else(OoI == "Conc", "Drug concentration (µM)", "Tumor Volume (mm3)")) %>%
     {temppoint <<- .} %>%
     ggplot()+
     geom_line(aes(time, value, col = factor(protocol))) +
     scale_y_log10()+
-    facet_wrap(~OoI, scales = "free", ncol =1)+
+    facet_wrap(~label, scales = "free", ncol = 1)+
     theme_bw()+
-    labs( x = "Time (days)", y = "Tumor Volume (mm3)", col = "Dose", shape = "")+
-    geom_vline(data = tibble(OoI = "tumVol", x = c(8,30)), aes( xintercept = x), lty = 2)+
-    geom_vline(data = tibble(OoI = "Conc", x = c(0,1,2)), aes( xintercept = x), lty = 2)+
+    labs( x = "Time (days)", y = "Simulated profiles", col = "Dose", shape = "")+
+    geom_vline(data = tibble(label = "Tumor Volume (mm3)", x = c(8,30)), aes( xintercept = x), lty = 2)+
+    geom_vline(data = tibble(label = "Drug concentration (µM)", x = c(0,1,2)), aes( xintercept = x), lty = 2)+
     geom_point(data = temppoint %>% filter((time %in% c(8,30) & OoI == "tumVol") | (time %in% c(0,1,2) & OoI != "tumVol" & id != 1) ), aes( time, value, shape = "Target")); plot0
 
 
@@ -370,6 +372,16 @@ PKPDBrdtree$time %>% sum/60
 
 
 cowplot::plot_grid(plot0,"3",  plotA, plotB,  "3","4", labels = c("a", "b", "c", "d", "", "e"))
+
+
+
+# Save 300 dip for article
+
+tiff(width = 4000, height = 3000,filename = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/fig6.tiff", res = 300)
+cowplot::plot_grid(plot0,"3",  plotA, plotB,  "3","4", labels = c("a", "b", "c", "d", "", "e"))
+dev.off()
+shell.exec( "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/fig6.tiff")
+
 # Backup ------------------------------------------------------------------
 
 # file <- "D:/these/Second_project/QSP/modeling_work/VT_simeoni/fig5_data2.RDS"

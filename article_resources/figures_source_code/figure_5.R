@@ -257,4 +257,13 @@ plotSeveralYTYPE <- plot_grid(
 
 )
 
+
+
+
+# Save 300 dip for article
+tiff(width = 4500, height = 2300,filename = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/fig5.tiff", res = 300)
 plot_grid(plotSeveralTimepoint , plotSeveralYTYPE,  ncol = 1)
+dev.off()
+shell.exec( "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/fig5.tiff")
+
+

@@ -382,11 +382,12 @@ plot6 <- ggplot()+
   geom_rect(data = maybe2,aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax = lambda0max, fill = "Explored"), alpha = 0.6,  col = "black")+
   scale_color_manual(values = c("red", "chocolate"))+
   scale_fill_manual(values = c("red", "chocolate", "grey", "darkgreen"))+
-  labs(col = "", fill = "", x = "K2", y = "lambda0")+
+  labs(col = "", fill = "", x = "K2", y = "lambda0", alpha = "")+
   theme_bw()+
   guides(col = F)+
   theme(line = element_blank())+
-  geom_point(data = self3$poolVP, aes(k2, lambda0), col = "darkgreen")+
+  geom_point(data = self3$poolVP, aes(k2, lambda0, alpha= "Accepted\nVPs"), col = "darkgreen")+
+  scale_alpha_manual(values = 1)+
   geom_segment(data = tibble(k2_1), aes(x = k2_1, xend = k2_1, y = min(lambda0_1), yend = max(lambda0_1)), lty = 2)+
   geom_segment(data = tibble(lambda0_1), aes( x = min(k2_1), xend = max(k2_1), y = lambda0_1, yend = lambda0_1), lty = 2)+
   geom_rect(data = maybe,aes(xmin = k2min, xmax = k2max, ymin = lambda0min, ymax = lambda0max), alpha = 0.0,lty = 1,size = 1.2,  col = "black")+
@@ -406,6 +407,28 @@ VTplot <- self3$plot_VP(nmax = Inf)+
 
 
 # Final Grid
-plot_grid(plot_grid(plot1, plot2, plot3,plot4, nrow = 1, labels = c("A", "B", "C", "D")),
-          plot_grid(plot5, plot6, VTplot, nrow = 1, rel_widths = c(1,2,1),labels =  c("E", "F", "G")), ncol = 1)
+plot_grid(plot_grid(plot1, plot2, plot3,plot4, nrow = 1, labels = c("a", "b", "c", "d")),
+          plot_grid(plot5, plot6, VTplot, nrow = 1, rel_widths = c(1,2,1),labels =  c("e", "f", "g")), ncol = 1)
+
+
+
+# 300 dpi image -----------------------------------------------------------
+
+
+them <- theme(plot.title = element_text(hjust = 0.5))
+tiff(width = 4700, height = 2000,filename = "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/fig3.tiff", res = 300)
+
+
+plot_grid(plot_grid(plot1+ ggtitle("Parameter space division by\ngenerating equidistant VPs")+them,
+                    plot2+ ggtitle("First algorithm results and \nplausibility zones computation")+them,
+                    plot3+ ggtitle("Verification of plausibility zones")+them,
+                    plot4+ ggtitle("New parameter space division\nfor each plausibility zone")+them, nrow = 1, labels = c("a", "b", "c", "d")),
+          plot_grid(plot5+ ggtitle("Zoom in on each plausibility zone")+them,
+                    plot6+ ggtitle("Final parameter space mapping")+them,
+                    VTplot+ ggtitle("Simulations of accepted VPs")+them,
+                    nrow = 1, rel_widths = c(1,2,1),labels =  c("e", "f", "g")), ncol = 1)
+
+
+dev.off()
+shell.exec( "D:/these/Second_project/QSP/modeling_work/VT_simeoni/article_QSPVP/figures_300_dpi/fig3.tiff")
 
